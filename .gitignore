@@ -22,5 +22,5 @@ coverage.txt
 go.work
 go.work.sum
 
-# bin
-bin/
+# bin - only ignore top level bin directory
+/bin/

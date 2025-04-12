@@ -70,6 +70,8 @@ build/linux:
 		-o ${BIN_FOLDER_LINUX}/${BIN_NAME} \
 		"${CLI_MAIN_FOLDER}"
 
+
+
 ## tidy: clean up go.mod and go.sum files
 tidy:
 	@echo "  >  Tidy & Verify go.mod and go.sum files"
@@ -100,9 +102,9 @@ lint:
 test:
 	@echo "  >  Executing unit tests"
 	@if ! type "richgo" > /dev/null 2>&1; then \
-		go test -v -timeout 10s -race -coverprofile=coverage.txt -coverpkg=./... ./...; \
+		go test -v -timeout 10s -race -coverprofile=coverage.txt -coverpkg=./pkg/host/... ./pkg/host/...; \
 	else \
-		richgo test -v -timeout 10s -race -coverprofile=coverage.txt -coverpkg=./... ./...; \
+		richgo test -v -timeout 10s -race -coverprofile=coverage.txt -coverpkg=./pkg/host/... ./pkg/host/...; \
 	fi
 
 ## test/cover: run all unit tests with coverage
@@ -113,10 +115,25 @@ test/cover: test
 test/ff:
 	@echo "  >  Executing unit tests - fail fast"
 	@if ! type "richgo" > /dev/null 2>&1; then \
-		go test -v -timeout 60s -race -failfast ./...; \
+		go test -v -timeout 60s -race -failfast ./pkg/host/...; \
 	else \
-		richgo test -v -timeout 60s -race -failfast ./...; \
+		richgo test -v -timeout 60s -race -failfast ./pkg/host/...; \
 	fi
+
+## build/runtime: build the runtime for hookr to be injected into the WASM runtime
+build/runtime:
+	@echo "  >  Building hookr WASM runtime"
+	@tinygo build -o pkg/host/runtime.wasm -scheduler=none -target=wasip1 runtime/main.go
+
+## build/examples: build all example WASM modules
+build/examples:
+	@echo "  >  Building all example WASM modules"
+	@for dir in $(shell find ./examples -type d -mindepth 1 -maxdepth 1); do \
+		if [ -f $$dir/Makefile ]; then \
+			echo "  >  Building $$(basename $$dir) example"; \
+			(cd $$dir && make build); \
+		fi \
+	done
 
 .PHONY: help
 all: help
