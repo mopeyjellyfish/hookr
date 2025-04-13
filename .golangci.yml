@@ -31,3 +31,5 @@ formatters:
 
 issues:
   fix: true
+  exclude-dirs:
+    - pdk

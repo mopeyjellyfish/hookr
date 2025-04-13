@@ -95,16 +95,16 @@ vet:
 
 ## lint: run golangci-lint
 lint:
-	@echo "  >  Linting..."
-	@golangci-lint run
+	@echo "  >  Linting ./host..."
+	@golangci-lint run ./host/...
 
 ## test: run all unit tests
 test:
 	@echo "  >  Executing unit tests"
 	@if ! type "richgo" > /dev/null 2>&1; then \
-		go test -v -timeout 10s -race -coverprofile=coverage.txt -coverpkg=./pkg/host/... ./pkg/host/...; \
+		go test -v -timeout 10s -race -coverprofile=coverage.txt -coverpkg=./host/... ./host/...; \
 	else \
-		richgo test -v -timeout 10s -race -coverprofile=coverage.txt -coverpkg=./pkg/host/... ./pkg/host/...; \
+		richgo test -v -timeout 10s -race -coverprofile=coverage.txt -coverpkg=./host/... ./host/...; \
 	fi
 
 ## test/cover: run all unit tests with coverage
@@ -115,9 +115,9 @@ test/cover: test
 test/ff:
 	@echo "  >  Executing unit tests - fail fast"
 	@if ! type "richgo" > /dev/null 2>&1; then \
-		go test -v -timeout 60s -race -failfast ./pkg/host/...; \
+		go test -v -timeout 60s -race -failfast ./host/...; \
 	else \
-		richgo test -v -timeout 60s -race -failfast ./pkg/host/...; \
+		richgo test -v -timeout 60s -race -failfast ./host/...; \
 	fi
 
 ## build/runtime: build the runtime for hookr to be injected into the WASM runtime
@@ -125,12 +125,12 @@ build/runtime:
 	@echo "  >  Building hookr WASM runtime"
 	@tinygo build -o pkg/host/runtime.wasm -scheduler=none -target=wasip1 runtime/main.go
 
-## build/examples: build all example WASM modules
-build/examples:
-	@echo "  >  Building all example WASM modules"
-	@for dir in $(shell find ./examples -type d -mindepth 1 -maxdepth 1); do \
+## build/testdata: build all test data WASM modules
+build/testdata:
+	@echo "  >  Building all test data WASM modules"
+	@for dir in $(shell find ./testdata -type d -mindepth 1 -maxdepth 1); do \
 		if [ -f $$dir/Makefile ]; then \
-			echo "  >  Building $$(basename $$dir) example"; \
+			echo "  >  Building $$(basename $$dir) test data"; \
 			(cd $$dir && make build); \
 		fi \
 	done
