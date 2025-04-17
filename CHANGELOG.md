@@ -1,3 +1,10 @@
+## [1.0.3](https://github.com/mopeyjellyfish/hookr/compare/v1.0.2...v1.0.3) (2025-04-17)
+
+
+### Bug Fixes
+
+* **Hookr:** Update README.md to include release version badge ([cea2271](https://github.com/mopeyjellyfish/hookr/commit/cea2271ea7a265c063a2412fb1588e31b528155a))
+
 ## [1.0.2](https://github.com/mopeyjellyfish/hookr/compare/v1.0.1...v1.0.2) (2025-04-17)
 
 
