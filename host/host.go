@@ -225,7 +225,7 @@ func (e *Engine) Invoke(ctx context.Context, operation string, payload []byte) (
 
 	results, err := e.pluginCall.Call(ctx, uint64(len(operation)), uint64(len(payload)))
 	if err != nil {
-		return nil, fmt.Errorf("error invoking guest: %w", err)
+		return nil, fmt.Errorf("error while making %s call: %w", operation, err)
 	}
 	if ic.PluginErr != "" { // guestErr is not nil if the guest called "__plugin_error".
 		return nil, errors.New(ic.PluginErr)

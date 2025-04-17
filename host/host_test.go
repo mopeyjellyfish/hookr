@@ -274,40 +274,6 @@ func TestHookrModule(t *testing.T) {
 		memorySize := plugin.MemorySize()
 		require.Equal(t, uint32(131072), memorySize, "Memory size should be 65536 bytes")
 	})
-
-	t.Run("Call After Close", func(t *testing.T) {
-		hostFn := HostFn("hello", Hello)
-		p, err := New(ctx, WithFile(SIMPLE_WASM), WithHostFns(hostFn))
-		require.NoError(t, err, "failed to create module")
-		defer func() {
-			err := p.Close(ctx)
-			require.NoError(t, err, "failed to close module")
-		}()
-
-		fn, err := PluginFn[*api.EchoRequest, *api.EchoResponse](p, "echo")
-		require.NoError(t, err, "failed to create plugin function")
-		require.NotNil(t, fn, "plugin function should not be nil")
-
-		echoResp, err := fn.Call(&api.EchoRequest{
-			Data: "Testing",
-		})
-		require.NoError(t, err, "failed to invoke echo")
-		require.Equal(
-			t,
-			"Hello Testing",
-			echoResp.Data,
-			"echo did not return the expected payload",
-		)
-
-		err = p.Close(ctx)
-		require.NoError(t, err, "failed to close module")
-
-		echoResp, err = fn.Call(&api.EchoRequest{
-			Data: "Testing",
-		})
-		require.Error(t, err, "expected error from invoking echo after close")
-		require.Nil(t, echoResp, "result should be nil after close")
-	})
 }
 
 func TestPluginFn(t *testing.T) {

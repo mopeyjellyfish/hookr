@@ -29,7 +29,7 @@ func (p *PluginFunc[In, Out]) Call(input In) (Out, error) {
 
 	d, err := p.e.Invoke(p.e.ctx, p.Name, dataInput)
 	if err != nil {
-		return zero, fmt.Errorf("error invoking plugin: %w", err)
+		return zero, err
 	}
 	if d == nil {
 		return zero, nil
