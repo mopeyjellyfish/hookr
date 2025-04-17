@@ -28,8 +28,3 @@ formatters:
     - gofumpt
     - goimports
     - golines
-
-issues:
-  fix: true
-  exclude-dirs:
-    - pdk
