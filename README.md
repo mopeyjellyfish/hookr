@@ -9,9 +9,8 @@
 <p align="center">
   <a href="https://github.com/mopeyjellyfish/hookr/actions/workflows/tests.yml"><img src="https://github.com/mopeyjellyfish/hookr/actions/workflows/tests.yml/badge.svg" alt="Tests"></a>
   <a href="https://github.com/mopeyjellyfish/hookr/actions/workflows/lint.yml"><img src="https://github.com/mopeyjellyfish/hookr/actions/workflows/lint.yml/badge.svg" alt="Lint"></a>
+  <img alt="GitHub Release" src="https://img.shields.io/github/v/release/mopeyjellyfish/hookr">
 </p>
-
-
 
 ## Features
 
