@@ -57,6 +57,7 @@ func (h Sha256Hasher) Hash(data []byte) (string, error) {
 	}
 	return hex.EncodeToString(hasher.Sum(nil)), nil
 }
+
 func (h Sha256Hasher) IsValid(hash string, data []byte) bool {
 	has, _ := h.Hash(data)
 	return has == hash

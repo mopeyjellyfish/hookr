@@ -76,23 +76,10 @@ func instantiateHookrModule(
 // hostCall is the WebAssembly function export "__host_call", which initiates a host using the callHandler using
 // parameters read from linear memory (wasm.Memory).
 func (w *hookrModule) hostCall(ctx context.Context, m api.Module, stack []uint64) {
-	cmdPtr, err := memory.Uint32(stack[0])
-	if err != nil {
-		panic(err)
-	}
-	cmdLen, err := memory.Uint32(stack[1])
-	if err != nil {
-		panic(err)
-	}
-	payloadPtr, err := memory.Uint32(stack[2])
-	if err != nil {
-		panic(err)
-	}
-	payloadLen, err := memory.Uint32(stack[3])
-	if err != nil {
-		panic(err)
-	}
-
+	cmdPtr := api.DecodeU32(stack[0])
+	cmdLen := api.DecodeU32(stack[1])
+	payloadPtr := api.DecodeU32(stack[2])
+	payloadLen := api.DecodeU32(stack[3])
 	ic := invoke.From(ctx)
 	if ic == nil || w.callHandler == nil {
 		stack[0] = 0 // false: neither an invocation context, nor a callHandler
@@ -113,14 +100,8 @@ func (w *hookrModule) hostCall(ctx context.Context, m api.Module, stack []uint64
 // consoleLog is the WebAssembly function export "__console_log", which logs the message stored by the guest at the
 // given offset (ptr) and length (len) in linear memory (wasm.Memory).
 func (w *hookrModule) log(_ context.Context, m api.Module, params []uint64) {
-	ptr, err := memory.Uint32(params[0])
-	if err != nil {
-		panic(err)
-	}
-	msgLen, err := memory.Uint32(params[1])
-	if err != nil {
-		panic(err)
-	}
+	ptr := api.DecodeU32(params[0])
+	msgLen := api.DecodeU32(params[1])
 
 	if log := w.logger; log != nil {
 		msg := memory.ReadString(m.Memory(), "msg", ptr, msgLen)
@@ -131,14 +112,8 @@ func (w *hookrModule) log(_ context.Context, m api.Module, params []uint64) {
 // pluginRequest is the WebAssembly function export "__plugin_request", which writes the invokeContext.operation and
 // invokeContext.guestReq to the given offsets (opPtr, ptr) in linear memory (wasm.Memory).
 func (w *hookrModule) pluginRequest(ctx context.Context, m api.Module, params []uint64) {
-	opPtr, err := memory.Uint32(params[0])
-	if err != nil {
-		panic(err)
-	}
-	ptr, err := memory.Uint32(params[1])
-	if err != nil {
-		panic(err)
-	}
+	opPtr := api.DecodeU32(params[0])
+	ptr := api.DecodeU32(params[1])
 
 	ic := invoke.From(ctx)
 	if ic == nil {
@@ -157,10 +132,7 @@ func (w *hookrModule) pluginRequest(ctx context.Context, m api.Module, params []
 // hostResponse is the WebAssembly function export "__host_response", which writes the invokeContext.hostResp to the
 // given offset (ptr) in linear memory (wasm.Memory).
 func (w *hookrModule) hostResponse(ctx context.Context, m api.Module, params []uint64) {
-	ptr, err := memory.Uint32(params[0])
-	if err != nil {
-		panic(err)
-	}
+	ptr := api.DecodeU32(params[0])
 
 	if ic := invoke.From(ctx); ic == nil {
 		return // no invoke context
@@ -188,14 +160,8 @@ func (w *hookrModule) hostResponseLen(ctx context.Context, results []uint64) {
 // pluginResponse is the WebAssembly function export "__plugin_response", which reads invokeContext.guestResp from the
 // given offset (ptr) and length (len) in linear memory (wasm.Memory).
 func (w *hookrModule) pluginResponse(ctx context.Context, m api.Module, params []uint64) {
-	ptr, err := memory.Uint32(params[0])
-	if err != nil {
-		panic(err)
-	}
-	dataLen, err := memory.Uint32(params[1])
-	if err != nil {
-		panic(err)
-	}
+	ptr := api.DecodeU32(params[0])
+	dataLen := api.DecodeU32(params[1])
 
 	if ic := invoke.From(ctx); ic == nil {
 		return // no invoke context
@@ -207,14 +173,8 @@ func (w *hookrModule) pluginResponse(ctx context.Context, m api.Module, params [
 // pluginError is the WebAssembly function export "__plugin_error", which reads invokeContext.guestErr from the given
 // offset (ptr) and length (len) in linear memory (wasm.Memory).
 func (w *hookrModule) pluginError(ctx context.Context, m api.Module, params []uint64) {
-	ptr, err := memory.Uint32(params[0])
-	if err != nil {
-		panic(err)
-	}
-	errLen, err := memory.Uint32(params[1])
-	if err != nil {
-		panic(err)
-	}
+	ptr := api.DecodeU32(params[0])
+	errLen := api.DecodeU32(params[1])
 
 	if ic := invoke.From(ctx); ic == nil {
 		return // no invoke context
@@ -226,11 +186,7 @@ func (w *hookrModule) pluginError(ctx context.Context, m api.Module, params []ui
 // hostError is the WebAssembly function export "__host_error", which writes the invokeContext.hostErr to the given
 // offset (ptr) in linear memory (wasm.Memory).
 func (w *hookrModule) hostError(ctx context.Context, m api.Module, params []uint64) {
-	ptr, err := memory.Uint32(params[0])
-	if err != nil {
-		panic(err)
-	}
-
+	ptr := api.DecodeU32(params[0])
 	if ic := invoke.From(ctx); ic == nil {
 		return // no invoke context
 	} else if hostErr := ic.HostErr; hostErr != nil {

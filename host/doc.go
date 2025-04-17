@@ -23,19 +23,19 @@ The Engine can be configured with various options:
 	engine, err := host.New(ctx,
 		// Load plugin from file
 		host.WithFile("./plugin.wasm"),
-		
+
 		// Configure I/O
 		host.WithStdout(os.Stdout),
 		host.WithStderr(os.Stderr),
-		
+
 		// Set a custom logger
 		host.WithLogger(func(msg string) {
 			log.Printf("[PLUGIN] %s", msg)
 		}),
-		
+
 		// Register host functions
 		host.WithHostFns(myHostFn),
-		
+
 		// Set a custom random source for deterministic behavior
 		host.WithRandSource(myRandSource),
 	)
@@ -58,17 +58,17 @@ For type safety, you can create strongly-typed function wrappers:
 	type Request struct {
 		Input string `msg:"input"`
 	}
-	
+
 	type Response struct {
 		Output string `msg:"output"`
 	}
-	
+
 	// Create a type-safe function
 	fn, err := host.PluginFn[*Request, *Response](engine, "process")
 	if err != nil {
 		log.Fatalf("Failed to create function wrapper: %v", err)
 	}
-	
+
 	// Call the function
 	resp, err := fn.Call(&Request{Input: "test data"})
 	if err != nil {
@@ -86,10 +86,10 @@ Host functions allow the plugin to call back into the host application:
 			Message: fmt.Sprintf("Hello, %s!", input.Name),
 		}, nil
 	}
-	
+
 	// Register the host function
 	hostFn := host.HostFn("hello", helloFn)
-	
+
 	engine, err := host.New(ctx,
 		host.WithFile("./plugin.wasm"),
 		host.WithHostFns(hostFn),

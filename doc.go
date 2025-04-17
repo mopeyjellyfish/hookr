@@ -43,8 +43,8 @@ The simplest way to use Hookr is to load a WASM plugin file and invoke a functio
 Hookr provides security features such as hash verification to ensure the integrity
 of loaded WASM modules:
 
-	plugin, err := hookr.NewPlugin(ctx, 
-		host.WithFile("./plugin.wasm", 
+	plugin, err := hookr.NewPlugin(ctx,
+		host.WithFile("./plugin.wasm",
 			host.WithHash("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"),
 			host.WithHasher(host.Sha256Hasher{}),
 		),
@@ -58,7 +58,7 @@ Host functions can be registered to allow the plugin to call back into the host:
 		return &HelloResponse{Message: "Hello " + input.Name}, nil
 	})
 
-	plugin, err := hookr.NewPlugin(ctx, 
+	plugin, err := hookr.NewPlugin(ctx,
 		host.WithFile("./plugin.wasm"),
 		host.WithHostFns(hostFn),
 	)

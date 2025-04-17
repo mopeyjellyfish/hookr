@@ -86,7 +86,14 @@ func TestSha256Hasher_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := hasher.IsValid(tt.hash, tt.data)
-			assert.Equal(t, tt.expected, got, "Sha256Hasher.IsValid() = %v, want %v", got, tt.expected)
+			assert.Equal(
+				t,
+				tt.expected,
+				got,
+				"Sha256Hasher.IsValid() = %v, want %v",
+				got,
+				tt.expected,
+			)
 		})
 	}
 }
@@ -161,7 +168,14 @@ func TestDefaultHasher_IsValid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := hasher.IsValid(tt.hash, tt.data)
-			assert.Equal(t, tt.expected, got, "DefaultHasher.IsValid() = %v, want %v", got, tt.expected)
+			assert.Equal(
+				t,
+				tt.expected,
+				got,
+				"DefaultHasher.IsValid() = %v, want %v",
+				got,
+				tt.expected,
+			)
 		})
 	}
 }

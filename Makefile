@@ -15,12 +15,16 @@ MAKEFLAGS += --silent
 LDFLAGS=-extldflags -static
 
 ## setup: install all build dependencies
-setup: setup/tools download
+setup: setup/go setup/tools download
 
 ## setup/tools: install all tools
 setup/tools:
 	@echo "  >  Installing tools"
 	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(GOPATH)/bin v2.0.2
+
+# setup/go: install go tooling
+setup/go:
+	@echo "  >  Installing go tools"
 	go install github.com/kyoh86/richgo@latest
 	go install github.com/tinylib/msgp@latest
 
