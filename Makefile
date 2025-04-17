@@ -22,6 +22,7 @@ setup/tools:
 	@echo "  >  Installing tools"
 	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(GOPATH)/bin v2.0.2
 	go install github.com/kyoh86/richgo@latest
+	go install github.com/tinylib/msgp@latest
 
 ## compile: compiles project in current system
 compile: clean fmt vet lint test build

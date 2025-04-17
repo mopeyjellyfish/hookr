@@ -283,7 +283,7 @@ func DefaultRuntime(ctx context.Context) (wazero.Runtime, error) {
 	return r, nil
 }
 
-func New(ctx context.Context, opts ...HookrOption) (*Engine, error) {
+func New(ctx context.Context, opts ...Option) (*Engine, error) {
 	e := &Engine{
 		newRuntime: DefaultRuntime,
 		ctx:        ctx,

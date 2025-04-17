@@ -11,7 +11,6 @@ import (
 	"github.com/mopeyjellyfish/hookr/testdata/api"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/tetratelabs/wazero"
 )
 
 const (
@@ -245,16 +244,6 @@ func TestHookrBadHash(t *testing.T) {
 	ctx := context.Background()
 	plugin, err := New(ctx, WithFile(SIMPLE_WASM, WithHash("123")))
 	require.Error(t, err, "expected error when loading invalid hasher")
-	require.Nil(t, plugin, "plugin should be nil")
-}
-
-func TestHookrBadRuntime(t *testing.T) {
-	ctx := context.Background()
-	newRuntime := func(ctx context.Context) (wazero.Runtime, error) {
-		return nil, errors.New("failed to create runtime")
-	}
-	plugin, err := New(ctx, WithFile(SIMPLE_WASM), WithNewRuntime(newRuntime))
-	require.Error(t, err, "expected error when loading invalid runtime")
 	require.Nil(t, plugin, "plugin should be nil")
 }
 

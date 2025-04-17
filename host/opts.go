@@ -7,10 +7,10 @@ import (
 	"github.com/mopeyjellyfish/hookr/host/module"
 )
 
-type HookrOption func(*Engine) error
+type Option func(*Engine) error
 
 // WithFile sets the file for the engine.
-func WithFile(file string, opts ...FileOption) HookrOption {
+func WithFile(file string, opts ...FileOption) Option {
 	return func(e *Engine) error {
 		f, err := NewFile(file, opts...)
 		if err != nil {
@@ -22,7 +22,7 @@ func WithFile(file string, opts ...FileOption) HookrOption {
 }
 
 // WithLogger sets the logger for the engine.
-func WithLogger(logger logger.Logger) HookrOption {
+func WithLogger(logger logger.Logger) Option {
 	return func(e *Engine) error {
 		e.logger = logger
 		return nil
@@ -30,7 +30,7 @@ func WithLogger(logger logger.Logger) HookrOption {
 }
 
 // WithStdout sets the stdout writer for the engine.
-func WithStdout(stdout io.Writer) HookrOption {
+func WithStdout(stdout io.Writer) Option {
 	return func(e *Engine) error {
 		e.stdout = stdout
 		return nil
@@ -38,7 +38,7 @@ func WithStdout(stdout io.Writer) HookrOption {
 }
 
 // WithStderr sets the stderr writer for the engine.
-func WithStderr(stderr io.Writer) HookrOption {
+func WithStderr(stderr io.Writer) Option {
 	return func(e *Engine) error {
 		e.stderr = stderr
 		return nil
@@ -46,23 +46,15 @@ func WithStderr(stderr io.Writer) HookrOption {
 }
 
 // WithRandSource sets the random source for the runtime.
-func WithRandSource(rand io.Reader) HookrOption {
+func WithRandSource(rand io.Reader) Option {
 	return func(e *Engine) error {
 		e.rand = rand
 		return nil
 	}
 }
 
-// WithNewRuntime sets the runtime for the engine.
-func WithNewRuntime(newRuntime NewRuntime) HookrOption {
-	return func(e *Engine) error {
-		e.newRuntime = newRuntime
-		return nil
-	}
-}
-
 // WithCallHandler sets the call handler for the engine.
-func WithCallHandler(callHandler module.CallHandler) HookrOption {
+func WithCallHandler(callHandler module.CallHandler) Option {
 	return func(e *Engine) error {
 		e.callHandler = callHandler
 		return nil
@@ -70,7 +62,7 @@ func WithCallHandler(callHandler module.CallHandler) HookrOption {
 }
 
 // WithHostFns sets the host functions which are callable from the plugin.
-func WithHostFns(fns ...HostFunc) HookrOption {
+func WithHostFns(fns ...HostFunc) Option {
 	return func(e *Engine) error {
 		for _, fn := range fns {
 			name, caller := fn.Fn()
