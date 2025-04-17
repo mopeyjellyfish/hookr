@@ -19,13 +19,23 @@ const (
 	EMPTY_WASM   = "../testdata/empty/bin/empty.wasm"
 )
 
-func Hello(input *api.HelloRequest) (*api.HelloResponse, error) {
+func Hello(ctx context.Context, input *api.HelloRequest) (*api.HelloResponse, error) {
 	return &api.HelloResponse{
 		Msg: "Hello " + input.Msg,
 	}, nil
 }
 
-func HelloError(input *api.HelloRequest) (*api.HelloResponse, error) {
+func HelloByte(ctx context.Context, input []byte) ([]byte, error) {
+	name := string(input)
+	if name == "" {
+		return nil, errors.New("name cannot be empty")
+	}
+	helloName := "Hello " + name
+	helloNameBytes := []byte(helloName)
+	return helloNameBytes, nil
+}
+
+func HelloError(ctx context.Context, input *api.HelloRequest) (*api.HelloResponse, error) {
 	return nil, errors.New("planned failure")
 }
 
@@ -58,6 +68,39 @@ func TestHookr(t *testing.T) {
 				t,
 				"Hello Steve",
 				resp.Data,
+				"echo did not return the expected payload",
+			)
+		})
+	}
+}
+
+func TestHookrByte(t *testing.T) {
+	ctx := context.Background()
+	tests := []struct {
+		name string
+		file string
+	}{
+		{"simple", SIMPLE_WASM},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			p, err := New(ctx, WithFile(test.file), WithHostFns(HostFnByte("helloByte", HelloByte)))
+			require.NoError(t, err, "failed to create module")
+			require.NotNil(t, p, "plugin should not be nil")
+			defer func() {
+				err := p.Close(ctx)
+				require.NoError(t, err, "failed to close module")
+			}()
+
+			fn, err := PluginFnByte(p, "echoByte")
+			require.NoError(t, err, "failed to create plugin function")
+			resp, err := fn.Call([]byte("Steve"))
+			require.NoError(t, err, "failed to invoke echo")
+			require.Equal(
+				t,
+				"Hello Steve",
+				string(resp),
 				"echo did not return the expected payload",
 			)
 		})

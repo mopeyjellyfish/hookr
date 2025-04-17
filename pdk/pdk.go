@@ -61,9 +61,15 @@ func pluginFunction[In msgp.Unmarshaler, Out msgp.Marshaler](fn PluginFunction[I
 }
 
 // Fn adds a single function by name to the registry.
-// This should be invoked in `main()`.
+// This should be invoked in your initialize func to expose any functions you wish the host to use.
 func Fn[In msgp.Unmarshaler, Out msgp.Marshaler](name string, fn PluginFunction[In, Out]) {
 	allFns[name] = pluginFunction(fn)
+}
+
+// FnByte adds a single function by name to the registry.
+// This should be invoked in your initialize func to expose any functions you wish the host to use.
+func FnByte(name string, fn Function) {
+	allFns[name] = fn
 }
 
 //go:export __plugin_call
@@ -152,6 +158,22 @@ func Call[In msgp.Marshaler, Out msgp.Unmarshaler](operation string, input In) (
 		return zero, err
 	}
 	return output, nil
+}
+
+type HostFunctionByte struct {
+	name string
+}
+
+func (h *HostFunctionByte) Call(input []byte) ([]byte, error) {
+	response, err := HostCall(h.name, input)
+	if err != nil {
+		return nil, err
+	}
+	return response, nil
+}
+
+func HostFnByte(name string) *HostFunctionByte {
+	return &HostFunctionByte{name: name}
 }
 
 // HostCall invokes an operation on the host.  The host uses `operation`

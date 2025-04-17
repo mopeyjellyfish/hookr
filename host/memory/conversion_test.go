@@ -33,20 +33,20 @@ func TestUint32FromInt(t *testing.T) {
 			expected:  math.MaxUint32,
 			expectErr: false,
 		},
-		// {
-		// 	name:      "negative value",
-		// 	input:     -1,
-		// 	expected:  0,
-		// 	expectErr: true,
-		// 	errType:   "negative integer",
-		// },
-		// {
-		// 	name:      "large negative value",
-		// 	input:     -1000000,
-		// 	expected:  0,
-		// 	expectErr: true,
-		// 	errType:   "negative integer",
-		// },
+		{
+			name:      "negative value",
+			input:     -1,
+			expected:  0,
+			expectErr: true,
+			errType:   "negative integer",
+		},
+		{
+			name:      "large negative value",
+			input:     -1000000,
+			expected:  0,
+			expectErr: true,
+			errType:   "negative integer",
+		},
 	}
 
 	// Add overflow test only if int is larger than uint32 on this platform

@@ -4,6 +4,7 @@ import (
 	"context"
 	"reflect"
 
+	"github.com/mopeyjellyfish/hookr/testdata/api"
 	"github.com/tinylib/msgp/msgp"
 )
 
@@ -12,20 +13,21 @@ import (
 // It returns a byte slice and an error.
 type CallFn func(ctx context.Context, payload []byte) ([]byte, error)
 
-// GoFn is a generic function that accepts and returns specific types
+// CallFnT is a generic function that accepts and returns specific types
 // It handles marshaling/unmarshaling automatically
-type GoFn[In msgp.Unmarshaler, Out msgp.Marshaler] func(input In) (Out, error)
+type CallFnT[In msgp.Unmarshaler, Out msgp.Marshaler] func(ctx context.Context, input In) (Out, error)
 
+type CallFns = map[string]CallFn
 type HostFunc interface {
 	// Fn returns the name and function to be called
 	Fn() (name string, fn CallFn)
 }
 
-// HostFunction is a wrapper for GoFn that provides a name and a function
+// HostFunction is a wrapper for CallFnT that provides a name and a function
 // This is used to register the function with the host
 type HostFunction[In msgp.Unmarshaler, Out msgp.Marshaler] struct {
 	name string
-	fn   GoFn[In, Out]
+	fn   CallFnT[In, Out]
 }
 
 func (f *HostFunction[In, Out]) Fn() (name string, fn CallFn) {
@@ -34,7 +36,7 @@ func (f *HostFunction[In, Out]) Fn() (name string, fn CallFn) {
 
 func HostFn[In msgp.Unmarshaler, Out msgp.Marshaler](
 	name string,
-	fn GoFn[In, Out],
+	fn CallFnT[In, Out],
 ) *HostFunction[In, Out] {
 	return &HostFunction[In, Out]{name: name, fn: fn}
 }
@@ -42,7 +44,7 @@ func HostFn[In msgp.Unmarshaler, Out msgp.Marshaler](
 // Fn converts a strongly-typed GoFn to a byte-based CallFn allowing WASM plugins to call it.
 // This allows for defining a strongly typed function, which can be called from WASM
 // that will use a byte slice for input and output for communication.
-func Fn[In msgp.Unmarshaler, Out msgp.Marshaler](fn GoFn[In, Out]) CallFn {
+func Fn[In msgp.Unmarshaler, Out msgp.Marshaler](fn CallFnT[In, Out]) CallFn {
 	return func(ctx context.Context, payload []byte) ([]byte, error) {
 		// Unmarshal the input from bytes
 		var input In
@@ -67,7 +69,7 @@ func Fn[In msgp.Unmarshaler, Out msgp.Marshaler](fn GoFn[In, Out]) CallFn {
 		}
 
 		// Call the go function
-		output, err := fn(input)
+		output, err := fn(ctx, input)
 		if err != nil {
 			return nil, err
 		}
@@ -76,4 +78,27 @@ func Fn[In msgp.Unmarshaler, Out msgp.Marshaler](fn GoFn[In, Out]) CallFn {
 	}
 }
 
-type CallFns = map[string]CallFn
+// HostFuncByte is a wrapper for CallFn that provides a name and a function
+type HostFuncByte struct {
+	name string
+	fn   CallFn
+}
+
+// Fn returns the name and function to be called
+// This is used to register the function with the host
+func (f HostFuncByte) Fn() (name string, fn CallFn) {
+	return f.name, f.fn
+}
+
+// HostFnByte is a function that takes a byte slice and returns a byte slice
+// It is used to call a function that takes a byte slice and returns a byte slice
+func HostFnByte(name string, fn CallFn) *HostFuncByte {
+	return &HostFuncByte{
+		name: name,
+		fn:   fn,
+	}
+
+}
+
+var _ HostFunc = HostFuncByte{}                                      // Compile time check to ensure HostFuncByte implements HostFunc
+var _ HostFunc = &HostFunction[*api.EchoRequest, api.EchoResponse]{} // Compile time check to ensure HostFunction implements HostFunc

@@ -119,11 +119,9 @@ Hosts send data to WASM plugins, and plugins send data back to the host. Hookr u
 
 ### Serialization Options
 
-Hookr supports multiple serialization formats:
+Hookr is opinionated on how serialization occurs, it makes use of msgpack between host & plugin, and expects all requests and responses in Go to use github.com/tinylib/msgp which will generate high performant Marshal/Unmarshal to satisfy the interfaces used.
 
-1. **JSON**: The default serialization format, compatible with all types
-2. **Cap'n Proto**: High-performance binary serialization, ideal for TinyGo compatibility
-3. **Custom Serializers**: Implement your own serializer for specialized needs
+It is also possible to just use `[]byte` between host/plugin for the request and response data, and leave serialization/deserialization up to the caller.
 
 ### Type Generation
 
