@@ -1,3 +1,10 @@
+## [1.0.1](https://github.com/mopeyjellyfish/hookr/compare/v1.0.0...v1.0.1) (2025-04-17)
+
+
+### Bug Fixes
+
+* **Hookr:** General typo, naming and readme.md fixes ([aff0aa6](https://github.com/mopeyjellyfish/hookr/commit/aff0aa632f6de957ca6120fe65874bbbdae033c4))
+
 # 1.0.0 (2025-04-17)
 
 
