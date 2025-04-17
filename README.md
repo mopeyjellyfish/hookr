@@ -20,57 +20,48 @@ go get github.com/mopeyjellyfish/hookr
 
 ### Host Application
 
-Define some types for your WASM API:
-
-```go
-package api
-//go:generate msgp
-// Define request/response types
-type EchoRequest struct {
-    Message string `msg:"message"`
-}
-
-type EchoResponse struct {
-    Message string `msg:"message"`
-}
-```
-
-Use these types in your host application:
-
 ```go
 package main
 
 import (
-    "context"
-    "fmt"
-    "log"
+ "context"
+ "fmt"
+ "log"
 
-    "github.com/mopeyjellyfish/hookr/host"
-    "github.com/mopeyjellyfish/hookr/testdata/api"
+ "github.com/mopeyjellyfish/hookr/host"
 )
 
+// Define request/response types
+type EchoRequest struct {
+ Message string `json:"message"`
+}
+
+type EchoResponse struct {
+ Message string `json:"message"`
+}
+
 func main() {
-    // Create a new engine with the plugin
-    ctx := context.Background()
-    engine, err := host.New(ctx, host.WithFile("./plugin.wasm"))
-    if err != nil {
-        log.Fatalf("Failed to create engine: %v", err)
-    }
-    defer engine.Close(ctx)
+ // Create a new engine with the plugin
+ ctx := context.Background()
+ engine, err := host.New(ctx, host.WithFile("./plugin.wasm"))
+ if err != nil {
+  log.Fatalf("Failed to create engine: %v", err)
+ }
+ defer engine.Close(ctx)
 
-    // Create type-safe callable
-    echoFn, err := host.PluginFn[*api.EchoRequest, *api.EchoResponse](engine, "echo")
-    if err != nil {
-        log.Fatalf("Failed to create function: %v", err)
-    }
+ // Create type-safe function wrapper
+ echoFn, err := host.PluginFn[*EchoRequest, *EchoResponse](engine, "echo")
+ if err != nil {
+  log.Fatalf("Failed to create function: %v", err)
+ }
 
-    // Call the function
-    resp, err := echoFn.Call(&api.EchoRequest{Message: "Hello from host!"})
-    if err != nil {
-        log.Fatalf("Function call failed: %v", err)
-    }
+ // Call the function
+ resp, err := echoFn.Call(&EchoRequest{Message: "Hello from host!"})
+ if err != nil {
+  log.Fatalf("Function call failed: %v", err)
+ }
 
-    fmt.Printf("Plugin responded: %s\n", resp.Message)
+ fmt.Printf("Plugin responded: %s\n", resp.Message)
 }
 ```
 
@@ -81,8 +72,16 @@ package main
 
 import (
  "github.com/mopeyjellyfish/hookr/pdk"
- "github.com/mopeyjellyfish/hookr/testdata/api" // Use our API models
 )
+
+// Define request/response types
+type EchoRequest struct {
+ Message string `json:"message"`
+}
+
+type EchoResponse struct {
+ Message string `json:"message"`
+}
 
 //go:wasmexport hookr_init
 func Initialize() {
@@ -107,8 +106,138 @@ func Echo(input *EchoRequest) (*EchoResponse, error) {
 Use TinyGo to compile the plugin:
 
 ```bash
-tinygo build -o bin/plugin.wasm -scheduler=none --no-debug -target=wasip1 -buildmode=c-shared main.go
+tinygo build -o plugin.wasm -scheduler=none --no-debug -target=wasip1 -buildmode=c-shared main.go
 ```
+
+## API
+
+Hookr provides a streamlined API for communication between the host application and WASM plugins.
+
+### Data Exchange
+
+Hosts send data to WASM plugins, and plugins send data back to the host. Hookr uses serialization to convert Go types to a format that can be safely passed across the WebAssembly boundary.
+
+### Serialization Options
+
+Hookr supports multiple serialization formats:
+
+1. **JSON**: The default serialization format, compatible with all types
+2. **Cap'n Proto**: High-performance binary serialization, ideal for TinyGo compatibility
+3. **Custom Serializers**: Implement your own serializer for specialized needs
+
+### Type Generation
+
+For JSON serialization, you can define standard Go structs with json tags:
+
+```go
+type MyRequest struct {
+    Name    string `json:"name"`
+    Count   int    `json:"count"`
+    Enabled bool   `json:"enabled"`
+}
+
+type MyResponse struct {
+    Result  string   `json:"result"`
+    Items   []string `json:"items"`
+    Success bool     `json:"success"`
+}
+```
+
+## Plugin Development
+
+Developing plugins for Hookr involves the following steps:
+
+1. **Define Types**: Create Go structs for the request and response types
+
+```go
+// api/types.go
+package api
+
+//go:generate msgp
+
+// HelloRequest is sent to the plugin
+type HelloRequest struct {
+    Name string `msg:"name" json:"name"`
+}
+
+// HelloResponse is returned from the plugin
+type HelloResponse struct {
+    Message string `msg:"message" json:"message"`
+}
+```
+
+2. **Generate Serialization Code**: Use the `msgp` tool to generate serialization code
+
+```bash
+# First, install the msgp generator tool
+go get github.com/tinylib/msgp
+
+# Then generate the code (run from the root of your project)
+go generate ./api/...
+```
+
+3. **Write Plugin Functions**: Implement functions that process the requests
+
+```go
+package main
+
+import (
+    "fmt"
+    
+    "github.com/mopeyjellyfish/hookr/pdk"
+    "yourproject/api"
+)
+
+// Hello function handles HelloRequest and returns HelloResponse
+func Hello(input *api.HelloRequest) (*api.HelloResponse, error) {
+    pdk.Log(fmt.Sprintf("Hello called with name: %s", input.Name))
+    
+    return &api.HelloResponse{
+        Message: fmt.Sprintf("Hello, %s!", input.Name),
+    }, nil
+}
+```
+
+4. **Register Functions**: Export your functions in the initialization function
+
+```go
+//go:wasmexport hookr_init
+func Initialize() {
+    pdk.RegisterFunction("hello", Hello)
+    // Register more functions as needed
+}
+```
+
+5. **Build the Plugin**: Compile your plugin using TinyGo
+
+```bash
+tinygo build -o plugin.wasm -scheduler=none --no-debug -target=wasip1 -buildmode=c-shared main.go
+```
+
+### Host-Plugin Communication Pattern
+
+Hookr uses a well-defined pattern for communication:
+
+1. **Host sends request**: The host serializes a request struct and sends it to the plugin
+2. **Plugin processes request**: The plugin deserializes the request, processes it, and serializes a response
+3. **Plugin returns response**: The response is sent back to the host and deserialized
+
+### Shared API Package
+
+For best results, create a shared API package that defines all the request and response types used by both the host and plugins:
+
+```
+yourproject/
+├── api/
+│   ├── types.go           # Request/response type definitions
+│   └── types_msgp.go      # Generated serialization code
+├── host/
+│   └── main.go            # Host application
+└── plugin/
+    └── main.go            # Plugin implementation
+```
+
+This approach ensures type consistency between the host and plugins.
 
 ## Advanced Usage
 
@@ -178,4 +307,3 @@ engine, err := host.New(ctx,
 
 - `host/`: Used in host applications for loading and executing WASM modules.
 - `pdk/`: Plugin Development Kit for building WASM plugins.
-

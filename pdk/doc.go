@@ -36,6 +36,18 @@ To create a plugin, you need to register your functions and export the initializ
 		}, nil
 	}
 
+# API
+
+Host's are able to send data to a WASM plugin and a WASM plugin is able to send data back to the host.
+We use the msgp package to serialize and deserialize data between the host and the plugin.
+
+1. Write your plugin structs in standard Go types.
+2. Use the `//go:generate msgp` directive to generate the serialization code.
+3. Use the structs as input and output types for your plugin functions.
+4. Register your functions with the `pdk.Fn` function.
+5. Implement the plugin functions to handle the input and return the output.
+6. On the host side, you will also make use of the same API package for the inputs and outputs for both host functions and also for calling plugin functions.
+
 # Function Signatures
 
 Plugin functions must follow this pattern:
