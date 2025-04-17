@@ -18,6 +18,7 @@ type CallFn func(ctx context.Context, payload []byte) ([]byte, error)
 type CallFnT[In msgp.Unmarshaler, Out msgp.Marshaler] func(ctx context.Context, input In) (Out, error)
 
 type CallFns = map[string]CallFn
+
 type HostFunc interface {
 	// Fn returns the name and function to be called
 	Fn() (name string, fn CallFn)
@@ -97,8 +98,9 @@ func HostFnByte(name string, fn CallFn) *HostFuncByte {
 		name: name,
 		fn:   fn,
 	}
-
 }
 
-var _ HostFunc = HostFuncByte{}                                      // Compile time check to ensure HostFuncByte implements HostFunc
-var _ HostFunc = &HostFunction[*api.EchoRequest, api.EchoResponse]{} // Compile time check to ensure HostFunction implements HostFunc
+var (
+	_ HostFunc = HostFuncByte{}                                      // Compile time check to ensure HostFuncByte implements HostFunc
+	_ HostFunc = &HostFunction[*api.EchoRequest, api.EchoResponse]{} // Compile time check to ensure HostFunction implements HostFunc
+)

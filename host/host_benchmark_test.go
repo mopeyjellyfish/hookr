@@ -47,7 +47,9 @@ func BenchmarkInvokeBytes(b *testing.B) {
 		require.NoError(b, err, "failed to close module")
 	}()
 
-	payload := []byte("Who controls the past controls the future; who controls the present controls the past.")
+	payload := []byte(
+		"Who controls the past controls the future; who controls the present controls the past.",
+	)
 	fn, err := PluginFnByte(p, "echoByte")
 	require.NotNil(b, fn, "plugin function should not be nil")
 	require.NoError(b, err, "failed to create plugin function")

@@ -28,3 +28,6 @@ formatters:
     - gofumpt
     - goimports
     - golines
+
+issues:
+  fix: true

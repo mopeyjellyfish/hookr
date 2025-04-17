@@ -91,7 +91,6 @@ type PluginFuncByte struct {
 // Call takes an input of type In and returns an output of type Out
 // These will always be []byte in and out.
 func (p PluginFuncByte) Call(input []byte) ([]byte, error) {
-
 	out, err := p.e.Invoke(p.ctx, p.Name, input)
 	if err != nil {
 		return nil, err

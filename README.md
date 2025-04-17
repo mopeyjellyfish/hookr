@@ -1,6 +1,17 @@
 # Hookr
 
-Hookr is a Go library for securely loading and executing WebAssembly (WASM) plugins. It provides a simple, type-safe interface for communication between the host application and WASM plugins.
+<p align="center">
+    <strong>Hookr is a Go library for securely loading and executing WebAssembly (WASM) plugins. It provides a simple, type-safe interface for communication between the host application and WASM plugins.</strong>
+</p>
+
+---
+
+<p align="center">
+  <a href="https://github.com/mopeyjellyfish/hookr/actions/workflows/ci.yml"><img src="https://github.com/mopeyjellyfish/hookr/actions/workflows/ci.yml/badge.svg" alt="Tests"></a>
+  <a href="https://github.com/mopeyjellyfish/hookr/actions/workflows/lint.yml"><img src="https://github.com/mopeyjellyfish/hookr/actions/workflows/lint.yml/badge.svg" alt="Lint"></a>
+</p>
+
+
 
 ## Features
 
