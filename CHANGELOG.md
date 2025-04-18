@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/mopeyjellyfish/hookr/compare/v1.0.3...v1.1.0) (2025-04-18)
+
+
+### Features
+
+* **Hookr:** Update hookr exports, update README.md for clarity ([b18fc6c](https://github.com/mopeyjellyfish/hookr/commit/b18fc6c866ee87d9a50638771d2fea9eb96b5a91))
+
 ## [1.0.3](https://github.com/mopeyjellyfish/hookr/compare/v1.0.2...v1.0.3) (2025-04-17)
 
 
