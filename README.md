@@ -1,7 +1,11 @@
 # Hookr
 
 <p align="center">
-    <strong>Hookr is a Go library for securely loading and executing WebAssembly (WASM) plugins. It provides a simple, type-safe interface for communication between the host application and WASM plugins.</strong>
+    <strong>Seamless WebAssembly plugins for Go — secure, type-safe, and blazingly fast.</strong>
+</p>
+
+<p align="center">
+    Extend your Go applications with dynamically loaded WASM modules while maintaining the performance and safety you expect.
 </p>
 
 ---
@@ -19,12 +23,29 @@
 - **Bi-directional communication**: Plugins can call back into the host
 - **TinyGo compatibility**: Optimized for TinyGo WASM modules
 - **Comprehensive logging**: Debug and trace plugin execution
+- **Simple API**: All functionality exposed through a single import path
+
+## Table of Contents
+
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [API Overview](#api-overview)
+- [Plugin Development](#plugin-development)
+- [Advanced Usage](#advanced-usage)
+- [Performance Considerations](#performance-considerations)
+- [Troubleshooting](#troubleshooting)
+- [Project Structure](#project-structure)
 
 ## Installation
 
 ```bash
 go get github.com/mopeyjellyfish/hookr
 ```
+
+### Prerequisites
+
+- Go 1.24 or higher
+- TinyGo 0.30.0 or higher (for building plugins)
 
 ## Quick Start
 
@@ -38,7 +59,7 @@ import (
  "fmt"
  "log"
 
- "github.com/mopeyjellyfish/hookr/host"
+ "github.com/mopeyjellyfish/hookr"
 )
 
 // Define request/response types
@@ -51,16 +72,16 @@ type EchoResponse struct {
 }
 
 func main() {
- // Create a new engine with the plugin
+ // Create a new plugin
  ctx := context.Background()
- engine, err := host.New(ctx, host.WithFile("./plugin.wasm"))
+ plugin, err := hookr.NewPlugin(ctx, hookr.WithFile("./plugin.wasm"))
  if err != nil {
-  log.Fatalf("Failed to create engine: %v", err)
+  log.Fatalf("Failed to create plugin: %v", err)
  }
- defer engine.Close(ctx)
+ defer plugin.Close(ctx)
 
  // Create type-safe function wrapper
- echoFn, err := host.PluginFn[*EchoRequest, *EchoResponse](engine, "echo")
+ echoFn, err := hookr.PluginFn[*EchoRequest, *EchoResponse](plugin, "echo")
  if err != nil {
   log.Fatalf("Failed to create function: %v", err)
  }
@@ -119,9 +140,15 @@ Use TinyGo to compile the plugin:
 tinygo build -o plugin.wasm -scheduler=none --no-debug -target=wasip1 -buildmode=c-shared main.go
 ```
 
-## API
+## API Overview
 
 Hookr provides a streamlined API for communication between the host application and WASM plugins.
+
+### Core Components
+
+- **Plugin**: Interface representing a loaded WASM plugin
+- **HostFn**: For registering callback functions that plugins can call
+- **PluginFn**: For creating type-safe wrappers around plugin functions
 
 ### Data Exchange
 
@@ -148,6 +175,24 @@ type MyResponse struct {
     Result  string   `json:"result"`
     Items   []string `json:"items"`
     Success bool     `json:"success"`
+}
+```
+
+For msgpack serialization, add the msgp tag and use code generation:
+
+```go
+//go:generate msgp
+
+type MyRequest struct {
+    Name    string `msg:"name"`
+    Count   int    `msg:"count"`
+    Enabled bool   `msg:"enabled"`
+}
+
+type MyResponse struct {
+    Result  string   `msg:"result"`
+    Items   []string `msg:"items"`
+    Success bool     `msg:"success"`
 }
 ```
 
@@ -178,7 +223,7 @@ type HelloResponse struct {
 
 ```bash
 # First, install the msgp generator tool
-go get github.com/tinylib/msgp
+go install github.com/tinylib/msgp@latest
 
 # Then generate the code (run from the root of your project)
 go generate ./api/...
@@ -255,46 +300,86 @@ Register host functions that can be called by the plugin, in the host applicatio
 
 ```go
 // Define a host function, use a shared API package between host and plugin.
-hostFn := func(input *api.GreetRequest) (*api.GreetResponse, error) {
- return &GreetResponse{
+func Greet(ctx context.Context, input *api.GreetRequest) (*api.GreetResponse, error) {
+ return &api.GreetResponse{
   Message: fmt.Sprintf("Hello, %s from host!", input.Name),
  }, nil
 }
 
-// Register the host function
-greetFn := host.HostFn("greet", hostFn)
+// Create a host function
+greetFn := hookr.HostFn("greet", Greet)
 
-// Create engine with the host function
-engine, err := host.New(ctx, 
-    host.WithFile("./plugin.wasm"),
-    host.WithHostFns(greetFn),
+// Create plugin with the host function
+plugin, err := hookr.NewPlugin(ctx, 
+    hookr.WithFile("./plugin.wasm"),
+    hookr.WithHostFns(greetFn),
 )
 ```
 
 In the plugin, call the host function:
 
 ```go
-
 //go:wasmexport hookr_init
 func Initialize() {
- // Register the hello function for calling
+ // Register the hello function for calling from the host
  pdk.Fn("hello", Hello)
 }
 
-var Greet = pdk.HostFn[*GreetRequest, *GreetResponse]("greet")
+// Create a type-safe function wrapper for the host function
+var Greet = pdk.HostFn[*api.GreetRequest, *api.GreetResponse]("greet")
 
-func Hello(input *HelloRequest) (*HelloResponse, error) {
+func Hello(input *api.HelloRequest) (*api.HelloResponse, error) {
  // Call the host
- resp, err := Greet.Call(&GreetRequest{
+ resp, err := Greet.Call(&api.GreetRequest{
   Name: input.Name,
  })
  if err != nil {
   return nil, err
  }
  
- return &HelloResponse{
+ return &api.HelloResponse{
   Message: resp.Message,
  }, nil
+}
+```
+
+### Raw Byte Functions
+
+For functions that don't need structured data or when you want to handle serialization yourself:
+
+```go
+// In the host application
+byteFn, err := hookr.PluginFnByte(plugin, "countVowels")
+if err != nil {
+  log.Fatalf("Failed to create function: %v", err)
+}
+
+result, err := byteFn.Call([]byte("hello world"))
+if err != nil {
+  log.Fatalf("Failed to call function: %v", err)
+}
+
+fmt.Printf("Vowel count: %s\n", result)
+```
+
+```go
+// In the plugin
+//go:wasmexport hookr_init
+func Initialize() {
+  // Register a byte function
+  pdk.FnByte("countVowels", CountVowels)
+}
+
+func CountVowels(input []byte) ([]byte, error) {
+  text := string(input)
+  count := 0
+  for _, c := range text {
+    switch c {
+    case 'a', 'e', 'i', 'o', 'u', 'A', 'E', 'I', 'O', 'U':
+      count++
+    }
+  }
+  return []byte(fmt.Sprintf("%d", count)), nil
 }
 ```
 
@@ -303,15 +388,15 @@ func Hello(input *HelloRequest) (*HelloResponse, error) {
 WASM plugins can be hash verified before loading:
 
 ```go
-engine, err := host.New(ctx,
-    host.WithFile("./plugin.wasm",
-        host.WithHash("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"),
-        host.WithHasher(host.Sha256Hasher{}),
+plugin, err := hookr.NewPlugin(ctx,
+    hookr.WithFile("./plugin.wasm",
+        hookr.WithHash("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"),
+        hookr.WithHasher(hookr.Sha256Hasher{}),
     ),
 )
 ```
 
 ## Project Structure
 
-- `host/`: Used in host applications for loading and executing WASM modules.
-- `pdk/`: Plugin Development Kit for building WASM plugins.
+- `hookr/`: Main package for host applications loading and executing WASM plugins
+- `hookr/pdk/`: Plugin Development Kit for building WASM plugins in Go

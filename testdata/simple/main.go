@@ -14,6 +14,7 @@ func Initialize() {
 	pdk.Fn("nope", Fail)
 
 	pdk.FnByte("echoByte", EchoByte)
+	pdk.FnByte("vowel", Vowels)
 }
 
 var Hello = pdk.HostFn[*api.HelloRequest, *api.HelloResponse]("hello")
@@ -33,6 +34,20 @@ func Echo(payload *api.EchoRequest) (*api.EchoResponse, error) {
 		Data: resp.Msg,
 	}
 	return echoResp, nil
+}
+
+func Vowels(payload []byte) ([]byte, error) {
+	// Counts the number of vowels in the payload
+	vowelCount := 0
+	for _, b := range payload {
+		if b == 'a' || b == 'e' || b == 'i' || b == 'o' || b == 'u' ||
+			b == 'A' || b == 'E' || b == 'I' || b == 'O' || b == 'U' {
+			vowelCount++
+		}
+	}
+	// Convert the count to a byte slice
+	vowelCountBytes := []byte(fmt.Sprintf("%d", vowelCount))
+	return vowelCountBytes, nil
 }
 
 func EchoByte(payload []byte) ([]byte, error) {
