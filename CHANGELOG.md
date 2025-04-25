@@ -1,3 +1,10 @@
+## [1.2.1](https://github.com/mopeyjellyfish/hookr/compare/v1.2.0...v1.2.1) (2025-04-25)
+
+
+### Bug Fixes
+
+* **CI:** Update lint package paths ([624589b](https://github.com/mopeyjellyfish/hookr/commit/624589b56e82802393c2eee2092276ecc53cfe85))
+
 # [1.2.0](https://github.com/mopeyjellyfish/hookr/compare/v1.1.0...v1.2.0) (2025-04-25)
 
 
