@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/mopeyjellyfish/hookr/compare/v1.1.0...v1.2.0) (2025-04-25)
+
+
+### Features
+
+* **Hookr:** Update package structure and docs to reflect a simpler structure ([5e3ee70](https://github.com/mopeyjellyfish/hookr/commit/5e3ee70954e100499505ae872ebd85fbfde5e0c9))
+
 # [1.1.0](https://github.com/mopeyjellyfish/hookr/compare/v1.0.3...v1.1.0) (2025-04-18)
 
 
