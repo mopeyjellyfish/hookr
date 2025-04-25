@@ -52,11 +52,11 @@ The footer should contain any information about **Breaking Changes** and is also
 
 ## Examples
 
-```
+```text
 feat(api): add ability to parse arrays
 ```
 
-```
+```text
 fix(parser): handle nested objects correctly
 
 This fixes an issue where nested objects would not be parsed correctly.
@@ -65,7 +65,7 @@ The parser now properly handles nested objects by recursively parsing them.
 Closes #123
 ```
 
-```
+```text
 feat(api)!: remove deprecated endpoints
 
 BREAKING CHANGE: The /v1/* endpoints have been removed. Please use /v2/* instead.

@@ -100,16 +100,16 @@ vet:
 
 ## lint: run golangci-lint
 lint:
-	@echo "  >  Linting ./host..."
-	@golangci-lint run ./host/...
+	@echo "  >  Linting ./runtime..."
+	@golangci-lint run ./runtime/...
 
 ## test: run all unit tests
 test:
 	@echo "  >  Executing unit tests"
 	@if ! type "richgo" > /dev/null 2>&1; then \
-		go test -v -timeout 10s -race -coverprofile=coverage.txt -coverpkg=./host/... ./host/...; \
+		go test -v -timeout 10s -race -coverprofile=coverage.txt -coverpkg=./runtime/... ./runtime/...; \
 	else \
-		richgo test -v -timeout 10s -race -coverprofile=coverage.txt -coverpkg=./host/... ./host/...; \
+		richgo test -v -timeout 10s -race -coverprofile=coverage.txt -coverpkg=./runtime/... ./runtime/...; \
 	fi
 
 ## test/cover: run all unit tests with coverage
@@ -120,9 +120,9 @@ test/cover: test
 test/ff:
 	@echo "  >  Executing unit tests - fail fast"
 	@if ! type "richgo" > /dev/null 2>&1; then \
-		go test -v -timeout 60s -race -failfast ./host/...; \
+		go test -v -timeout 60s -race -failfast ./runtime/...; \
 	else \
-		richgo test -v -timeout 60s -race -failfast ./host/...; \
+		richgo test -v -timeout 60s -race -failfast ./runtime/...; \
 	fi
 
 ## build/runtime: build the runtime for hookr to be injected into the WASM runtime

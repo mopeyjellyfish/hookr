@@ -1,50 +1,50 @@
 /*
-Package host provides core functionality for loading, verifying, and executing WebAssembly modules.
+Package runtime provides core functionality for loading, verifying, and executing WebAssembly modules.
 
-The host package is the main interface for working with WASM plugins in Hookr. It handles
+The runtime package is the main interface for working with WASM plugins in Hookr. It handles
 loading modules from files, verifying their integrity, and facilitating communication
-between the host application and the plugins.
+between the runtime application and the plugins.
 
-# Creating an Engine
+# Creating a new Runtime
 
-An Engine is the central component that manages a WASM plugin:
+A Runtime is the central component that manages a WASM plugin:
 
 	ctx := context.Background()
-	engine, err := host.New(ctx, host.WithFile("./plugin.wasm"))
+	rt, err := runtime.New(ctx, runtime.WithFile("./plugin.wasm"))
 	if err != nil {
 		log.Fatalf("Failed to create engine: %v", err)
 	}
-	defer engine.Close(ctx)
+	defer rt.Close(ctx)
 
-# Engine Configuration
+# Runtime Configuration
 
-The Engine can be configured with various options:
+The Runtime can be configured with various options:
 
-	engine, err := host.New(ctx,
+	rt, err := runtime.New(ctx,
 		// Load plugin from file
-		host.WithFile("./plugin.wasm"),
+		runtime.WithFile("./plugin.wasm"),
 
 		// Configure I/O
-		host.WithStdout(os.Stdout),
-		host.WithStderr(os.Stderr),
+		runtime.WithStdout(os.Stdout),
+		runtime.WithStderr(os.Stderr),
 
 		// Set a custom logger
-		host.WithLogger(func(msg string) {
+		runtime.WithLogger(func(msg string) {
 			log.Printf("[PLUGIN] %s", msg)
 		}),
 
 		// Register host functions
-		host.WithHostFns(myHostFn),
+		runtime.WithHostFns(myHostFn),
 
 		// Set a custom random source for deterministic behavior
-		host.WithRandSource(myRandSource),
+		runtime.WithRandSource(myRandSource),
 	)
 
 # Invoking Plugin Functions
 
 Plugin functions can be invoked directly with byte slices:
 
-	result, err := engine.Invoke(ctx, "function_name", []byte("input data"))
+	result, err := rt.Invoke(ctx, "function_name", []byte("input data"))
 	if err != nil {
 		log.Fatalf("Function call failed: %v", err)
 	}
@@ -64,7 +64,7 @@ For type safety, you can create strongly-typed function wrappers:
 	}
 
 	// Create a type-safe function
-	fn, err := host.PluginFn[*Request, *Response](engine, "process")
+	fn, err := runtime.PluginFn[*Request, *Response](engine, "process")
 	if err != nil {
 		log.Fatalf("Failed to create function wrapper: %v", err)
 	}
@@ -80,29 +80,29 @@ For type safety, you can create strongly-typed function wrappers:
 
 Host functions allow the plugin to call back into the host application:
 
-	// Define a host function
+	// Define a runtime function
 	helloFn := func(input *HelloRequest) (*HelloResponse, error) {
 		return &HelloResponse{
 			Message: fmt.Sprintf("Hello, %s!", input.Name),
 		}, nil
 	}
 
-	// Register the host function
-	hostFn := host.HostFn("hello", helloFn)
+	// Register the runtime function
+	hostFn := runtime.HostFn("hello", helloFn)
 
-	engine, err := host.New(ctx,
-		host.WithFile("./plugin.wasm"),
-		host.WithHostFns(hostFn),
+	engine, err := runtime.New(ctx,
+		runtime.WithFile("./plugin.wasm"),
+		runtime.WithHostFns(hostFn),
 	)
 
 # File Integrity
 
 To ensure the integrity of WASM files, you can use hashing:
 
-	engine, err := host.New(ctx,
-		host.WithFile("./plugin.wasm",
-			host.WithHash("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"),
-			host.WithHasher(host.Sha256Hasher{}),
+	engine, err := runtime.New(ctx,
+		runtime.WithFile("./plugin.wasm",
+			runtime.WithHash("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"),
+			runtime.WithHasher(runtime.Sha256Hasher{}),
 		),
 	)
 
@@ -110,7 +110,7 @@ To ensure the integrity of WASM files, you can use hashing:
 
 You can query memory usage of the WASM module:
 
-	memSize := engine.MemorySize()
+	memSize := rt.MemorySize()
 	fmt.Printf("WASM module memory size: %d bytes\n", memSize)
 */
-package host
+package runtime

@@ -1,4 +1,4 @@
-package host
+package runtime
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/mopeyjellyfish/hookr/host/logger"
+	"github.com/mopeyjellyfish/hookr/runtime/logger"
 	"github.com/mopeyjellyfish/hookr/testdata/api"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -50,17 +50,17 @@ func TestHookr(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			p, err := New(ctx, WithFile(test.file), WithHostFns(HostFn("hello", Hello)))
+			p, err := New(ctx, WithFile(test.file), WithHostFns(HostFnMsgp("hello", Hello)))
 			require.NoError(t, err, "failed to create module")
 			require.NotNil(t, p, "plugin should not be nil")
 			defer func() {
 				err := p.Close(ctx)
 				require.NoError(t, err, "failed to close module")
 			}()
-			fn, err := PluginFn[*api.EchoRequest, *api.EchoResponse](p, "echo")
+			fn, err := PluginFnMsgp[*api.EchoRequest, *api.EchoResponse](p, "echo")
 			require.NoError(t, err, "failed to create plugin function")
 			require.NotNil(t, fn, "plugin function should not be nil")
-			resp, err := fn.Call(&api.EchoRequest{
+			resp, err := fn.Call(context.Background(), &api.EchoRequest{
 				Data: "Steve",
 			})
 			require.NoError(t, err, "failed to invoke echo")
@@ -95,7 +95,7 @@ func TestHookrByte(t *testing.T) {
 
 			fn, err := PluginFnByte(p, "echoByte")
 			require.NoError(t, err, "failed to create plugin function")
-			resp, err := fn.Call([]byte("Steve"))
+			resp, err := fn.Call(context.Background(), []byte("Steve"))
 			require.NoError(t, err, "failed to invoke echo")
 			require.Equal(
 				t,
@@ -118,7 +118,7 @@ func TestHookrHostFnError(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			p, err := New(ctx, WithFile(test.file), WithHostFns(HostFn("hello", HelloError)))
+			p, err := New(ctx, WithFile(test.file), WithHostFns(HostFnMsgp("hello", HelloError)))
 			require.NoError(t, err, "failed to create module")
 			require.NotNil(t, p, "plugin should not be nil")
 			defer func() {
@@ -126,9 +126,9 @@ func TestHookrHostFnError(t *testing.T) {
 				require.NoError(t, err, "failed to close module")
 			}()
 
-			fn, err := PluginFn[*api.EchoRequest, *api.EchoResponse](p, "echo")
+			fn, err := PluginFnMsgp[*api.EchoRequest, *api.EchoResponse](p, "echo")
 			require.NoError(t, err, "failed to create plugin function")
-			resp, err := fn.Call(&api.EchoRequest{
+			resp, err := fn.Call(context.Background(), &api.EchoRequest{
 				Data: "Steve",
 			})
 			require.Error(t, err, "expected error from invoking echo due to host error")
@@ -153,7 +153,7 @@ func TestHookrCompileTwice(t *testing.T) {
 }
 
 func TestUninitializedHookr(t *testing.T) {
-	e := Engine{}
+	e := Runtime{}
 	size := e.MemorySize()
 	require.Equal(t, uint32(0), size, "Memory size should be 0 bytes")
 
@@ -321,29 +321,29 @@ func TestHookrModule(t *testing.T) {
 
 func TestPluginFn(t *testing.T) {
 	ctx := context.Background()
-	_, err := PluginFn[*api.EchoRequest, *api.EchoResponse](nil, "test")
+	_, err := PluginFnMsgp[*api.EchoRequest, *api.EchoResponse](nil, "test")
 	require.Error(t, err, "expected error when creating plugin function with nil engine")
 
-	hostFn := HostFn("hello", Hello)
+	hostFn := HostFnMsgp("hello", Hello)
 	p, err := New(ctx, WithFile(SIMPLE_WASM), WithHostFns(hostFn))
 	require.NoError(t, err, "failed to create module")
 	defer func() {
 		err := p.Close(ctx)
 		require.NoError(t, err, "failed to close module")
 	}()
-	_, err = PluginFn[*api.EchoRequest, *api.EchoResponse](p, "")
+	_, err = PluginFnMsgp[*api.EchoRequest, *api.EchoResponse](p, "")
 	require.Error(t, err, "expected error when creating plugin function with empty name")
 }
 
 func TestPluginFnCalls(t *testing.T) {
 	ctx := context.Background()
-	hostFn := HostFn("hello", Hello)
+	hostFn := HostFnMsgp("hello", Hello)
 	p, err := New(ctx, WithFile(SIMPLE_WASM), WithHostFns(hostFn))
 	require.NoError(t, err, "failed to create module")
-	fn, err := PluginFn[*api.EchoRequest, *api.EchoResponse](p, "echo")
+	fn, err := PluginFnMsgp[*api.EchoRequest, *api.EchoResponse](p, "echo")
 	require.NoError(t, err, "expected error when creating plugin function with empty name")
 
-	resp, err := fn.Call(nil)
+	resp, err := fn.Call(context.Background(), nil)
 	require.Error(t, err, "expected error when calling plugin function with nil input")
 	require.Nil(t, resp, "expected nil response when calling plugin function with nil input")
 }

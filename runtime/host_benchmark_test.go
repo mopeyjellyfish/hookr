@@ -1,4 +1,4 @@
-package host
+package runtime
 
 import (
 	"context"
@@ -25,20 +25,20 @@ func BenchmarkInvokeBytesVowel(b *testing.B) {
 	fn, err := PluginFnByte(p, "vowel")
 	require.NotNil(b, fn, "plugin function should not be nil")
 	require.NoError(b, err, "failed to create plugin function")
-	d, err := fn.Call(payload) // confirm the call works
+	d, err := fn.Call(context.Background(), payload) // confirm the call works
 	require.NoError(b, err, "failed to call plugin function")
 	require.NotNil(b, d, "plugin function should return a value")
 	b.ResetTimer() // Reset timer to exclude setup time
 	b.Run("Vowel", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			_, _ = fn.Call(payload)
+			_, _ = fn.Call(context.Background(), payload)
 		}
 	})
 }
 
 func BenchmarkInvokeMsgP(b *testing.B) {
 	ctx := context.Background()
-	hostFn := HostFn("hello", Hello)
+	hostFn := HostFnMsgp("hello", Hello)
 	p, err := New(ctx, WithFile(SIMPLE_WASM), WithHostFns(hostFn))
 	require.NoError(b, err, "failed to create module")
 	require.NotNil(b, p, "plugin should not be nil")
@@ -50,16 +50,16 @@ func BenchmarkInvokeMsgP(b *testing.B) {
 	payload := &api.EchoRequest{
 		Data: "Who controls the past controls the future; who controls the present controls the past.",
 	}
-	fn, err := PluginFn[*api.EchoRequest, *api.EchoResponse](p, "echo")
+	fn, err := PluginFnMsgp[*api.EchoRequest, *api.EchoResponse](p, "echo")
 	require.NotNil(b, fn, "plugin function should not be nil")
 	require.NoError(b, err, "failed to create plugin function")
-	d, err := fn.Call(payload) // confirm the call works
+	d, err := fn.Call(context.Background(), payload) // confirm the call works
 	require.NoError(b, err, "failed to call plugin function")
 	require.NotNil(b, d, "plugin function should return a value")
 	b.ResetTimer() // Reset timer to exclude setup time
 	b.Run("Echo", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			_, _ = fn.Call(payload)
+			_, _ = fn.Call(context.Background(), payload)
 		}
 	})
 }
@@ -81,13 +81,13 @@ func BenchmarkInvokeBytes(b *testing.B) {
 	fn, err := PluginFnByte(p, "echoByte")
 	require.NotNil(b, fn, "plugin function should not be nil")
 	require.NoError(b, err, "failed to create plugin function")
-	d, err := fn.Call(payload) // confirm the call works
+	d, err := fn.Call(context.Background(), payload) // confirm the call works
 	require.NoError(b, err, "failed to call plugin function")
 	require.NotNil(b, d, "plugin function should return a value")
 	b.ResetTimer() // Reset timer to exclude setup time
 	b.Run("Echo", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			_, _ = fn.Call(payload)
+			_, _ = fn.Call(context.Background(), payload)
 		}
 	})
 }

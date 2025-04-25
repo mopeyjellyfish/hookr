@@ -3,9 +3,9 @@ package module
 import (
 	"context"
 
-	"github.com/mopeyjellyfish/hookr/host/invoke"
-	"github.com/mopeyjellyfish/hookr/host/logger"
-	"github.com/mopeyjellyfish/hookr/host/memory"
+	"github.com/mopeyjellyfish/hookr/runtime/invoke"
+	"github.com/mopeyjellyfish/hookr/runtime/logger"
+	"github.com/mopeyjellyfish/hookr/runtime/memory"
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
 )

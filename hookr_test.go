@@ -2,43 +2,13 @@ package hookr
 
 import (
 	"context"
-	"crypto/rand"
-	"os"
+	"errors"
 	"testing"
 
-	"github.com/mopeyjellyfish/hookr/host/logger"
+	"github.com/mopeyjellyfish/hookr/runtime"
 	"github.com/mopeyjellyfish/hookr/testdata/api"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-func TestNewPlugin(t *testing.T) {
-	tests := []struct {
-		name    string
-		options []Option
-		wantErr bool
-	}{
-		{
-			name:    "valid options",
-			options: []Option{WithFile("./testdata/simple/bin/simple.wasm")},
-			wantErr: false,
-		},
-		{
-			name:    "invalid options",
-			options: []Option{WithFile("")},
-			wantErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := NewPlugin(context.Background(), tt.options...)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("NewPlugin() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
 
 func Hello(ctx context.Context, input *api.HelloRequest) (*api.HelloResponse, error) {
 	return &api.HelloResponse{
@@ -46,41 +16,50 @@ func Hello(ctx context.Context, input *api.HelloRequest) (*api.HelloResponse, er
 	}, nil
 }
 
-func TestPluginE2E(t *testing.T) {
-	ctx := context.Background()
-	hostFn := HostFn("hello", Hello)
-	require.NotNil(t, hostFn, "failed to create host function")
-	p, err := NewPlugin(ctx,
-		WithFile("./testdata/simple/bin/simple.wasm"),
-		WithHostFns(hostFn),
-		WithLogger(logger.Default),
-		WithStderr(os.Stderr),
-		WithStdout(os.Stdout),
-		WithRandSource(rand.Reader),
+func HelloByte(ctx context.Context, input []byte) ([]byte, error) {
+	name := string(input)
+	if name == "" {
+		return nil, errors.New("name cannot be empty")
+	}
+	helloName := "Hello " + name
+	helloNameBytes := []byte(helloName)
+	return helloNameBytes, nil
+}
+
+func TestHookr(t *testing.T) {
+	// setting up the plugin
+	helloFn := runtime.HostFnMsgp("hello", Hello)
+	hellBytesFn := runtime.HostFnByte("helloByte", HelloByte)
+	require.NotNil(t, helloFn, "host function should not be nil")
+	rt, err := runtime.New(
+		context.Background(),
+		runtime.WithFile("./testdata/simple/bin/simple.wasm"),
+		runtime.WithHostFns(helloFn, hellBytesFn),
 	)
-
 	require.NoError(t, err, "failed to create module")
-	require.NotNil(t, p, "plugin should not be nil")
-	defer func() {
-		err := p.Close(ctx)
-		require.NoError(t, err, "failed to close module")
-	}()
+	require.NotNil(t, rt, "plugin should not be nil")
 
-	echoFn, err := PluginFn[*api.EchoRequest, *api.EchoResponse](p, "echo")
-	assert.NoError(t, err, "failed to create plugin function")
-	vowelFn, err := PluginFnByte(p, "vowel")
+	// retrieving callable plugin functions
+	byteFn, err := runtime.PluginFnByte(rt, "echoByte")
+	require.NotNil(t, byteFn, "plugin function should not be nil")
+	require.NoError(t, err, "failed to create plugin function")
 
+	msgFn, err := runtime.PluginFnMsgp[*api.EchoRequest, *api.EchoResponse](rt, "echo")
+	require.NotNil(t, msgFn, "plugin function should not be nil")
+	require.NoError(t, err, "failed to create plugin function")
+
+	// making plugin calls
 	payload := &api.EchoRequest{
 		Data: "Who controls the past controls the future; who controls the present controls the past.",
 	}
-	assert.NoError(t, err, "failed to create plugin function")
-	assert.NotNil(t, echoFn, "plugin function should not be nil")
-	d, err := echoFn.Call(payload) // confirm the call works
-	assert.NotNil(t, d, "plugin function should return a value")
-	assert.NoError(t, err, "failed to call plugin function")
+	d, err := msgFn.Call(context.Background(), payload) // confirm the call works
+	require.NoError(t, err, "failed to call plugin function")
+	require.NotNil(t, d, "plugin function should return a value")
 
-	res, err := vowelFn.Call([]byte("aeiou"))
-	assert.NoError(t, err, "failed to call plugin function")
-	assert.NotNil(t, res, "plugin function should return a value")
-	assert.Equal(t, []byte("5"), res, "plugin function should return 5 vowels")
+	payloadByte := []byte(
+		"Who controls the past controls the future; who controls the present controls the past.",
+	)
+	dByte, err := byteFn.Call(context.Background(), payloadByte) // confirm the call works
+	require.NoError(t, err, "failed to call plugin function")
+	require.NotNil(t, dByte, "plugin function should return a value")
 }

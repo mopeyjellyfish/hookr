@@ -3,22 +3,22 @@ package main
 import (
 	"fmt"
 
-	"github.com/mopeyjellyfish/hookr/pdk"
+	hookr "github.com/mopeyjellyfish/hookr/pdk"
 	"github.com/mopeyjellyfish/hookr/testdata/api"
 )
 
 //go:wasmexport hookr_init
 func Initialize() {
 	// Register echo and fail functions
-	pdk.Fn("echo", Echo)
-	pdk.Fn("nope", Fail)
+	hookr.Fn("echo", Echo)
+	hookr.Fn("nope", Fail)
 
-	pdk.FnByte("echoByte", EchoByte)
-	pdk.FnByte("vowel", Vowels)
+	hookr.FnByte("echoByte", EchoByte)
+	hookr.FnByte("vowel", Vowels)
 }
 
-var Hello = pdk.HostFn[*api.HelloRequest, *api.HelloResponse]("hello")
-var HelloByte = pdk.HostFnByte("helloByte")
+var Hello = hookr.HostFn[*api.HelloRequest, *api.HelloResponse]("hello")
+var HelloByte = hookr.HostFnByte("helloByte")
 
 // Echo will return the payload
 func Echo(payload *api.EchoRequest) (*api.EchoResponse, error) {
@@ -27,7 +27,7 @@ func Echo(payload *api.EchoRequest) (*api.EchoResponse, error) {
 		Msg: string(payload.Data),
 	})
 	if err != nil {
-		pdk.Log(err.Error())
+		hookr.Log(err.Error())
 		return nil, err
 	}
 	echoResp := &api.EchoResponse{
@@ -54,7 +54,7 @@ func EchoByte(payload []byte) ([]byte, error) {
 	// Callback with Payload
 	resp, err := HelloByte.Call(payload)
 	if err != nil {
-		pdk.Log(err.Error())
+		hookr.Log(err.Error())
 		return nil, err
 	}
 

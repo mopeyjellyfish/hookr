@@ -219,7 +219,7 @@ type HelloResponse struct {
 }
 ```
 
-2. **Generate Serialization Code**: Use the `msgp` tool to generate serialization code
+1. **Generate Serialization Code**: Use the `msgp` tool to generate serialization code
 
 ```bash
 # First, install the msgp generator tool
@@ -229,7 +229,7 @@ go install github.com/tinylib/msgp@latest
 go generate ./api/...
 ```
 
-3. **Write Plugin Functions**: Implement functions that process the requests
+1. **Write Plugin Functions**: Implement functions that process the requests
 
 ```go
 package main
@@ -251,7 +251,7 @@ func Hello(input *api.HelloRequest) (*api.HelloResponse, error) {
 }
 ```
 
-4. **Register Functions**: Export your functions in the initialization function
+1. **Register Functions**: Export your functions in the initialization function
 
 ```go
 //go:wasmexport hookr_init
@@ -261,7 +261,7 @@ func Initialize() {
 }
 ```
 
-5. **Build the Plugin**: Compile your plugin using TinyGo
+1. **Build the Plugin**: Compile your plugin using TinyGo
 
 ```bash
 tinygo build -o plugin.wasm -scheduler=none --no-debug -target=wasip1 -buildmode=c-shared main.go
@@ -279,11 +279,11 @@ Hookr uses a well-defined pattern for communication:
 
 For best results, create a shared API package that defines all the request and response types used by both the host and plugins:
 
-```
+```sh
 yourproject/
 ├── api/
 │   ├── types.go           # Request/response type definitions
-│   └── types_msgp.go      # Generated serialization code
+│   └── types_gen.go       # Generated serialization code
 ├── host/
 │   └── main.go            # Host application
 └── plugin/
