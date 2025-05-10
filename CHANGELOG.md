@@ -1,3 +1,10 @@
+## [1.2.7](https://github.com/mopeyjellyfish/hookr/compare/v1.2.6...v1.2.7) (2025-05-10)
+
+
+### Bug Fixes
+
+* **code-cov:** Add coverage to memory and runtime ([2b51956](https://github.com/mopeyjellyfish/hookr/commit/2b5195667237a190a97cfd4fd7ae82e3331d6b3c))
+
 ## [1.2.6](https://github.com/mopeyjellyfish/hookr/compare/v1.2.5...v1.2.6) (2025-05-10)
 
 
