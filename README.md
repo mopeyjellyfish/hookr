@@ -32,9 +32,8 @@
 - [API Overview](#api-overview)
 - [Plugin Development](#plugin-development)
 - [Advanced Usage](#advanced-usage)
-- [Performance Considerations](#performance-considerations)
-- [Troubleshooting](#troubleshooting)
 - [Project Structure](#project-structure)
+- [PDK](## PDK Support)
 
 ## Installation
 
@@ -156,45 +155,66 @@ Hosts send data to WASM plugins, and plugins send data back to the host. Hookr u
 
 ### Serialization Options
 
-Hookr is opinionated on how serialization occurs, it makes use of msgpack between host & plugin, and expects all requests and responses in Go to use github.com/tinylib/msgp which will generate high performant Marshal/Unmarshal to satisfy the interfaces used.
+#### MessagePack
 
-It is also possible to just use `[]byte` between host/plugin for the request and response data, and leave serialization/deserialization up to the caller.
-
-### Type Generation
-
-For JSON serialization, you can define standard Go structs with json tags:
+Hookr primarily uses [MessagePack](https://github.com/tinylib/msgp) for efficient binary serialization between host and plugins. The framework provides type-safe functions with generics support:
 
 ```go
-type MyRequest struct {
-    Name    string `json:"name"`
-    Count   int    `json:"count"`
-    Enabled bool   `json:"enabled"`
-}
+// In the host application:
+// Create a strongly-typed function wrapper
+msgpFn, err := hookr.PluginFnMsgp[*api.Request, *api.Response](plugin, "function_name")
 
-type MyResponse struct {
-    Result  string   `json:"result"`
-    Items   []string `json:"items"`
-    Success bool     `json:"success"`
-}
+// Register a host function for plugin callbacks
+hostFn := hookr.HostFnMsgp("operation_name", MyHostFunction)
 ```
 
-For msgpack serialization, add the msgp tag and use code generation:
+```go
+// In your plugin:
+// Register a function to handle host calls
+pdk.Fn("function_name", MyPluginFunction)
+
+// Create a wrapper to call host functions
+var hostOp = pdk.HostFn[*api.Request, *api.Response]("operation_name")
+```
+
+For this to work, your types must implement `MsgpMarshaler` and `MsgpUnmarshaler` interfaces, typically generated with:
 
 ```go
 //go:generate msgp
-
-type MyRequest struct {
-    Name    string `msg:"name"`
-    Count   int    `msg:"count"`
-    Enabled bool   `msg:"enabled"`
-}
-
-type MyResponse struct {
-    Result  string   `msg:"result"`
-    Items   []string `msg:"items"`
-    Success bool     `msg:"success"`
+type Request struct {
+    Input string `msg:"input"`
 }
 ```
+
+#### Raw Bytes
+
+For custom serialization needs or direct binary data handling, Hookr provides byte-based functions:
+
+```go
+// In the host
+byteFn, err := hookr.PluginFnByte(plugin, "raw_operation")
+result, err := byteFn.Call([]byte("raw data"))
+
+// Register a byte-based host function
+byteFn := hookr.HostFnByte("byte_operation", func(ctx context.Context, data []byte) ([]byte, error) {
+    // Process raw bytes
+    return processedData, nil
+})
+```
+
+```go
+// In the plugin
+pdk.FnByte("raw_operation", func(data []byte) ([]byte, error) {
+    // Process incoming byte slice
+    return processedBytes, nil
+})
+
+// Call a byte-based host function
+var hostByteOp = pdk.HostFnByte("byte_operation")
+result, err := hostByteOp.Call(myData)
+```
+
+This approach gives you complete control over serialization while still leveraging Hookr's WebAssembly integration.
 
 ## Plugin Development
 
@@ -400,3 +420,15 @@ plugin, err := hookr.NewPlugin(ctx,
 
 - `hookr/`: Main package for host applications loading and executing WASM plugins
 - `hookr/pdk/`: Plugin Development Kit for building WASM plugins in Go
+
+## PDK Support
+
+Hookr currently supports the following languages for plugin development:
+
+| Language       | Support Level | Notes                                    |
+|----------------|---------------|------------------------------------------|
+| Go             | Full          | Using TinyGo compiler for WASM modules   |
+| Rust           | Planned       | Coming in future releases                |
+| Zig            | Planned       | Coming in future releases                |
+| AssemblyScript | Planned       | Coming in future releases                |
+| C/C++          | Planned       | Coming in future releases                |
