@@ -14,12 +14,12 @@ type PluginFuncByte struct {
 // Call takes an input of type In and returns an output of type Out
 // These will always be []byte in and out.
 func (p PluginFuncByte) Call(ctx context.Context, input []byte) ([]byte, error) {
-	out, err := p.rt.Invoke(ctx, p.Name, input)
-	if err != nil {
-		return nil, err
+	if p.rt == nil {
+		return nil, errors.New("engine cannot be nil")
 	}
-	if out == nil {
-		return nil, nil
+	out, err := p.rt.Invoke(ctx, p.Name, input)
+	if err != nil || out == nil {
+		return nil, err
 	}
 	return out, nil
 }

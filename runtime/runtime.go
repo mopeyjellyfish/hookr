@@ -184,21 +184,7 @@ func (e *Runtime) Instantiate() error {
 			ictx := invoke.New(e.ctx, &ic)
 			if _, err := exportedFunc.Call(ictx); err != nil {
 				if exitErr, ok := err.(*sys.ExitError); ok {
-					if exitErr.ExitCode() != 0 {
-						err := module.Close(e.ctx)
-						if err != nil {
-							return fmt.Errorf("error closing module: %w", err)
-						}
-
-						return fmt.Errorf("module closed with exit_code(%d)", exitErr.ExitCode())
-					}
-				} else {
-					err := module.Close(e.ctx)
-					if err != nil {
-						return fmt.Errorf("error closing module: %w", err)
-					}
-
-					return fmt.Errorf("error calling %s: %v", f, err)
+					return fmt.Errorf("error calling %s: %w", f, exitErr)
 				}
 			}
 		}
