@@ -107,6 +107,35 @@ func TestHookrByte(t *testing.T) {
 	}
 }
 
+func TestHookrPluginFnByteBadParams(t *testing.T) {
+	ctx := context.Background()
+	tests := []struct {
+		name string
+		file string
+	}{
+		{"simple", SIMPLE_WASM},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			p, err := New(ctx, WithFile(test.file), WithHostFns(HostFnByte("helloByte", HelloByte)))
+			require.NoError(t, err, "failed to create module")
+			require.NotNil(t, p, "plugin should not be nil")
+			defer func() {
+				err := p.Close(ctx)
+				require.NoError(t, err, "failed to close module")
+			}()
+
+			fn, err := PluginFnByte(p, "")
+			require.Error(t, err, "expected error when creating plugin function with empty name")
+			require.Nil(t, fn, "plugin function should be nil on error")
+			fn, err = PluginFnByte(nil, "echo")
+			require.Error(t, err, "expected error when creating plugin function with nil engine")
+			require.Nil(t, fn, "plugin function should be nil on error")
+		})
+	}
+}
+
 func TestHookrHostFnError(t *testing.T) {
 	ctx := context.Background()
 	tests := []struct {
@@ -150,6 +179,27 @@ func TestHookrCompileTwice(t *testing.T) {
 
 	err = plugin.Compile()
 	require.Error(t, err, "expected error when compiling nil module")
+}
+
+func TestFnHandler(t *testing.T) {
+	e := Runtime{}
+	data, err := e.fnHandler(context.Background(), "echo", nil)
+	require.Error(t, err, "expected error when calling fnHandler")
+	require.Nil(t, data, "expected nil data when calling fnHandler with no payload")
+}
+
+func TestHookrPluginFnByteNil(t *testing.T) {
+	p := PluginFuncByte{}
+	d, err := p.Call(context.Background(), nil)
+	require.Error(t, err, "expected error when calling plugin function with nil payload")
+	require.Nil(t, d, "expected nil data when calling plugin function with nil payload")
+
+	p = PluginFuncByte{
+		rt: &Runtime{},
+	}
+	d, err = p.Call(context.Background(), nil)
+	require.Error(t, err, "expected error when calling plugin function with nil payload")
+	require.Nil(t, d, "expected nil data when calling plugin function with nil payload")
 }
 
 func TestUninitializedHookr(t *testing.T) {
