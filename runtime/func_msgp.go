@@ -7,10 +7,16 @@ import (
 	"reflect"
 
 	"github.com/mopeyjellyfish/hookr/testdata/api"
-	"github.com/tinylib/msgp/msgp"
 )
 
-type PluginFuncMsgp[In msgp.Marshaler, Out msgp.Unmarshaler] struct {
+type MsgpMarshaler interface {
+	MarshalMsg([]byte) ([]byte, error)
+}
+type MsgpUnmarshaler interface {
+	UnmarshalMsg([]byte) ([]byte, error)
+}
+
+type PluginFuncMsgp[In MsgpMarshaler, Out MsgpUnmarshaler] struct {
 	Name string
 	rt   *Runtime
 }
@@ -61,7 +67,7 @@ func (p *PluginFuncMsgp[In, Out]) Call(ctx context.Context, input In) (Out, erro
 
 // Will create a new PluginFunc with the given name and engine.
 // This is used to register the function with the host
-func PluginFnMsgp[In msgp.Marshaler, Out msgp.Unmarshaler](
+func PluginFnMsgp[In MsgpMarshaler, Out MsgpUnmarshaler](
 	rt *Runtime,
 	name string,
 ) (*PluginFuncMsgp[In, Out], error) {
@@ -77,12 +83,12 @@ func PluginFnMsgp[In msgp.Marshaler, Out msgp.Unmarshaler](
 
 // CallFnT is a generic function that accepts and returns specific types
 // It handles marshaling/unmarshaling automatically
-type CallFnT[In msgp.Unmarshaler, Out msgp.Marshaler] func(ctx context.Context, input In) (Out, error)
+type CallFnT[In MsgpUnmarshaler, Out MsgpMarshaler] func(ctx context.Context, input In) (Out, error)
 
 // Fn converts a strongly-typed GoFn to a byte-based CallFn allowing WASM plugins to call it.
 // This allows for defining a strongly typed function, which can be called from WASM
 // that will use a byte slice for input and output for communication.
-func Fn[In msgp.Unmarshaler, Out msgp.Marshaler](fn CallFnT[In, Out]) CallFn {
+func Fn[In MsgpUnmarshaler, Out MsgpMarshaler](fn CallFnT[In, Out]) CallFn {
 	return func(ctx context.Context, payload []byte) ([]byte, error) {
 		// Unmarshal the input from bytes
 		var input In
@@ -118,7 +124,7 @@ func Fn[In msgp.Unmarshaler, Out msgp.Marshaler](fn CallFnT[In, Out]) CallFn {
 
 // HostFunction is a wrapper for CallFnT that provides a name and a function
 // This is used to register the function with the host
-type HostFunction[In msgp.Unmarshaler, Out msgp.Marshaler] struct {
+type HostFunction[In MsgpUnmarshaler, Out MsgpMarshaler] struct {
 	name string
 	fn   CallFnT[In, Out]
 }
@@ -127,7 +133,7 @@ func (f *HostFunction[In, Out]) Fn() (name string, fn CallFn) {
 	return f.name, Fn(f.fn)
 }
 
-func HostFnMsgp[In msgp.Unmarshaler, Out msgp.Marshaler](
+func HostFnMsgp[In MsgpUnmarshaler, Out MsgpMarshaler](
 	name string,
 	fn CallFnT[In, Out],
 ) *HostFunction[In, Out] {

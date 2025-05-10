@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-    Extend your Go applications with dynamically loaded WASM modules while maintaining the performance and safety you expect.
+    Extend Go applications with dynamically loaded WASM modules.
 </p>
 
 ---
