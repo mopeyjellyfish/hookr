@@ -1,3 +1,10 @@
+## [1.2.4](https://github.com/mopeyjellyfish/hookr/compare/v1.2.3...v1.2.4) (2025-05-10)
+
+
+### Bug Fixes
+
+* **docs:** Add license ([729bcef](https://github.com/mopeyjellyfish/hookr/commit/729bcef8178aaff86fcaf0f174e87d65089b8abd))
+
 ## [1.2.3](https://github.com/mopeyjellyfish/hookr/compare/v1.2.2...v1.2.3) (2025-05-10)
 
 
