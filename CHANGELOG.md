@@ -1,3 +1,10 @@
+## [1.2.8](https://github.com/mopeyjellyfish/hookr/compare/v1.2.7...v1.2.8) (2025-05-10)
+
+
+### Bug Fixes
+
+* **docs:** fix pdk readme link ([32dd16e](https://github.com/mopeyjellyfish/hookr/commit/32dd16e576b19d8810770d2683e2d48461d2a54a))
+
 ## [1.2.7](https://github.com/mopeyjellyfish/hookr/compare/v1.2.6...v1.2.7) (2025-05-10)
 
 
