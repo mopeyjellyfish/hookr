@@ -1,3 +1,10 @@
+## [1.2.5](https://github.com/mopeyjellyfish/hookr/compare/v1.2.4...v1.2.5) (2025-05-10)
+
+
+### Bug Fixes
+
+* **code-cov:** Add code coverage to test action ([fa9c2bb](https://github.com/mopeyjellyfish/hookr/commit/fa9c2bb61edf2100d9620b5c44a1f8f2d5febb89))
+
 ## [1.2.4](https://github.com/mopeyjellyfish/hookr/compare/v1.2.3...v1.2.4) (2025-05-10)
 
 
