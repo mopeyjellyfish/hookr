@@ -1,3 +1,10 @@
+## [1.2.6](https://github.com/mopeyjellyfish/hookr/compare/v1.2.5...v1.2.6) (2025-05-10)
+
+
+### Bug Fixes
+
+* **code-cov:** Add code coverage badge ([3739c9f](https://github.com/mopeyjellyfish/hookr/commit/3739c9f871c483f4b11b8b652be51182341c631a))
+
 ## [1.2.5](https://github.com/mopeyjellyfish/hookr/compare/v1.2.4...v1.2.5) (2025-05-10)
 
 
