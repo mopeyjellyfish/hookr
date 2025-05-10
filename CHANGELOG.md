@@ -1,3 +1,10 @@
+## [1.2.2](https://github.com/mopeyjellyfish/hookr/compare/v1.2.1...v1.2.2) (2025-05-10)
+
+
+### Bug Fixes
+
+* **hookr:** Fixed go.mod in testdata modules to correctly use local version of hookr ([7a6ef85](https://github.com/mopeyjellyfish/hookr/commit/7a6ef85a61b6ccb19e4937b82d41930e5e03cf54))
+
 ## [1.2.1](https://github.com/mopeyjellyfish/hookr/compare/v1.2.0...v1.2.1) (2025-04-25)
 
 
