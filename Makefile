@@ -113,7 +113,7 @@ test:
 	fi
 
 ## test/cover: run all unit tests with coverage
-test/cover: test
+test/cover: build/testdata test
 	go tool cover -html=./coverage.txt
 
 ## test/ff: run all tests fail on first failure
