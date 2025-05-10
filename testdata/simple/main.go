@@ -10,14 +10,14 @@ import (
 //go:wasmexport hookr_init
 func Initialize() {
 	// Register echo and fail functions
-	hookr.Fn("echo", Echo)
-	hookr.Fn("nope", Fail)
+	hookr.FnSerial("echo", Echo) // A function that the host imports from the plugin
+	hookr.FnSerial("nope", Fail)
 
 	hookr.FnByte("echoByte", EchoByte)
 	hookr.FnByte("vowel", Vowels)
 }
 
-var Hello = hookr.HostFn[*api.HelloRequest, *api.HelloResponse]("hello")
+var Hello = hookr.HostFnSerial[*api.HelloRequest, *api.HelloResponse]("hello") // A function that the host exposes to the plugin
 var HelloByte = hookr.HostFnByte("helloByte")
 
 // Echo will return the payload

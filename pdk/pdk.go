@@ -4,14 +4,19 @@ import (
 	"fmt"
 	"reflect"
 	"unsafe"
-
-	"github.com/tinylib/msgp/msgp"
 )
+
+type Marshaler interface {
+	MarshalMsg([]byte) ([]byte, error)
+}
+type Unmarshaler interface {
+	UnmarshalMsg([]byte) ([]byte, error)
+}
 
 type (
 	// PluginFunction is a function that takes an input of type In and returns an output of type Out.
 	// These are the concrete functions that are callable by the host.
-	PluginFunction[In msgp.Unmarshaler, Out msgp.Marshaler] func(input In) (Out, error)
+	PluginFunction[In Unmarshaler, Out Marshaler] func(input In) (Out, error)
 
 	// Function is a function that takes a byte slice as input and returns a byte slice as output.
 	// This is the function that is called by the host.
@@ -30,7 +35,7 @@ type (
 
 var allFns = Functions{}
 
-func pluginFunction[In msgp.Unmarshaler, Out msgp.Marshaler](fn PluginFunction[In, Out]) Function {
+func pluginFunction[In Unmarshaler, Out Marshaler](fn PluginFunction[In, Out]) Function {
 	return func(input []byte) ([]byte, error) {
 		var zero In
 		t := reflect.TypeOf(zero)
@@ -60,9 +65,10 @@ func pluginFunction[In msgp.Unmarshaler, Out msgp.Marshaler](fn PluginFunction[I
 	}
 }
 
-// Fn adds a single function by name to the registry.
+// FnSerial adds a single function by name to the registry.
+// This will invoke the Marshal and Unmarshal functions on the input and output types.
 // This should be invoked in your initialize func to expose any functions you wish the host to use.
-func Fn[In msgp.Unmarshaler, Out msgp.Marshaler](name string, fn PluginFunction[In, Out]) {
+func FnSerial[In Unmarshaler, Out Marshaler](name string, fn PluginFunction[In, Out]) {
 	allFns[name] = pluginFunction(fn)
 }
 
@@ -109,19 +115,19 @@ func Log(message string) {
 	consoleLog(stringToPointer(message), uint32(len(message)))
 }
 
-type HostFunction[In msgp.Marshaler, Out msgp.Unmarshaler] struct {
+type HostFunctionSerial[In Marshaler, Out Unmarshaler] struct {
 	name string
 }
 
-func (h *HostFunction[In, Out]) Call(input In) (Out, error) {
+func (h *HostFunctionSerial[In, Out]) Call(input In) (Out, error) {
 	return Call[In, Out](h.name, input)
 }
 
-func HostFn[In msgp.Marshaler, Out msgp.Unmarshaler](name string) *HostFunction[In, Out] {
-	return &HostFunction[In, Out]{name: name}
+func HostFnSerial[In Marshaler, Out Unmarshaler](name string) *HostFunctionSerial[In, Out] {
+	return &HostFunctionSerial[In, Out]{name: name}
 }
 
-func Call[In msgp.Marshaler, Out msgp.Unmarshaler](operation string, input In) (Out, error) {
+func Call[In Marshaler, Out Unmarshaler](operation string, input In) (Out, error) {
 	var zero Out
 
 	if reflect.ValueOf(input).Kind() == reflect.Ptr && reflect.ValueOf(input).IsNil() {

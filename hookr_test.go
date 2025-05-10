@@ -28,7 +28,7 @@ func HelloByte(ctx context.Context, input []byte) ([]byte, error) {
 
 func TestHookr(t *testing.T) {
 	// setting up the plugin
-	helloFn := runtime.HostFnMsgp("hello", Hello)
+	helloFn := runtime.HostFnSerial("hello", Hello)
 	hellBytesFn := runtime.HostFnByte("helloByte", HelloByte)
 	require.NotNil(t, helloFn, "host function should not be nil")
 	rt, err := runtime.New(
@@ -44,7 +44,7 @@ func TestHookr(t *testing.T) {
 	require.NotNil(t, byteFn, "plugin function should not be nil")
 	require.NoError(t, err, "failed to create plugin function")
 
-	msgFn, err := runtime.PluginFnMsgp[*api.EchoRequest, *api.EchoResponse](rt, "echo")
+	msgFn, err := runtime.PluginFnSerial[*api.EchoRequest, *api.EchoResponse](rt, "echo")
 	require.NotNil(t, msgFn, "plugin function should not be nil")
 	require.NoError(t, err, "failed to create plugin function")
 

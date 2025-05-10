@@ -155,6 +155,8 @@ Hosts send data to WASM plugins, and plugins send data back to the host. Hookr u
 
 ### Serialization Options
 
+Anything which implements the Marshal or Unmarshal interfaces can be used to serialize and deserialize in both WASM and the host application. Currently all the examples are for MessagePack, see the following section.
+
 #### MessagePack
 
 Hookr primarily uses [MessagePack](https://github.com/tinylib/msgp) for efficient binary serialization between host and plugins. The framework provides type-safe functions with generics support:
@@ -162,10 +164,10 @@ Hookr primarily uses [MessagePack](https://github.com/tinylib/msgp) for efficien
 ```go
 // In the host application:
 // Create a strongly-typed function wrapper
-msgpFn, err := hookr.PluginFnMsgp[*api.Request, *api.Response](plugin, "function_name")
+msgpFn, err := hookr.PluginFnSerial[*api.Request, *api.Response](plugin, "function_name")
 
 // Register a host function for plugin callbacks
-hostFn := hookr.HostFnMsgp("operation_name", MyHostFunction)
+hostFn := hookr.HostFnSerial("operation_name", MyHostFunction)
 ```
 
 ```go
@@ -177,7 +179,7 @@ pdk.Fn("function_name", MyPluginFunction)
 var hostOp = pdk.HostFn[*api.Request, *api.Response]("operation_name")
 ```
 
-For this to work, your types must implement `MsgpMarshaler` and `MsgpUnmarshaler` interfaces, typically generated with:
+For this to work, your types must implement `Marshaler` and `Unmarshaler` interfaces, typically generated with:
 
 ```go
 //go:generate msgp
