@@ -1,3 +1,12 @@
+## [1.2.3](https://github.com/mopeyjellyfish/hookr/compare/v1.2.2...v1.2.3) (2025-05-10)
+
+
+### Bug Fixes
+
+* **docs:** Update MsgP references to Serial ([9be20e1](https://github.com/mopeyjellyfish/hookr/commit/9be20e16ed438510cc6773d678da02152a0acbe8))
+* **docs:** Update README.md to include clearer details ([8a89120](https://github.com/mopeyjellyfish/hookr/commit/8a89120c044311dc4de15c2b4ad6409f118dacaf))
+* **hookr:** Remove msgp dependency from func_msgp ([35c94bd](https://github.com/mopeyjellyfish/hookr/commit/35c94bd179558eee93ab2d352cf40a4bc18f57ec))
+
 ## [1.2.2](https://github.com/mopeyjellyfish/hookr/compare/v1.2.1...v1.2.2) (2025-05-10)
 
 
