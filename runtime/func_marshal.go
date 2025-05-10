@@ -7,15 +7,21 @@ import (
 	"reflect"
 
 	"github.com/mopeyjellyfish/hookr/testdata/api"
-	"github.com/tinylib/msgp/msgp"
 )
 
-type PluginFuncMsgp[In msgp.Marshaler, Out msgp.Unmarshaler] struct {
+type Marshaler interface {
+	MarshalMsg([]byte) ([]byte, error)
+}
+type Unmarshaler interface {
+	UnmarshalMsg([]byte) ([]byte, error)
+}
+
+type PluginFuncSerial[In Marshaler, Out Unmarshaler] struct {
 	Name string
 	rt   *Runtime
 }
 
-func (p *PluginFuncMsgp[In, Out]) Call(ctx context.Context, input In) (Out, error) {
+func (p *PluginFuncSerial[In, Out]) Call(ctx context.Context, input In) (Out, error) {
 	var dataInput []byte
 	var zero Out
 	var err error
@@ -61,28 +67,28 @@ func (p *PluginFuncMsgp[In, Out]) Call(ctx context.Context, input In) (Out, erro
 
 // Will create a new PluginFunc with the given name and engine.
 // This is used to register the function with the host
-func PluginFnMsgp[In msgp.Marshaler, Out msgp.Unmarshaler](
+func PluginFnSerial[In Marshaler, Out Unmarshaler](
 	rt *Runtime,
 	name string,
-) (*PluginFuncMsgp[In, Out], error) {
+) (*PluginFuncSerial[In, Out], error) {
 	if rt == nil {
 		return nil, errors.New("engine cannot be nil")
 	}
 	if name == "" {
 		return nil, errors.New("name cannot be empty")
 	}
-	pFn := &PluginFuncMsgp[In, Out]{Name: name, rt: rt}
+	pFn := &PluginFuncSerial[In, Out]{Name: name, rt: rt}
 	return pFn, nil
 }
 
 // CallFnT is a generic function that accepts and returns specific types
 // It handles marshaling/unmarshaling automatically
-type CallFnT[In msgp.Unmarshaler, Out msgp.Marshaler] func(ctx context.Context, input In) (Out, error)
+type CallFnT[In Unmarshaler, Out Marshaler] func(ctx context.Context, input In) (Out, error)
 
 // Fn converts a strongly-typed GoFn to a byte-based CallFn allowing WASM plugins to call it.
 // This allows for defining a strongly typed function, which can be called from WASM
 // that will use a byte slice for input and output for communication.
-func Fn[In msgp.Unmarshaler, Out msgp.Marshaler](fn CallFnT[In, Out]) CallFn {
+func Fn[In Unmarshaler, Out Marshaler](fn CallFnT[In, Out]) CallFn {
 	return func(ctx context.Context, payload []byte) ([]byte, error) {
 		// Unmarshal the input from bytes
 		var input In
@@ -118,7 +124,7 @@ func Fn[In msgp.Unmarshaler, Out msgp.Marshaler](fn CallFnT[In, Out]) CallFn {
 
 // HostFunction is a wrapper for CallFnT that provides a name and a function
 // This is used to register the function with the host
-type HostFunction[In msgp.Unmarshaler, Out msgp.Marshaler] struct {
+type HostFunction[In Unmarshaler, Out Marshaler] struct {
 	name string
 	fn   CallFnT[In, Out]
 }
@@ -127,7 +133,7 @@ func (f *HostFunction[In, Out]) Fn() (name string, fn CallFn) {
 	return f.name, Fn(f.fn)
 }
 
-func HostFnMsgp[In msgp.Unmarshaler, Out msgp.Marshaler](
+func HostFnSerial[In Unmarshaler, Out Marshaler](
 	name string,
 	fn CallFnT[In, Out],
 ) *HostFunction[In, Out] {

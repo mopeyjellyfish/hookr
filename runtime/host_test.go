@@ -50,14 +50,14 @@ func TestHookr(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			p, err := New(ctx, WithFile(test.file), WithHostFns(HostFnMsgp("hello", Hello)))
+			p, err := New(ctx, WithFile(test.file), WithHostFns(HostFnSerial("hello", Hello)))
 			require.NoError(t, err, "failed to create module")
 			require.NotNil(t, p, "plugin should not be nil")
 			defer func() {
 				err := p.Close(ctx)
 				require.NoError(t, err, "failed to close module")
 			}()
-			fn, err := PluginFnMsgp[*api.EchoRequest, *api.EchoResponse](p, "echo")
+			fn, err := PluginFnSerial[*api.EchoRequest, *api.EchoResponse](p, "echo")
 			require.NoError(t, err, "failed to create plugin function")
 			require.NotNil(t, fn, "plugin function should not be nil")
 			resp, err := fn.Call(context.Background(), &api.EchoRequest{
@@ -118,7 +118,7 @@ func TestHookrHostFnError(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			p, err := New(ctx, WithFile(test.file), WithHostFns(HostFnMsgp("hello", HelloError)))
+			p, err := New(ctx, WithFile(test.file), WithHostFns(HostFnSerial("hello", HelloError)))
 			require.NoError(t, err, "failed to create module")
 			require.NotNil(t, p, "plugin should not be nil")
 			defer func() {
@@ -126,7 +126,7 @@ func TestHookrHostFnError(t *testing.T) {
 				require.NoError(t, err, "failed to close module")
 			}()
 
-			fn, err := PluginFnMsgp[*api.EchoRequest, *api.EchoResponse](p, "echo")
+			fn, err := PluginFnSerial[*api.EchoRequest, *api.EchoResponse](p, "echo")
 			require.NoError(t, err, "failed to create plugin function")
 			resp, err := fn.Call(context.Background(), &api.EchoRequest{
 				Data: "Steve",
@@ -321,26 +321,26 @@ func TestHookrModule(t *testing.T) {
 
 func TestPluginFn(t *testing.T) {
 	ctx := context.Background()
-	_, err := PluginFnMsgp[*api.EchoRequest, *api.EchoResponse](nil, "test")
+	_, err := PluginFnSerial[*api.EchoRequest, *api.EchoResponse](nil, "test")
 	require.Error(t, err, "expected error when creating plugin function with nil engine")
 
-	hostFn := HostFnMsgp("hello", Hello)
+	hostFn := HostFnSerial("hello", Hello)
 	p, err := New(ctx, WithFile(SIMPLE_WASM), WithHostFns(hostFn))
 	require.NoError(t, err, "failed to create module")
 	defer func() {
 		err := p.Close(ctx)
 		require.NoError(t, err, "failed to close module")
 	}()
-	_, err = PluginFnMsgp[*api.EchoRequest, *api.EchoResponse](p, "")
+	_, err = PluginFnSerial[*api.EchoRequest, *api.EchoResponse](p, "")
 	require.Error(t, err, "expected error when creating plugin function with empty name")
 }
 
 func TestPluginFnCalls(t *testing.T) {
 	ctx := context.Background()
-	hostFn := HostFnMsgp("hello", Hello)
+	hostFn := HostFnSerial("hello", Hello)
 	p, err := New(ctx, WithFile(SIMPLE_WASM), WithHostFns(hostFn))
 	require.NoError(t, err, "failed to create module")
-	fn, err := PluginFnMsgp[*api.EchoRequest, *api.EchoResponse](p, "echo")
+	fn, err := PluginFnSerial[*api.EchoRequest, *api.EchoResponse](p, "echo")
 	require.NoError(t, err, "expected error when creating plugin function with empty name")
 
 	resp, err := fn.Call(context.Background(), nil)

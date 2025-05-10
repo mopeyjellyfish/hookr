@@ -38,7 +38,7 @@ func BenchmarkInvokeBytesVowel(b *testing.B) {
 
 func BenchmarkInvokeMsgP(b *testing.B) {
 	ctx := context.Background()
-	hostFn := HostFnMsgp("hello", Hello)
+	hostFn := HostFnSerial("hello", Hello)
 	p, err := New(ctx, WithFile(SIMPLE_WASM), WithHostFns(hostFn))
 	require.NoError(b, err, "failed to create module")
 	require.NotNil(b, p, "plugin should not be nil")
@@ -50,7 +50,7 @@ func BenchmarkInvokeMsgP(b *testing.B) {
 	payload := &api.EchoRequest{
 		Data: "Who controls the past controls the future; who controls the present controls the past.",
 	}
-	fn, err := PluginFnMsgp[*api.EchoRequest, *api.EchoResponse](p, "echo")
+	fn, err := PluginFnSerial[*api.EchoRequest, *api.EchoResponse](p, "echo")
 	require.NotNil(b, fn, "plugin function should not be nil")
 	require.NoError(b, err, "failed to create plugin function")
 	d, err := fn.Call(context.Background(), payload) // confirm the call works
