@@ -36,7 +36,7 @@
 - [Plugin Development](#plugin-development)
 - [Advanced Usage](#advanced-usage)
 - [Project Structure](#project-structure)
-- [PDK](## PDK Support)
+- [PDK](#pdk-support)
 
 ## Installation
 
