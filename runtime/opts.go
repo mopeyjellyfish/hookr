@@ -3,6 +3,7 @@ package runtime
 import (
 	"io"
 
+	runtimecontract "github.com/mopeyjellyfish/hookr/runtime/contract"
 	"github.com/mopeyjellyfish/hookr/runtime/logger"
 	"github.com/mopeyjellyfish/hookr/runtime/module"
 )
@@ -61,6 +62,14 @@ func WithCallHandler(callHandler module.CallHandler) Option {
 	}
 }
 
+// WithCallHandlerV2 sets the method-ID based call handler for ABI v2 plugins.
+func WithCallHandlerV2(callHandler module.CallHandlerV2) Option {
+	return func(e *Runtime) error {
+		e.callHandlerV2 = callHandler
+		return nil
+	}
+}
+
 // WithHostFns sets the host functions which are callable from the plugin.
 func WithHostFns(fns ...HostFunc) Option {
 	return func(e *Runtime) error {
@@ -68,6 +77,52 @@ func WithHostFns(fns ...HostFunc) Option {
 			name, caller := fn.Fn()
 			e.RegisterFunction(name, caller)
 		}
+		return nil
+	}
+}
+
+// WithHostMethodFns sets method-ID based host callbacks callable from ABI v2 plugins.
+func WithHostMethodFns(fns ...HostMethod) Option {
+	return func(e *Runtime) error {
+		for _, fn := range fns {
+			id, caller := fn.FnMethod()
+			e.RegisterMethod(id, caller)
+		}
+		return nil
+	}
+}
+
+// WithContractHandshake enables ABI v2 contract validation during plugin initialization.
+func WithContractHandshake(handshake runtimecontract.Handshake) Option {
+	return func(e *Runtime) error {
+		e.expectedHandshake = &handshake
+		return nil
+	}
+}
+
+// WithContractSchemaHash enables ABI v2 contract validation for the provided schema hash.
+func WithContractSchemaHash(schemaHash [runtimecontract.SchemaHashLen]byte) Option {
+	return WithContractHandshake(runtimecontract.NewHandshake(schemaHash))
+}
+
+// WithContractCapabilities requires the plugin handshake to include the provided capability bits.
+func WithContractCapabilities(capabilities uint64) Option {
+	return func(e *Runtime) error {
+		e.requiredCapabilities = capabilities
+		return nil
+	}
+}
+
+// WithContractSchema validates and configures expected schema + handshake requirements.
+func WithContractSchema(schema runtimecontract.Schema) Option {
+	return func(e *Runtime) error {
+		if err := schema.Validate(); err != nil {
+			return err
+		}
+		e.expectedSchema = &schema
+		handshake := runtimecontract.NewHandshake(schema.SchemaHash)
+		handshake.Capabilities = schema.Capabilities
+		e.expectedHandshake = &handshake
 		return nil
 	}
 }

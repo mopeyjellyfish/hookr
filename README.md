@@ -35,6 +35,7 @@
 - [API Overview](#api-overview)
 - [Plugin Development](#plugin-development)
 - [Advanced Usage](#advanced-usage)
+- [Contracts ABI v2 (Draft)](#contracts-abi-v2-draft)
 - [Project Structure](#project-structure)
 - [PDK](#pdk-support)
 
@@ -48,6 +49,66 @@ go get github.com/mopeyjellyfish/hookr
 
 - Go 1.24 or higher
 - TinyGo 0.30.0 or higher (for building plugins)
+
+## Contracts ABI v2 (Draft)
+
+Hookr now includes draft contract primitives for schema-driven plugins:
+
+- Host side: `runtime/contract`
+- Plugin side: `pdk/contract`
+- ABI spec: `docs/abi-v2.md`
+- Benchmark snapshot: `docs/benchmarks/abi-v2-results.md`
+
+The draft focuses on method-ID dispatch, ABI/schema handshake validation, and generated-stub-friendly APIs that avoid reflection in hot paths.
+
+### Generator Skeleton
+
+Use `hookr-gen` to create contract metadata and runtime/PDK glue files from a schema.
+`-manifest` is optional.
+
+Cap'n Proto example:
+
+```bash
+mkdir -p .cache/go-build
+GOCACHE=$(pwd)/.cache/go-build go run ./cmd/hookr-gen \
+  -schema ./testdata/contracts/greeter/greeter.capnp \
+  -manifest ./testdata/contracts/greeter/contract.json \
+  -out ./testdata/contracts/greeter/gen \
+  -package greetercontract \
+  -codec capnp
+```
+
+Protobuf example (schema-only, no manifest):
+
+```bash
+mkdir -p .cache/go-build
+GOCACHE=$(pwd)/.cache/go-build go run ./cmd/hookr-gen \
+  -schema ./testdata/contracts/greeter/greeter.proto \
+  -service Greeter \
+  -out ./testdata/contracts/greeter/gen \
+  -package greetercontract \
+  -codec protobuf
+```
+
+### ABI v2 Runtime APIs
+
+- Host -> plugin by method ID: `runtime.PluginFnMethod` / `Runtime.InvokeMethod`
+- Plugin -> host by method ID: `pdk.HostCallMethod`
+- Host callback registration by method ID: `runtime.WithHostMethodFns(runtime.HostFnMethod(...))`
+- Plugin export registration by method ID: `pdk.FnMethod(...)`
+- Startup contract validation: `runtime.WithContractSchemaHash(...)` / `runtime.WithContractHandshake(...)`
+- Schema-driven startup validation + introspection: `runtime.WithContractSchema(...)`, `Runtime.PluginHandshake()`, `Runtime.ContractHasMethodID(...)`
+- Capability negotiation: `runtime.WithContractCapabilities(...)` + generated `ContractCapabilities`
+- Generated PDK handshake helper: `EnablePDKHandshake()`
+- Generated direct-dispatch helpers: `RuntimeCallHandlerV2(...)`, `SetPluginMethodDispatcher(...)`
+- Generated typed helper wrappers: `BindRuntime*`, `Host*`, `CallPlugin*`, `BindPlugin*`, `RegisterPlugin*`, `CallHost*`
+
+### Example Files To Inspect
+
+- Schema files: `testdata/contracts/greeter/greeter.capnp`, `testdata/contracts/greeter/greeter.proto`
+- Generated Cap'n Proto glue: `testdata/contracts/greeter/gen/contract_meta_gen.go`, `testdata/contracts/greeter/gen/runtime_glue_gen.go`, `testdata/contracts/greeter/gen/pdk_glue_gen.go`
+- Generated Protobuf glue: `testdata/contracts/greeter/gen-proto/contract_meta_gen.go`, `testdata/contracts/greeter/gen-proto/runtime_glue_gen.go`, `testdata/contracts/greeter/gen-proto/pdk_glue_gen.go`
+- Wiring reference examples: `testdata/contracts/greeter/examples/host_main.go`, `testdata/contracts/greeter/examples/plugin_main.go`
 
 ## Quick Start
 

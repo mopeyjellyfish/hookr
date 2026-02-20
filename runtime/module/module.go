@@ -15,10 +15,17 @@ const i32 = api.ValueTypeI32
 // CallHandler is a function to invoke to handle when a guest is performing a host call.
 type CallHandler func(ctx context.Context, operation string, payload []byte) ([]byte, error)
 
+// CallHandlerV2 handles host callbacks by numeric method ID.
+type CallHandlerV2 func(ctx context.Context, methodID uint32, payload []byte) ([]byte, error)
+
 // hookrModule implements all required hookr host function exports.
 type hookrModule struct {
 	// callHandler implements hostCall, which returns false (0) when nil.
 	callHandler CallHandler
+	// callHandlerV2 implements hostCallV2, which returns false (0) when nil.
+	callHandlerV2 CallHandlerV2
+	// currentInvoke returns the active invoke context without requiring context.WithValue.
+	currentInvoke func() *invoke.Context
 
 	// logger is used to implement consoleLog.
 	logger logger.Logger
@@ -32,14 +39,25 @@ func instantiateHookrModule(
 	ctx context.Context,
 	r wazero.Runtime,
 	callHandler CallHandler,
+	callHandlerV2 CallHandlerV2,
+	currentInvoke func() *invoke.Context,
 	logger logger.Logger,
 ) (api.Module, error) {
-	h := &hookrModule{callHandler: callHandler, logger: logger}
+	h := &hookrModule{
+		callHandler:   callHandler,
+		callHandlerV2: callHandlerV2,
+		currentInvoke: currentInvoke,
+		logger:        logger,
+	}
 	return r.NewHostModuleBuilder("hookr").
 		NewFunctionBuilder().
 		WithGoModuleFunction(api.GoModuleFunc(h.hostCall), []api.ValueType{i32, i32, i32, i32}, []api.ValueType{i32}).
 		WithParameterNames("cmd_ptr", "cmd_len", "payload_ptr", "payload_len").
 		Export("__host_call").
+		NewFunctionBuilder().
+		WithGoModuleFunction(api.GoModuleFunc(h.hostCallV2), []api.ValueType{i32, i32, i32}, []api.ValueType{i32}).
+		WithParameterNames("method_id", "payload_ptr", "payload_len").
+		Export("__host_call_v2").
 		NewFunctionBuilder().
 		WithGoModuleFunction(api.GoModuleFunc(h.log), []api.ValueType{i32, i32}, []api.ValueType{}).
 		WithParameterNames("ptr", "len").
@@ -48,6 +66,10 @@ func instantiateHookrModule(
 		WithGoModuleFunction(api.GoModuleFunc(h.pluginRequest), []api.ValueType{i32, i32}, []api.ValueType{}).
 		WithParameterNames("op_ptr", "ptr").
 		Export("__plugin_request").
+		NewFunctionBuilder().
+		WithGoModuleFunction(api.GoModuleFunc(h.pluginRequestV2), []api.ValueType{i32}, []api.ValueType{}).
+		WithParameterNames("ptr").
+		Export("__plugin_request_v2").
 		NewFunctionBuilder().
 		WithGoModuleFunction(api.GoModuleFunc(h.hostResponse), []api.ValueType{i32}, []api.ValueType{}).
 		WithParameterNames("ptr").
@@ -80,7 +102,7 @@ func (w *hookrModule) hostCall(ctx context.Context, m api.Module, stack []uint64
 	cmdLen := api.DecodeU32(stack[1])
 	payloadPtr := api.DecodeU32(stack[2])
 	payloadLen := api.DecodeU32(stack[3])
-	ic := invoke.From(ctx)
+	ic := w.invokeContext(ctx)
 	if ic == nil || w.callHandler == nil {
 		stack[0] = 0 // false: neither an invocation context, nor a callHandler
 		return
@@ -94,6 +116,26 @@ func (w *hookrModule) hostCall(ctx context.Context, m api.Module, stack []uint64
 		stack[0] = 0 // false: error (assumed to be logged already?)
 	} else {
 		stack[0] = 1 // true
+	}
+}
+
+// hostCallV2 is the WebAssembly function export "__host_call_v2", which performs
+// method-ID based host callbacks.
+func (w *hookrModule) hostCallV2(ctx context.Context, m api.Module, stack []uint64) {
+	methodID := api.DecodeU32(stack[0])
+	payloadPtr := api.DecodeU32(stack[1])
+	payloadLen := api.DecodeU32(stack[2])
+	ic := w.invokeContext(ctx)
+	if ic == nil || w.callHandlerV2 == nil {
+		stack[0] = 0
+		return
+	}
+
+	payload := memory.Read(m.Memory(), "payload", payloadPtr, payloadLen)
+	if ic.HostResp, ic.HostErr = w.callHandlerV2(ctx, methodID, payload); ic.HostErr != nil {
+		stack[0] = 0
+	} else {
+		stack[0] = 1
 	}
 }
 
@@ -115,7 +157,7 @@ func (w *hookrModule) pluginRequest(ctx context.Context, m api.Module, params []
 	opPtr := api.DecodeU32(params[0])
 	ptr := api.DecodeU32(params[1])
 
-	ic := invoke.From(ctx)
+	ic := w.invokeContext(ctx)
 	if ic == nil {
 		return // no invoke context
 	}
@@ -129,12 +171,27 @@ func (w *hookrModule) pluginRequest(ctx context.Context, m api.Module, params []
 	}
 }
 
+// pluginRequestV2 is the WebAssembly function export "__plugin_request_v2", which
+// writes only the current request payload for method-ID based calls.
+func (w *hookrModule) pluginRequestV2(ctx context.Context, m api.Module, params []uint64) {
+	ptr := api.DecodeU32(params[0])
+
+	ic := w.invokeContext(ctx)
+	if ic == nil {
+		return
+	}
+
+	if guestReq := ic.PluginReq; guestReq != nil {
+		memory.Write(m.Memory(), "guestReq", ptr, guestReq)
+	}
+}
+
 // hostResponse is the WebAssembly function export "__host_response", which writes the invokeContext.hostResp to the
 // given offset (ptr) in linear memory (wasm.Memory).
 func (w *hookrModule) hostResponse(ctx context.Context, m api.Module, params []uint64) {
 	ptr := api.DecodeU32(params[0])
 
-	if ic := invoke.From(ctx); ic == nil {
+	if ic := w.invokeContext(ctx); ic == nil {
 		return // no invoke context
 	} else if hostResp := ic.HostResp; hostResp != nil {
 		memory.Write(m.Memory(), "hostResp", ptr, hostResp)
@@ -144,7 +201,7 @@ func (w *hookrModule) hostResponse(ctx context.Context, m api.Module, params []u
 // hostResponse is the WebAssembly function export "__host_response_len", which returns the length of the current host
 // response from invokeContext.hostResp.
 func (w *hookrModule) hostResponseLen(ctx context.Context, results []uint64) {
-	if ic := invoke.From(ctx); ic == nil {
+	if ic := w.invokeContext(ctx); ic == nil {
 		results[0] = 0 // no invoke context
 	} else if hostResp := ic.HostResp; hostResp != nil {
 		hostResponseLen, err := memory.Uint32FromInt(len(hostResp))
@@ -163,7 +220,7 @@ func (w *hookrModule) pluginResponse(ctx context.Context, m api.Module, params [
 	ptr := api.DecodeU32(params[0])
 	dataLen := api.DecodeU32(params[1])
 
-	if ic := invoke.From(ctx); ic == nil {
+	if ic := w.invokeContext(ctx); ic == nil {
 		return // no invoke context
 	} else {
 		ic.PluginResp = memory.Read(m.Memory(), "guestResp", ptr, dataLen)
@@ -176,7 +233,7 @@ func (w *hookrModule) pluginError(ctx context.Context, m api.Module, params []ui
 	ptr := api.DecodeU32(params[0])
 	errLen := api.DecodeU32(params[1])
 
-	if ic := invoke.From(ctx); ic == nil {
+	if ic := w.invokeContext(ctx); ic == nil {
 		return // no invoke context
 	} else {
 		ic.PluginErr = memory.ReadString(m.Memory(), "guestErr", ptr, errLen)
@@ -187,7 +244,7 @@ func (w *hookrModule) pluginError(ctx context.Context, m api.Module, params []ui
 // offset (ptr) in linear memory (wasm.Memory).
 func (w *hookrModule) hostError(ctx context.Context, m api.Module, params []uint64) {
 	ptr := api.DecodeU32(params[0])
-	if ic := invoke.From(ctx); ic == nil {
+	if ic := w.invokeContext(ctx); ic == nil {
 		return // no invoke context
 	} else if hostErr := ic.HostErr; hostErr != nil {
 		memory.Write(m.Memory(), "hostErr", ptr, []byte(hostErr.Error()))
@@ -197,7 +254,7 @@ func (w *hookrModule) hostError(ctx context.Context, m api.Module, params []uint
 // hostError is the WebAssembly function export "__host_error_len", which returns the length of the current host error
 // from invokeContext.hostErr.
 func (w *hookrModule) hostErrorLen(ctx context.Context, results []uint64) {
-	if ic := invoke.From(ctx); ic == nil {
+	if ic := w.invokeContext(ctx); ic == nil {
 		results[0] = 0 // no invoke context
 	} else if hostErr := ic.HostErr; hostErr != nil {
 		errorMsg := hostErr.Error()
@@ -215,7 +272,18 @@ func New(
 	ctx context.Context,
 	rt wazero.Runtime,
 	callHandler CallHandler,
+	callHandlerV2 CallHandlerV2,
+	currentInvoke func() *invoke.Context,
 	logger logger.Logger,
 ) (api.Module, error) {
-	return instantiateHookrModule(ctx, rt, callHandler, logger)
+	return instantiateHookrModule(ctx, rt, callHandler, callHandlerV2, currentInvoke, logger)
+}
+
+func (w *hookrModule) invokeContext(ctx context.Context) *invoke.Context {
+	if w.currentInvoke != nil {
+		if ic := w.currentInvoke(); ic != nil {
+			return ic
+		}
+	}
+	return invoke.From(ctx)
 }

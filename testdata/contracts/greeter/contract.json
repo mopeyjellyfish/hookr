@@ -1,0 +1,11 @@
+{
+  "name": "Greeter",
+  "methods": [
+    {
+      "id": 1,
+      "name": "Hello",
+      "request": "HelloRequest",
+      "response": "HelloResponse"
+    }
+  ]
+}

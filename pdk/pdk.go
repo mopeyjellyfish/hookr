@@ -34,6 +34,23 @@ type (
 )
 
 var allFns = Functions{}
+var allMethodFns = map[uint32]Function{}
+var methodDispatcher func(methodID uint32, payload []byte) ([]byte, error)
+
+const (
+	abiV2Major         uint16 = 2
+	abiV2Minor         uint16 = 0
+	abiV2SchemaHashLen        = 32
+)
+
+var (
+	abiV2SchemaHash    [abiV2SchemaHashLen]byte
+	abiV2SchemaHashSet bool
+	abiV2Capabilities  uint64
+
+	pluginOpScratch      []byte
+	pluginPayloadScratch []byte
+)
 
 func pluginFunction[In Unmarshaler, Out Marshaler](fn PluginFunction[In, Out]) Function {
 	return func(input []byte) ([]byte, error) {
@@ -78,10 +95,32 @@ func FnByte(name string, fn Function) {
 	allFns[name] = fn
 }
 
+// FnMethod adds a method-ID based function to the registry for ABI v2 calls.
+func FnMethod(methodID uint32, fn Function) {
+	allMethodFns[methodID] = fn
+}
+
+// SetMethodDispatcher installs a fast path dispatcher for ABI v2 plugin calls.
+// Generated code can provide a switch-based dispatcher to avoid map lookups.
+func SetMethodDispatcher(dispatcher func(methodID uint32, payload []byte) ([]byte, error)) {
+	methodDispatcher = dispatcher
+}
+
+// SetABIV2SchemaHash enables ABI v2 schema-handshake exports for this plugin.
+func SetABIV2SchemaHash(hash [abiV2SchemaHashLen]byte) {
+	abiV2SchemaHash = hash
+	abiV2SchemaHashSet = true
+}
+
+// SetABIV2Capabilities sets the plugin capability bitmask exposed during ABI v2 handshake.
+func SetABIV2Capabilities(capabilities uint64) {
+	abiV2Capabilities = capabilities
+}
+
 //go:export __plugin_call
 func pluginCall(operationSize uint32, payloadSize uint32) bool {
-	operation := make([]byte, operationSize) // alloc
-	payload := make([]byte, payloadSize)     // alloc
+	operation := ensureScratch(&pluginOpScratch, operationSize)
+	payload := ensureScratch(&pluginPayloadScratch, payloadSize)
 	pluginRequest(bytesToPointer(operation), bytesToPointer(payload))
 
 	if f, ok := allFns[string(operation)]; ok {
@@ -101,6 +140,39 @@ func pluginCall(operationSize uint32, payloadSize uint32) bool {
 	message := `Could not find function "` + string(operation) + `"`
 	pluginError(stringToPointer(message), uint32(len(message)))
 
+	return false
+}
+
+//go:export __plugin_call_v2
+func pluginCallV2(methodID uint32, payloadSize uint32) bool {
+	payload := ensureScratch(&pluginPayloadScratch, payloadSize)
+	pluginRequestV2(bytesToPointer(payload))
+
+	if dispatch := methodDispatcher; dispatch != nil {
+		response, err := dispatch(methodID, payload)
+		if err != nil {
+			message := err.Error()
+			pluginError(stringToPointer(message), uint32(len(message)))
+			return false
+		}
+		pluginResponse(bytesToPointer(response), uint32(len(response)))
+		return true
+	}
+
+	if f, ok := allMethodFns[methodID]; ok {
+		response, err := f(payload)
+		if err != nil {
+			message := err.Error()
+			pluginError(stringToPointer(message), uint32(len(message)))
+			return false
+		}
+
+		pluginResponse(bytesToPointer(response), uint32(len(response)))
+		return true
+	}
+
+	message := fmt.Sprintf("Could not find method id %d", methodID)
+	pluginError(stringToPointer(message), uint32(len(message)))
 	return false
 }
 
@@ -205,6 +277,42 @@ func HostCall(operation string, payload []byte) ([]byte, error) {
 	return response, nil
 }
 
+// HostCallMethod invokes a host callback by numeric method ID for ABI v2 flows.
+func HostCallMethod(methodID uint32, payload []byte) ([]byte, error) {
+	result := hostCallV2(methodID, bytesToPointer(payload), uint32(len(payload)))
+	if !result {
+		errorLen := hostErrorLen()
+		message := make([]byte, errorLen)
+		hostError(bytesToPointer(message))
+
+		return nil, &HostError{message: string(message)}
+	}
+
+	responseLen := hostResponseLen()
+	response := make([]byte, responseLen)
+	hostResponse(bytesToPointer(response))
+
+	return response, nil
+}
+
+//go:export __hookr_abi_version_v2
+func hookrABIVersionV2() uint32 {
+	return uint32(abiV2Major)<<16 | uint32(abiV2Minor)
+}
+
+//go:export __hookr_schema_hash_v2
+func hookrSchemaHashV2() uint64 {
+	if !abiV2SchemaHashSet {
+		return 0
+	}
+	return packPtrLenU64(uint32(bytesToPointer(abiV2SchemaHash[:])), abiV2SchemaHashLen)
+}
+
+//go:export __hookr_capabilities_v2
+func hookrCapabilitiesV2() uint64 {
+	return abiV2Capabilities
+}
+
 //go:inline
 func bytesToPointer(b []byte) uintptr {
 	if len(b) == 0 {
@@ -217,6 +325,18 @@ func bytesToPointer(b []byte) uintptr {
 func stringToPointer(s string) uintptr {
 	b := []byte(s)
 	return bytesToPointer(b)
+}
+
+//go:inline
+func packPtrLenU64(ptr uint32, dataLen uint32) uint64 {
+	return uint64(ptr)<<32 | uint64(dataLen)
+}
+
+func ensureScratch(dst *[]byte, size uint32) []byte {
+	if int(size) > cap(*dst) {
+		*dst = make([]byte, int(size))
+	}
+	return (*dst)[:int(size)]
 }
 
 func (e *HostError) Error() string {
