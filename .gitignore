@@ -24,3 +24,6 @@ go.work.sum
 
 # bin - only ignore top level bin directory
 /bin/
+node_modules/
+docs/.vitepress/dist/
+.cache/

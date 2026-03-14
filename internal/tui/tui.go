@@ -635,7 +635,7 @@ func (m *model) refreshDebug() {
 		debugRow("wasm", m.debugInfo.WasmPath),
 		debugRow("abi", zeroOrValue(m.debugInfo.ABIVersion)),
 		debugRow("caps", fmt.Sprintf("0x%x", m.debugInfo.Capabilities)),
-		debugRow("schema hash", m.debugInfo.SchemaHash),
+		debugRow("expected hash", m.debugInfo.SchemaHash),
 		debugRow("plugin hash", zeroOrValue(m.debugInfo.PluginSchemaHash)),
 		debugRow("hash match", fmt.Sprintf("%t", m.debugInfo.SchemaHashMatch)),
 		debugRow("methods", fmt.Sprintf("%d / %d", len(m.debugInfo.PluginMethodIDs), m.debugInfo.ContractMethodCount)),
