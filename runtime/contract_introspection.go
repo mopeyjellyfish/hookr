@@ -1,18 +1,17 @@
 package runtime
 
-import runtimecontract "github.com/mopeyjellyfish/hookr/runtime/contract"
+import (
+	"slices"
 
-// SupportsStringABI reports whether the loaded plugin exports __plugin_call.
-func (e *Runtime) SupportsStringABI() bool {
+	runtimecontract "github.com/mopeyjellyfish/hookr/runtime/contract"
+)
+
+// SupportsMethodABI reports whether the loaded plugin exports __plugin_call.
+func (e *Runtime) SupportsMethodABI() bool {
 	return e != nil && e.pluginCall != nil
 }
 
-// SupportsMethodABI reports whether the loaded plugin exports __plugin_call_v2.
-func (e *Runtime) SupportsMethodABI() bool {
-	return e != nil && e.pluginCallV2 != nil
-}
-
-// PluginHandshake returns the plugin-reported ABI v2 handshake if available.
+// PluginHandshake returns the plugin-reported handshake if available.
 func (e *Runtime) PluginHandshake() (runtimecontract.Handshake, bool) {
 	if e == nil || e.pluginHandshake == nil {
 		return runtimecontract.Handshake{}, false
@@ -28,18 +27,6 @@ func (e *Runtime) ExpectedHandshake() (runtimecontract.Handshake, bool) {
 	return *e.expectedHandshake, true
 }
 
-// RequiredCapabilities returns the effective capability requirements mask.
-func (e *Runtime) RequiredCapabilities() uint64 {
-	if e == nil {
-		return 0
-	}
-	required := e.requiredCapabilities
-	if e.expectedHandshake != nil {
-		required |= e.expectedHandshake.Capabilities
-	}
-	return required
-}
-
 // PluginCapabilities returns plugin-reported capability bits (zero when unavailable).
 func (e *Runtime) PluginCapabilities() uint64 {
 	if e == nil || e.pluginHandshake == nil {
@@ -51,6 +38,28 @@ func (e *Runtime) PluginCapabilities() uint64 {
 // HasPluginCapabilities reports whether plugin capabilities include all bits in mask.
 func (e *Runtime) HasPluginCapabilities(mask uint64) bool {
 	return e.PluginCapabilities()&mask == mask
+}
+
+// PluginMethodIDs returns the method IDs the plugin reported during startup introspection.
+func (e *Runtime) PluginMethodIDs() []uint32 {
+	if e == nil || len(e.pluginMethods) == 0 {
+		return nil
+	}
+	out := make([]uint32, 0, len(e.pluginMethods))
+	for methodID := range e.pluginMethods {
+		out = append(out, methodID)
+	}
+	slices.Sort(out)
+	return out
+}
+
+// HasPluginMethodID reports whether the plugin declared support for methodID.
+func (e *Runtime) HasPluginMethodID(methodID uint32) bool {
+	if e == nil || len(e.pluginMethods) == 0 {
+		return false
+	}
+	_, ok := e.pluginMethods[methodID]
+	return ok
 }
 
 // ContractSchema returns the configured expected schema metadata, when provided.

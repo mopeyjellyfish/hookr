@@ -38,32 +38,28 @@ const fnHookrInit = "hookr_init"
 
 // functionPluginCall is a callback required to be exported. Below is its signature in WebAssembly 1.0 (MVP) Text Format:
 //
-//	(func $__plugin_call (param $operation_len i32) (param $payload_len i32) (result (;errno;) i32))
+//	(func $__plugin_call (param $method_id i32) (param $payload_len i32) (result (;errno;) i32))
 const fnPluginCall = "__plugin_call"
-const fnPluginCallV2 = "__plugin_call_v2"
-const fnABIVersionV2 = "__hookr_abi_version_v2"
-const fnSchemaHashV2 = "__hookr_schema_hash_v2"
-const fnCapabilitiesV2 = "__hookr_capabilities_v2"
+const fnABIVersion = "__hookr_abi_version"
+const fnSchemaHash = "__hookr_schema_hash"
+const fnCapabilities = "__hookr_capabilities"
+const fnMethods = "__hookr_methods"
 
 type Runtime struct {
-	newRuntime    NewRuntime
-	ctx           context.Context
-	file          *File
-	logger        logger.Logger
-	stderr        io.Writer
-	stdout        io.Writer
-	rand          io.Reader
-	callHandler   module.CallHandler
-	callHandlerV2 module.CallHandlerV2
+	newRuntime        NewRuntime
+	ctx               context.Context
+	file              *File
+	logger            logger.Logger
+	stderr            io.Writer
+	stdout            io.Writer
+	rand              io.Reader
 
-	hostFns              CallFns
-	hostFnV2s            map[uint32]CallFn
+	hostMethods          map[uint32]CallFn
 	pluginCall           api.Function
-	pluginCallV2         api.Function
 	expectedHandshake    *runtimecontract.Handshake
-	requiredCapabilities uint64
 	expectedSchema       *runtimecontract.Schema
 	pluginHandshake      *runtimecontract.Handshake
+	pluginMethods        map[uint32]struct{}
 	moduleName           string
 	r                    wazero.Runtime
 	config               wazero.ModuleConfig
@@ -71,8 +67,9 @@ type Runtime struct {
 	plugin               api.Module
 	compiled             wazero.CompiledModule
 
-	invokeMu  sync.Mutex
-	invokeCtx *invoke.Context
+	invokeMu      sync.Mutex
+	invokeCtx     *invoke.Context
+	invokeScratch invoke.Context
 }
 
 // Will initialize the wazero runtime
@@ -94,7 +91,7 @@ func (e *Runtime) InitHookr() error {
 	if e.r == nil {
 		return errors.New("runtime not initialized")
 	}
-	hookr, err := module.New(e.ctx, e.r, e.fnHandler, e.fnHandlerV2, e.currentInvoke, e.logger)
+	hookr, err := module.New(e.ctx, e.r, e.methodHandler, e.currentInvoke, e.logger)
 	if err != nil {
 		return err
 	}
@@ -102,40 +99,19 @@ func (e *Runtime) InitHookr() error {
 	return nil
 }
 
-func (e *Runtime) fnHandler(ctx context.Context, operation string, payload []byte) ([]byte, error) {
-	if e.callHandler != nil {
-		return e.callHandler(ctx, operation, payload)
-	}
-	if fn, ok := e.hostFns[operation]; ok {
-		return fn(ctx, payload)
-	}
-	return nil, fmt.Errorf("no handler registered for operation '%s'", operation)
-}
-
-func (e *Runtime) fnHandlerV2(ctx context.Context, methodID uint32, payload []byte) ([]byte, error) {
-	if e.callHandlerV2 != nil {
-		return e.callHandlerV2(ctx, methodID, payload)
-	}
-	if fn, ok := e.hostFnV2s[methodID]; ok {
+func (e *Runtime) methodHandler(ctx context.Context, methodID uint32, payload []byte) ([]byte, error) {
+	if fn, ok := e.hostMethods[methodID]; ok {
 		return fn(ctx, payload)
 	}
 	return nil, fmt.Errorf("no handler registered for method id %d", methodID)
 }
 
-// RegisterFunction registers a host function with the engine.
-func (e *Runtime) RegisterFunction(name string, fn CallFn) {
-	if e.hostFns == nil {
-		e.hostFns = make(CallFns)
-	}
-	e.hostFns[name] = fn
-}
-
-// RegisterMethod registers a method-ID based host callback for ABI v2 plugins.
+// RegisterMethod registers a method-ID based host callback.
 func (e *Runtime) RegisterMethod(methodID uint32, fn CallFn) {
-	if e.hostFnV2s == nil {
-		e.hostFnV2s = make(map[uint32]CallFn)
+	if e.hostMethods == nil {
+		e.hostMethods = make(map[uint32]CallFn)
 	}
-	e.hostFnV2s[methodID] = fn
+	e.hostMethods[methodID] = fn
 }
 
 // InitConfig initializes the wazero module config with the default settings.
@@ -182,6 +158,9 @@ func (e *Runtime) Compile() error {
 	if e.r == nil {
 		return errors.New("runtime not initialized")
 	}
+	if e.file == nil {
+		return errors.New("plugin file not configured")
+	}
 	if e.compiled != nil {
 		return errors.New("plugin already compiled")
 	}
@@ -209,6 +188,12 @@ func (e *Runtime) Instantiate() error {
 	if err != nil {
 		return fmt.Errorf("failed to instantiate module: %w", err)
 	}
+	closeModule := true
+	defer func() {
+		if closeModule {
+			_ = module.Close(e.ctx)
+		}
+	}()
 
 	// Call any WASI or hookr start functions on instantiate.
 	funcs := []string{fnStart, fnInitialize, fnHookrInit}
@@ -220,6 +205,7 @@ func (e *Runtime) Instantiate() error {
 				if exitErr, ok := err.(*sys.ExitError); ok {
 					return fmt.Errorf("error calling %s: %w", f, exitErr)
 				}
+				return fmt.Errorf("error calling %s: %w", f, err)
 			}
 		}
 	}
@@ -227,101 +213,100 @@ func (e *Runtime) Instantiate() error {
 	e.plugin = module
 
 	e.pluginCall = module.ExportedFunction(fnPluginCall)
-	e.pluginCallV2 = module.ExportedFunction(fnPluginCallV2)
-	if e.pluginCall == nil && e.pluginCallV2 == nil {
+	if e.pluginCall == nil {
 		_ = e.plugin.Close(e.ctx)
-		return fmt.Errorf("module %s didn't export %s or %s", e.moduleName, fnPluginCall, fnPluginCallV2)
+		return fmt.Errorf("module %s didn't export %s", e.moduleName, fnPluginCall)
 	}
 	if err := e.validateContractHandshake(); err != nil {
 		_ = e.plugin.Close(e.ctx)
 		return err
 	}
+	closeModule = false
 
 	return nil
 }
 
-// Invoke calls the plugin function with the given operation and payload.
-func (e *Runtime) Invoke(ctx context.Context, operation string, payload []byte) ([]byte, error) {
-	if e.plugin == nil {
-		return nil, errors.New("plugin not initialized")
-	}
-	if e.pluginCall == nil {
-		return nil, errors.New("plugin does not support string-operation ABI; use InvokeMethod for ABI v2 plugins")
-	}
-
-	ic := invoke.Context{Operation: operation, PluginReq: payload}
-	results, err := e.callWithInvokeContext2(
-		ctx,
-		&ic,
-		e.pluginCall,
-		uint64(len(operation)),
-		uint64(len(payload)),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("error while making %s call: %w", operation, err)
-	}
-	if ic.PluginErr != "" { // guestErr is not nil if the guest called "__plugin_error".
-		return nil, errors.New(ic.PluginErr)
-	}
-
-	result := results[0]
-	success := result == 1
-
-	if success { // guestResp is not nil if the guest called "__plugin_response".
-		return ic.PluginResp, nil
-	}
-
-	return nil, fmt.Errorf("call to %q was unsuccessful", operation)
-}
-
 // InvokeMethod calls a plugin method-ID endpoint with the given payload.
 func (e *Runtime) InvokeMethod(ctx context.Context, methodID uint32, payload []byte) ([]byte, error) {
-	if e.plugin == nil {
-		return nil, errors.New("plugin not initialized")
+	var response []byte
+	if err := e.InvokeMethodWithResponse(ctx, methodID, payload, func(data []byte) error {
+		response = data
+		return nil
+	}); err != nil {
+		return nil, err
 	}
-	if e.pluginCallV2 == nil {
-		return nil, errors.New("plugin does not support ABI v2 method calls")
+	return response, nil
+}
+
+// InvokeMethodWithResponse calls a plugin method-ID endpoint and invokes fn with
+// the response bytes before returning to the caller.
+func (e *Runtime) InvokeMethodWithResponse(ctx context.Context, methodID uint32, payload []byte, fn func([]byte) error) error {
+	if e.plugin == nil {
+		return errors.New("plugin not initialized")
 	}
 
-	ic := invoke.Context{PluginReq: payload}
-	results, err := e.callWithInvokeContext2(
-		ctx,
-		&ic,
-		e.pluginCallV2,
-		uint64(methodID),
-		uint64(len(payload)),
+	var (
+		results   []uint64
+		err       error
+		resp      []byte
+		pluginErr string
 	)
+
+	e.invokeMu.Lock()
+	ic := &e.invokeScratch
+	ic.Operation = ""
+	ic.PluginReq = payload
+	ic.PluginResp = nil
+	ic.PluginErr = ""
+	ic.HostResp = nil
+	ic.HostErr = nil
+	e.invokeCtx = ic
+	results, err = e.pluginCall.Call(ctx, uint64(methodID), uint64(len(payload)))
+	resp = ic.PluginResp
+	pluginErr = ic.PluginErr
+	e.invokeCtx = nil
+	ic.PluginReq = nil
+	ic.PluginResp = nil
+	ic.PluginErr = ""
+	ic.HostResp = nil
+	ic.HostErr = nil
+	e.invokeMu.Unlock()
+
 	if err != nil {
-		return nil, fmt.Errorf("error while making method %d call: %w", methodID, err)
+		return fmt.Errorf("error while making method %d call: %w", methodID, err)
 	}
-	if ic.PluginErr != "" {
-		return nil, errors.New(ic.PluginErr)
+	if pluginErr != "" {
+		return errors.New(pluginErr)
 	}
 
 	if len(results) > 0 && results[0] == 1 {
-		return ic.PluginResp, nil
+		if fn != nil {
+			return fn(resp)
+		}
+		return nil
 	}
-	return nil, fmt.Errorf("call to method %d was unsuccessful", methodID)
+	return fmt.Errorf("call to method %d was unsuccessful", methodID)
 }
 
 func (e *Runtime) validateContractHandshake() error {
-	strict := e.expectedHandshake != nil || e.requiredCapabilities != 0
+	strict := e.expectedHandshake != nil
 
-	if e.pluginCallV2 == nil {
+	if e.pluginCall == nil {
 		if !strict {
 			return nil
 		}
-		return errors.New("contract handshake requested, but plugin does not export __plugin_call_v2")
+		return errors.New("contract handshake requested, but plugin does not export __plugin_call")
 	}
 
-	abiFn := e.plugin.ExportedFunction(fnABIVersionV2)
-	hashFn := e.plugin.ExportedFunction(fnSchemaHashV2)
-	capsFn := e.plugin.ExportedFunction(fnCapabilitiesV2)
+	abiFn := e.plugin.ExportedFunction(fnABIVersion)
+	hashFn := e.plugin.ExportedFunction(fnSchemaHash)
+	capsFn := e.plugin.ExportedFunction(fnCapabilities)
+	methodsFn := e.plugin.ExportedFunction(fnMethods)
 	if abiFn == nil || hashFn == nil {
 		if !strict {
 			return nil
 		}
-		return errors.New("contract handshake requested, but plugin does not export ABI v2 handshake functions")
+		return errors.New("contract handshake requested, but plugin does not export handshake functions")
 	}
 
 	abiResults, err := abiFn.Call(e.ctx)
@@ -329,13 +314,13 @@ func (e *Runtime) validateContractHandshake() error {
 		if !strict {
 			return nil
 		}
-		return fmt.Errorf("failed to call %s: %w", fnABIVersionV2, err)
+		return fmt.Errorf("failed to call %s: %w", fnABIVersion, err)
 	}
 	if len(abiResults) == 0 {
 		if !strict {
 			return nil
 		}
-		return fmt.Errorf("plugin %s returned no results", fnABIVersionV2)
+		return fmt.Errorf("plugin %s returned no results", fnABIVersion)
 	}
 	versionPacked := uint32(abiResults[0])
 	pluginABIMajor := uint16(versionPacked >> 16)
@@ -346,13 +331,13 @@ func (e *Runtime) validateContractHandshake() error {
 		if !strict {
 			return nil
 		}
-		return fmt.Errorf("failed to call %s: %w", fnSchemaHashV2, err)
+		return fmt.Errorf("failed to call %s: %w", fnSchemaHash, err)
 	}
 	if len(hashResults) == 0 {
 		if !strict {
 			return nil
 		}
-		return fmt.Errorf("plugin %s returned no results", fnSchemaHashV2)
+		return fmt.Errorf("plugin %s returned no results", fnSchemaHash)
 	}
 
 	hashPtr, hashLen := unpackPtrLenU64(hashResults[0])
@@ -362,7 +347,13 @@ func (e *Runtime) validateContractHandshake() error {
 		}
 		return fmt.Errorf("plugin schema hash has invalid length: got %d want %d", hashLen, runtimecontract.SchemaHashLen)
 	}
-	hash := runtimememory.Read(e.plugin.Memory(), "schema_hash", hashPtr, hashLen)
+	hash, err := runtimememory.TryRead(e.plugin.Memory(), "schema_hash", hashPtr, hashLen)
+	if err != nil {
+		if !strict {
+			return nil
+		}
+		return err
+	}
 	var schemaHash [runtimecontract.SchemaHashLen]byte
 	copy(schemaHash[:], hash)
 
@@ -375,22 +366,42 @@ func (e *Runtime) validateContractHandshake() error {
 		capsResults, err := capsFn.Call(e.ctx)
 		if err != nil {
 			if strict {
-				return fmt.Errorf("failed to call %s: %w", fnCapabilitiesV2, err)
+				return fmt.Errorf("failed to call %s: %w", fnCapabilities, err)
 			}
 		} else if len(capsResults) == 0 {
 			if strict {
-				return fmt.Errorf("plugin %s returned no results", fnCapabilitiesV2)
+				return fmt.Errorf("plugin %s returned no results", fnCapabilities)
 			}
 		} else {
 			pluginHandshake.Capabilities = capsResults[0]
 		}
 	}
+	if methodsFn != nil {
+		methods, err := e.loadPluginMethods(methodsFn)
+		if err != nil {
+			return err
+		}
+		e.pluginMethods = methods
+	}
+	if e.expectedSchema != nil {
+		if methodsFn == nil {
+			return errors.New("contract schema validation requested, but plugin does not export __hookr_methods")
+		}
+		for _, method := range e.expectedSchema.Methods {
+			if method.Optional {
+				continue
+			}
+			if _, ok := e.pluginMethods[uint32(method.ID)]; !ok {
+				return fmt.Errorf("plugin does not implement required method %s (%d)", method.Name, method.ID)
+			}
+		}
+	}
 
 	e.pluginHandshake = &pluginHandshake
 
-	requiredCaps := e.requiredCapabilities
+	var requiredCaps uint64
 	if e.expectedHandshake != nil {
-		requiredCaps |= e.expectedHandshake.Capabilities
+		requiredCaps = e.expectedHandshake.Capabilities
 	}
 	if missing := requiredCaps &^ pluginHandshake.Capabilities; missing != 0 {
 		return fmt.Errorf("%w: missing_bits=0x%x", runtimecontract.ErrCapabilityMismatch, missing)
@@ -408,25 +419,25 @@ func (e *Runtime) validateContractHandshake() error {
 }
 
 func (e *Runtime) Close(ctx context.Context) error {
+	var errs []error
 	if e.plugin != nil {
 		if err := e.plugin.Close(ctx); err != nil {
-			return fmt.Errorf("error closing plugin: %w", err)
+			errs = append(errs, fmt.Errorf("error closing plugin: %w", err))
 		}
 	}
 
 	if e.hookr != nil {
 		if err := e.hookr.Close(ctx); err != nil {
-			return fmt.Errorf("error closing hookr: %w", err)
+			errs = append(errs, fmt.Errorf("error closing hookr: %w", err))
 		}
 	}
 
 	if e.r != nil {
 		if err := e.r.Close(ctx); err != nil {
-			return fmt.Errorf("error closing runtime: %w", err)
+			errs = append(errs, fmt.Errorf("error closing runtime: %w", err))
 		}
 	}
-
-	return nil
+	return errors.Join(errs...)
 }
 
 // DefaultRuntime implements NewRuntime by returning a wazero runtime with WASI
@@ -464,16 +475,22 @@ func New(ctx context.Context, opts ...Option) (*Runtime, error) {
 			return nil, err
 		}
 	}
+	var err error
+	defer func() {
+		if err != nil {
+			_ = e.Close(ctx)
+		}
+	}()
 
-	if err := e.Init(); err != nil {
+	if err = e.Init(); err != nil {
 		return nil, err
 	}
 
-	if err := e.Compile(); err != nil {
+	if err = e.Compile(); err != nil {
 		return nil, err
 	}
 
-	if err := e.Instantiate(); err != nil {
+	if err = e.Instantiate(); err != nil {
 		return nil, err
 	}
 
@@ -488,6 +505,36 @@ func unpackPtrLenU64(encoded uint64) (ptr uint32, dataLen uint32) {
 
 func (e *Runtime) currentInvoke() *invoke.Context {
 	return e.invokeCtx
+}
+
+func (e *Runtime) loadPluginMethods(fn api.Function) (map[uint32]struct{}, error) {
+	results, err := fn.Call(e.ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to call %s: %w", fnMethods, err)
+	}
+	if len(results) == 0 {
+		return nil, fmt.Errorf("plugin %s returned no results", fnMethods)
+	}
+	ptr, dataLen := unpackPtrLenU64(results[0])
+	if dataLen == 0 {
+		return map[uint32]struct{}{}, nil
+	}
+	if dataLen%4 != 0 {
+		return nil, fmt.Errorf("plugin methods payload has invalid length: got %d", dataLen)
+	}
+	raw, err := runtimememory.TryRead(e.plugin.Memory(), "methods", ptr, dataLen)
+	if err != nil {
+		return nil, err
+	}
+	methods := make(map[uint32]struct{}, len(raw)/4)
+	for i := 0; i < len(raw); i += 4 {
+		methodID := uint32(raw[i]) |
+			uint32(raw[i+1])<<8 |
+			uint32(raw[i+2])<<16 |
+			uint32(raw[i+3])<<24
+		methods[methodID] = struct{}{}
+	}
+	return methods, nil
 }
 
 func (e *Runtime) callWithInvokeContext0(

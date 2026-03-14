@@ -1,0 +1,12 @@
+{
+  "RngInt": {
+    "response": {
+      "value": 1
+    }
+  },
+  "RngFloat": {
+    "response": {
+      "value": 0.5
+    }
+  }
+}

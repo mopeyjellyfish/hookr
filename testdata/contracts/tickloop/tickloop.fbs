@@ -1,0 +1,56 @@
+namespace Hookr.Test.TickLoop;
+
+file_identifier "TICK";
+
+attribute "hookr_optional";
+
+table Empty {}
+
+table PluginInfo {
+  name:string;
+  version:string;
+  description:string;
+}
+
+table TickRequest {
+  tick:uint64;
+  dt_micros:uint32;
+  state_hash:uint64;
+  events:uint32;
+}
+
+table TickResponse {
+  next_state_hash:uint64;
+  continue_run:bool;
+  actions:uint32;
+  jitter_bucket:int32;
+  note:string;
+}
+
+table WarmupRequest {
+  target_ticks:uint32;
+}
+
+table WarmupResponse {
+  ready:bool;
+  recommended_batch:uint32;
+}
+
+table RngIntRequest {
+  min:int32;
+  max:int32;
+}
+
+table RngIntResponse {
+  value:int32;
+}
+
+rpc_service Plugin {
+  GetInfo(Empty):PluginInfo;
+  Tick(TickRequest):TickResponse;
+  Warmup(WarmupRequest):WarmupResponse (hookr_optional);
+}
+
+rpc_service Host {
+  RngInt(RngIntRequest):RngIntResponse;
+}

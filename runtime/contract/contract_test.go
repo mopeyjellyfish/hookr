@@ -21,6 +21,11 @@ func TestValidateHandshake(t *testing.T) {
 	require.ErrorIs(t, err, ErrIncompatibleABIMajor)
 
 	plugin = NewHandshake(hash)
+	plugin.ABIMinor = host.ABIMinor + 1
+	err = ValidateHandshake(host, plugin)
+	require.ErrorIs(t, err, ErrIncompatibleABIMinor)
+
+	plugin = NewHandshake(hash)
 	plugin.SchemaHash[0] = 99
 	err = ValidateHandshake(host, plugin)
 	require.ErrorIs(t, err, ErrSchemaHashMismatch)
@@ -76,23 +81,17 @@ func TestSchemaHasMethodID(t *testing.T) {
 	require.False(t, schema.HasMethodID(12))
 }
 
-func TestHostRegistryAndBindHostMethod(t *testing.T) {
-	handler := BindHostMethod(
-		func(payload []byte) (string, error) {
-			return string(payload), nil
-		},
-		func(value string) ([]byte, error) {
-			return []byte(value), nil
-		},
-		func(ctx context.Context, req string) (string, error) {
-			if req == "" {
-				return "", errors.New("empty")
+func TestHostRegistry(t *testing.T) {
+	reg, err := NewHostRegistry(HostMethod{
+		ID:   10,
+		Name: "Hello",
+		Handler: func(_ context.Context, payload []byte) ([]byte, error) {
+			if len(payload) == 0 {
+				return nil, errors.New("empty")
 			}
-			return "hello " + req, nil
+			return append([]byte("hello "), payload...), nil
 		},
-	)
-
-	reg, err := NewHostRegistry(HostMethod{ID: 10, Name: "Hello", Handler: handler})
+	})
 	require.NoError(t, err)
 
 	data, err := reg.Call(context.Background(), 10, []byte("david"))

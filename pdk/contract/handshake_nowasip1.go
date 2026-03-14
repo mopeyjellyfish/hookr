@@ -2,5 +2,5 @@
 
 package contract
 
-// EnableHandshake is a no-op outside wasip1 builds.
-func EnableHandshake(schemaHash [SchemaHashLen]byte) {}
+// PublishContractHandshake is a no-op outside wasip1 builds.
+func PublishContractHandshake(schemaHash [SchemaHashLen]byte, capabilities uint64, methodIDs []uint32) {}

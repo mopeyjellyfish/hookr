@@ -1,44 +1,41 @@
 # Contract Samples
 
-This directory contains schema-first contract examples for ABI v2 development.
+This directory contains Hookr contract fixtures.
 
-- `greeter/greeter.capnp`: sample Cap'n Proto schema
-- `greeter/greeter.proto`: sample Protobuf schema
-- `greeter/contract.json`: optional manifest override for `hookr-gen`
-- `greeter/gen/*.go`: generated metadata + runtime/PDK glue stubs
-- `greeter/gen-proto/*.go`: generated metadata + runtime/PDK glue stubs from protobuf
-- `greeter/examples/*`: host/plugin reference wiring + generated file index
+Primary FlatBuffers fixtures:
 
-Generated glue now includes switch-based direct-dispatch helpers:
+- `urlbalancer/`: plugin -> host callback example with generated Go SDK/PDK and e2e test
+- `textfilter/`: minimal no-callback tutorial-style example with generated Go SDK/PDK and e2e test
+- `tickloop/`: hot-loop benchmark example with optional plugin method, generated Go SDK/PDK, e2e test, and benchmarks
 
-- Host side: `RuntimeCallHandlerV2(...)`
-- Plugin side: `SetPluginMethodDispatcher(...)`
-
-Generated packages also expose:
-
-- `ContractCapabilities` + per-method capability constants
-- typed wrappers (`BindRuntime*`, `Host*`, `CallPlugin*`, `BindPlugin*`, `RegisterPlugin*`, `CallHost*`)
-
-Generate the sample files with:
+Generate a FlatBuffers fixture package with:
 
 ```bash
-mkdir -p .cache/go-build
-GOCACHE=$(pwd)/.cache/go-build go run ./cmd/hookr-gen \
-  -schema ./testdata/contracts/greeter/greeter.capnp \
-  -manifest ./testdata/contracts/greeter/contract.json \
-  -out ./testdata/contracts/greeter/gen \
-  -package greetercontract \
-  -codec capnp
+hookr gen \
+  --schema ./testdata/contracts/urlbalancer/urlbalancer.fbs \
+  --out ./testdata/contracts/urlbalancer/gen \
+  --package urlbalancerhookr
 ```
 
-You can also generate directly from protobuf service definitions (no manifest required):
+Build a plugin with:
 
 ```bash
-mkdir -p .cache/go-build
-GOCACHE=$(pwd)/.cache/go-build go run ./cmd/hookr-gen \
-  -schema ./testdata/contracts/greeter/greeter.proto \
-  -service Greeter \
-  -out ./testdata/contracts/greeter/gen \
-  -package greetercontract \
-  -codec protobuf
+hookr build \
+  --plugin ./testdata/contracts/urlbalancer/plugin \
+  --out ./testdata/contracts/urlbalancer/bin/urlbalancer.wasm
+```
+
+Inspect a contract with:
+
+```bash
+hookr inspect \
+  --schema ./testdata/contracts/tickloop/tickloop.fbs \
+  --package tickloophookr
+```
+
+Run the benchmark fixture with:
+
+```bash
+hookr bench \
+  --package ./testdata/contracts/tickloop
 ```

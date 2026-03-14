@@ -1,0 +1,4 @@
+{
+  "url": "https://example.com/api?q=1",
+  "nodes": ["node-a", "node-b", "node-c"]
+}

@@ -2,7 +2,7 @@ default: help
 
 PROJECTNAME=$(shell basename "$(PWD)")
 
-CLI_MAIN_FOLDER=./cmd/main.go
+CLI_MAIN_FOLDER=./cmd/hookr
 BIN_FOLDER=bin
 BIN_FOLDER_MACOS=${BIN_FOLDER}/amd64/darwin
 BIN_FOLDER_WINDOWS=${BIN_FOLDER}/amd64/windows
@@ -26,7 +26,6 @@ setup/tools:
 setup/go:
 	@echo "  >  Installing go tools"
 	go install github.com/kyoh86/richgo@latest
-	go install github.com/tinylib/msgp@latest
 
 ## compile: compiles project in current system
 compile: clean fmt vet lint test build
@@ -44,6 +43,26 @@ build:
 		-ldflags="${LDFLAGS}" \
 		-o ${BIN_FOLDER}/${BIN_NAME} \
 		"${CLI_MAIN_FOLDER}"
+
+## docs/install: install documentation site dependencies
+docs/install:
+	@echo "  >  Installing docs dependencies"
+	@npm install
+
+## docs/serve: run the local VitePress docs server
+docs/serve: docs/install
+	@echo "  >  Starting docs server"
+	@npm run docs:dev
+
+## docs/build: build the VitePress docs site
+docs/build: docs/install
+	@echo "  >  Building docs site"
+	@npm run docs:build
+
+## docs/preview: preview the built VitePress docs site
+docs/preview: docs/build
+	@echo "  >  Previewing docs site"
+	@npm run docs:preview
 
 ## build/all: build the binary for all platforms
 build/all: build/macos build/windows build/linux

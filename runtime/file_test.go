@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -184,4 +185,26 @@ func TestDefaultHasher_IsValid(t *testing.T) {
 func TestHasher_Interface(t *testing.T) {
 	var _ Hasher = Sha256Hasher{}
 	var _ Hasher = DefaultHasher{}
+}
+
+func TestFileVerifyRequiresExplicitTrust(t *testing.T) {
+	tmp := t.TempDir() + "/plugin.wasm"
+	require.NoError(t, os.WriteFile(tmp, []byte("wasm"), 0o644))
+
+	_, err := NewFile(tmp)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unsigned plugin is not allowed")
+
+	f, err := NewFile(tmp, WithAllowUnsigned())
+	require.NoError(t, err)
+	require.NotNil(t, f)
+}
+
+func TestWithHasherOption(t *testing.T) {
+	tmp := t.TempDir() + "/plugin.wasm"
+	require.NoError(t, os.WriteFile(tmp, []byte("wasm"), 0o644))
+
+	f, err := NewFile(tmp, WithAllowUnsigned(), WithHasher(DefaultHasher{}))
+	require.NoError(t, err)
+	require.IsType(t, DefaultHasher{}, f.hasher)
 }

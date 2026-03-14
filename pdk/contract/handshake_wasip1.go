@@ -4,14 +4,10 @@ package contract
 
 import "github.com/mopeyjellyfish/hookr/pdk"
 
-// EnableHandshake publishes the schema hash to Hookr ABI v2 handshake exports.
-func EnableHandshake(schemaHash [SchemaHashLen]byte) {
-	pdk.SetABIV2SchemaHash(schemaHash)
-	pdk.SetABIV2Capabilities(0)
-}
-
-// EnableHandshakeWithCapabilities publishes schema hash + capability bits for ABI v2.
-func EnableHandshakeWithCapabilities(schemaHash [SchemaHashLen]byte, capabilities uint64) {
-	pdk.SetABIV2SchemaHash(schemaHash)
-	pdk.SetABIV2Capabilities(capabilities)
+// PublishContractHandshake publishes schema hash, capabilities, and implemented
+// method IDs for generated Hookr plugins.
+func PublishContractHandshake(schemaHash [SchemaHashLen]byte, capabilities uint64, methodIDs []uint32) {
+	pdk.SetABISchemaHash(schemaHash)
+	pdk.SetABICapabilities(capabilities)
+	pdk.SetABIMethods(methodIDs)
 }

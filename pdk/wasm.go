@@ -4,11 +4,7 @@ package pdk
 
 //go:wasm-module hookr
 //go:export __plugin_request
-func pluginRequest(operationPtr uintptr, payloadPtr uintptr)
-
-//go:wasm-module hookr
-//go:export __plugin_request_v2
-func pluginRequestV2(payloadPtr uintptr)
+func pluginRequest(payloadPtr uintptr) bool
 
 //go:wasm-module hookr
 //go:export __plugin_response
@@ -21,12 +17,6 @@ func pluginError(ptr uintptr, len uint32)
 //go:wasm-module hookr
 //go:export __host_call
 func hostCall(
-	operationPtr uintptr, operationLen uint32,
-	payloadPtr uintptr, payloadLen uint32) bool
-
-//go:wasm-module hookr
-//go:export __host_call_v2
-func hostCallV2(
 	methodID uint32,
 	payloadPtr uintptr, payloadLen uint32,
 ) bool

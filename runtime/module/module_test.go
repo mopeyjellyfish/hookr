@@ -13,13 +13,11 @@ func TestHookrModuleErrors(t *testing.T) {
 	results[2] = 3
 	results[3] = 4
 	m.hostCall(context.Background(), nil, results)
-	m.hostCallV2(context.Background(), nil, results)
 	m.hostErrorLen(context.Background(), results)
 	m.hostError(context.Background(), nil, results)
 	m.hostResponseLen(context.Background(), results)
 	m.hostResponse(context.Background(), nil, results)
 	m.pluginRequest(context.Background(), nil, results)
-	m.pluginRequestV2(context.Background(), nil, results)
 	m.pluginResponse(context.Background(), nil, results)
 	m.pluginError(context.Background(), nil, results)
 }

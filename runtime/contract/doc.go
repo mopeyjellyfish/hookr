@@ -1,7 +1,7 @@
 /*
-Package contract defines Hookr ABI v2 host-side primitives for schema-driven plugin contracts.
+Package contract defines Hookr host-side primitives for schema-driven plugin contracts.
 
-This package is intended for code generation targets. Generated host stubs should bind typed
-handlers through BindHostMethod and dispatch by numeric method IDs.
+This package is intended for generated code and runtime validation metadata for
+schema-driven FlatBuffers contracts.
 */
 package contract
