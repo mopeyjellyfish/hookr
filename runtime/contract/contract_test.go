@@ -105,3 +105,44 @@ func TestHostRegistry(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, MethodID(10), id)
 }
+
+func TestHostRegistryErrors(t *testing.T) {
+	_, err := NewHostRegistry(HostMethod{ID: 1, Name: "bad", Handler: nil})
+	require.ErrorIs(t, err, ErrMethodHandlerMissing)
+
+	_, err = NewHostRegistry(
+		HostMethod{
+			ID:      1,
+			Name:    "one",
+			Handler: func(context.Context, []byte) ([]byte, error) { return nil, nil },
+		},
+		HostMethod{
+			ID:      1,
+			Name:    "two",
+			Handler: func(context.Context, []byte) ([]byte, error) { return nil, nil },
+		},
+	)
+	require.ErrorIs(t, err, ErrMethodIDDuplicate)
+
+	_, err = NewHostRegistry(
+		HostMethod{
+			ID:      1,
+			Name:    "dup",
+			Handler: func(context.Context, []byte) ([]byte, error) { return nil, nil },
+		},
+		HostMethod{
+			ID:      2,
+			Name:    "dup",
+			Handler: func(context.Context, []byte) ([]byte, error) { return nil, nil },
+		},
+	)
+	require.ErrorIs(t, err, ErrMethodNameDuplicate)
+
+	var reg *HostRegistry
+	_, err = reg.Call(context.Background(), 1, nil)
+	require.ErrorIs(t, err, ErrMethodNotFound)
+
+	id, ok := reg.MethodID("missing")
+	require.False(t, ok)
+	require.Equal(t, MethodID(0), id)
+}

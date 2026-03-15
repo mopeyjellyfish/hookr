@@ -189,7 +189,7 @@ func TestHasher_Interface(t *testing.T) {
 
 func TestFileVerifyRequiresExplicitTrust(t *testing.T) {
 	tmp := t.TempDir() + "/plugin.wasm"
-	require.NoError(t, os.WriteFile(tmp, []byte("wasm"), 0o644))
+	require.NoError(t, os.WriteFile(tmp, []byte("wasm"), 0o600))
 
 	_, err := NewFile(tmp)
 	require.Error(t, err)
@@ -202,7 +202,7 @@ func TestFileVerifyRequiresExplicitTrust(t *testing.T) {
 
 func TestWithHasherOption(t *testing.T) {
 	tmp := t.TempDir() + "/plugin.wasm"
-	require.NoError(t, os.WriteFile(tmp, []byte("wasm"), 0o644))
+	require.NoError(t, os.WriteFile(tmp, []byte("wasm"), 0o600))
 
 	f, err := NewFile(tmp, WithAllowUnsigned(), WithHasher(DefaultHasher{}))
 	require.NoError(t, err)

@@ -12,6 +12,8 @@ var (
 	ErrMethodReplyMissing   = shared.ErrMethodReplyMissing
 )
 
-type MethodID = shared.MethodID
-type Method = shared.Method
-type Schema = shared.Schema
+type (
+	MethodID = shared.MethodID
+	Method   = shared.Method
+	Schema   = shared.Schema
+)

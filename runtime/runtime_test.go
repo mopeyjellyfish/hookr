@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	runtimecontract "github.com/mopeyjellyfish/hookr/runtime/contract"
+	"github.com/mopeyjellyfish/hookr/runtime/invoke"
 	"github.com/mopeyjellyfish/hookr/runtime/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -317,9 +318,9 @@ func TestHookrOpts(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.NotNil(t, plugin)
-	defer func() {
+	t.Cleanup(func() {
 		require.NoError(t, plugin.Close(context.Background()))
-	}()
+	})
 }
 
 func TestHookrBadHash(t *testing.T) {
@@ -352,4 +353,49 @@ func TestHookrModule(t *testing.T) {
 	}()
 
 	require.Equal(t, uint32(131072), plugin.MemorySize())
+}
+
+func TestWithContractSchemaRejectsInvalidSchema(t *testing.T) {
+	rt := &Runtime{}
+	err := WithContractSchema(runtimecontract.Schema{})(rt)
+	require.Error(t, err)
+}
+
+func TestValidateContractHandshakeNonStrictWithoutPluginCall(t *testing.T) {
+	rt := &Runtime{}
+	require.NoError(t, rt.validateContractHandshake())
+
+	rt.expectedHandshake = &runtimecontract.Handshake{}
+	err := rt.validateContractHandshake()
+	require.EqualError(
+		t,
+		err,
+		"contract handshake requested, but plugin does not export __plugin_call",
+	)
+}
+
+func TestDefaultRuntime(t *testing.T) {
+	rt, err := DefaultRuntime(context.Background())
+	require.NoError(t, err)
+	require.NotNil(t, rt)
+	require.NoError(t, rt.Close(context.Background()))
+}
+
+func TestCallWithInvokeContext2(t *testing.T) {
+	ctx := context.Background()
+	r, err := New(
+		ctx,
+		WithFile(SIMPLE_METHOD_WASM, WithAllowUnsigned()),
+		WithHostMethodFns(HostFnMethod(1, HelloByte)),
+	)
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, r.Close(ctx))
+	}()
+
+	ic := &invoke.Context{Operation: "sum"}
+	results, err := r.callWithInvokeContext2(ctx, ic, r.pluginCall, 3, 0)
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+	require.Nil(t, r.currentInvoke())
 }

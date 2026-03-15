@@ -22,9 +22,9 @@ func WithFile(file string, opts ...FileOption) Option {
 }
 
 // WithLogger sets the logger for the engine.
-func WithLogger(logger logger.Logger) Option {
+func WithLogger(logFn logger.Logger) Option {
 	return func(e *Runtime) error {
-		e.logger = logger
+		e.logger = logFn
 		return nil
 	}
 }
@@ -65,6 +65,8 @@ func WithHostMethodFns(fns ...HostMethod) Option {
 }
 
 // WithContractSchema validates and configures expected schema + handshake requirements.
+//
+//nolint:gocritic // Keep the public API value-based to avoid forcing pointer ownership on callers.
 func WithContractSchema(schema runtimecontract.Schema) Option {
 	return func(e *Runtime) error {
 		if err := schema.Validate(); err != nil {

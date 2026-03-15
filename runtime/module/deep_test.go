@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/mopeyjellyfish/hookr/runtime/invoke"
+	runtimememory "github.com/mopeyjellyfish/hookr/runtime/memory"
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
 	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
@@ -37,6 +38,29 @@ func instantiateGuestModule(t *testing.T) (context.Context, wazero.Runtime, api.
 	return ctx, rt, mod
 }
 
+func cleanupClose(
+	t *testing.T,
+	ctx context.Context,
+	name string,
+	closeFn func(context.Context) error,
+) {
+	t.Helper()
+	t.Cleanup(func() {
+		if err := closeFn(ctx); err != nil {
+			t.Errorf("close %s: %v", name, err)
+		}
+	})
+}
+
+func mustUint32FromLen(t *testing.T, n int) uint32 {
+	t.Helper()
+	v, err := runtimememory.Uint32FromInt(n)
+	if err != nil {
+		t.Fatalf("length conversion: %v", err)
+	}
+	return v
+}
+
 func TestInvokeContextResolution(t *testing.T) {
 	ic := &invoke.Context{Operation: "one"}
 	h := &hookrModule{currentInvoke: func() *invoke.Context { return ic }}
@@ -54,18 +78,18 @@ func TestInvokeContextResolution(t *testing.T) {
 func TestNewInstantiatesHookrModule(t *testing.T) {
 	ctx := context.Background()
 	rt := wazero.NewRuntime(ctx)
-	defer rt.Close(ctx)
+	cleanupClose(t, ctx, "runtime", rt.Close)
 	mod, err := New(ctx, rt, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("new host module: %v", err)
 	}
-	defer mod.Close(ctx)
+	cleanupClose(t, ctx, "module", mod.Close)
 }
 
 func TestHookrModuleDeepPaths(t *testing.T) {
 	ctx, rt, guest := instantiateGuestModule(t)
-	defer rt.Close(ctx)
-	defer guest.Close(ctx)
+	cleanupClose(t, ctx, "runtime", rt.Close)
+	cleanupClose(t, ctx, "guest", guest.Close)
 
 	ic := &invoke.Context{PluginReq: []byte("hello")}
 	h := &hookrModule{
@@ -93,11 +117,13 @@ func TestHookrModuleDeepPaths(t *testing.T) {
 	}
 	results := []uint64{0}
 	h.hostResponseLen(ctx, results)
-	if results[0] == 0 {
+	if len(results) == 0 || results[0] == 0 {
 		t.Fatal("expected host response len")
 	}
 	h.hostResponse(ctx, guest, []uint64{8})
-	if got, _ := guest.Memory().Read(8, uint32(len(ic.HostResp))); string(got) != "ok:hello" {
+	if got, _ := guest.Memory().Read(8, mustUint32FromLen(t, len(ic.HostResp))); string(
+		got,
+	) != "ok:hello" {
 		t.Fatalf("unexpected host response bytes: %q", string(got))
 	}
 
@@ -124,19 +150,21 @@ func TestHookrModuleDeepPaths(t *testing.T) {
 
 	ic.HostErr = errors.New("host-fail")
 	h.hostErrorLen(ctx, results)
-	if results[0] == 0 {
+	if len(results) == 0 || results[0] == 0 {
 		t.Fatal("expected host error len")
 	}
 	h.hostError(ctx, guest, []uint64{48})
-	if got, _ := guest.Memory().Read(48, uint32(len(ic.HostErr.Error()))); string(got) != "host-fail" {
+	if got, _ := guest.Memory().Read(48, mustUint32FromLen(t, len(ic.HostErr.Error()))); string(
+		got,
+	) != "host-fail" {
 		t.Fatalf("unexpected host err bytes: %q", string(got))
 	}
 }
 
 func TestHookrModuleLog(t *testing.T) {
 	ctx, rt, guest := instantiateGuestModule(t)
-	defer rt.Close(ctx)
-	defer guest.Close(ctx)
+	cleanupClose(t, ctx, "runtime", rt.Close)
+	cleanupClose(t, ctx, "guest", guest.Close)
 
 	var messages []string
 	h := &hookrModule{
@@ -150,5 +178,75 @@ func TestHookrModuleLog(t *testing.T) {
 	h.log(ctx, guest, []uint64{0, 9})
 	if len(messages) != 1 || messages[0] != "hello-log" {
 		t.Fatalf("unexpected log messages: %#v", messages)
+	}
+}
+
+func TestHookrModuleErrorPaths(t *testing.T) {
+	ctx, rt, guest := instantiateGuestModule(t)
+	cleanupClose(t, ctx, "runtime", rt.Close)
+	cleanupClose(t, ctx, "guest", guest.Close)
+
+	ic := &invoke.Context{
+		PluginReq: []byte("hello"),
+		HostResp:  []byte("world"),
+		HostErr:   errors.New("boom"),
+	}
+	h := &hookrModule{
+		methodCallHandler: func(_ context.Context, methodID uint32, payload []byte) ([]byte, error) {
+			return append([]byte("ok:"), payload...), nil
+		},
+		currentInvoke: func() *invoke.Context { return ic },
+		logger:        func(string) {},
+	}
+
+	stack := []uint64{7, ^uint64(0), 5}
+	h.hostCall(ctx, guest, stack)
+	if stack[0] != 0 || ic.HostErr == nil {
+		t.Fatalf(
+			"expected failed host call with host error, got stack=%v err=%v",
+			stack,
+			ic.HostErr,
+		)
+	}
+
+	ic.HostErr = nil
+	h.pluginRequest(ctx, guest, []uint64{^uint64(0)})
+	if ic.PluginErr == "" {
+		t.Fatal("expected plugin request write failure")
+	}
+
+	ic.PluginErr = ""
+	h.hostResponse(ctx, guest, []uint64{^uint64(0)})
+	if ic.HostErr == nil {
+		t.Fatal("expected host response write failure")
+	}
+
+	ic.HostErr = errors.New("boom")
+	h.hostError(ctx, guest, []uint64{^uint64(0)})
+	if ic.HostErr == nil {
+		t.Fatal("expected host error write failure")
+	}
+
+	ic.PluginErr = ""
+	h.pluginResponse(ctx, guest, []uint64{^uint64(0), 5})
+	if ic.PluginErr == "" || ic.PluginResp != nil {
+		t.Fatalf(
+			"expected plugin response read failure, got err=%q resp=%v",
+			ic.PluginErr,
+			ic.PluginResp,
+		)
+	}
+
+	ic.PluginErr = ""
+	h.pluginError(ctx, guest, []uint64{^uint64(0), 4})
+	if ic.PluginErr == "" {
+		t.Fatal("expected plugin error read failure")
+	}
+
+	var messages []string
+	h.logger = func(msg string) { messages = append(messages, msg) }
+	h.log(ctx, guest, []uint64{^uint64(0), 5})
+	if len(messages) != 1 || messages[0] == "" {
+		t.Fatalf("expected logger to receive read failure, got %#v", messages)
 	}
 }

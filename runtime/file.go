@@ -126,7 +126,10 @@ func (f *File) Verify() (*File, error) {
 
 	if f.Hash == "" {
 		if !f.AllowUnsigned {
-			return nil, fmt.Errorf("unsigned plugin is not allowed for %s; provide WithHash(...) or WithAllowUnsigned()", f.Path)
+			return nil, fmt.Errorf(
+				"unsigned plugin is not allowed for %s; provide WithHash(...) or WithAllowUnsigned()",
+				f.Path,
+			)
 		}
 		f.data = data
 		return f, nil

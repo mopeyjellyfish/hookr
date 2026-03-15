@@ -2,6 +2,7 @@ package module
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/mopeyjellyfish/hookr/runtime/invoke"
@@ -28,12 +29,12 @@ func instantiateHookrModule(
 	r wazero.Runtime,
 	methodCallHandler MethodCallHandler,
 	currentInvoke func() *invoke.Context,
-	logger logger.Logger,
+	logFn logger.Logger,
 ) (api.Module, error) {
 	h := &hookrModule{
 		methodCallHandler: methodCallHandler,
 		currentInvoke:     currentInvoke,
-		logger:            logger,
+		logger:            logFn,
 	}
 	return r.NewHostModuleBuilder("hookr").
 		NewFunctionBuilder().
@@ -92,7 +93,7 @@ func (w *hookrModule) hostCall(ctx context.Context, m api.Module, stack []uint64
 	}
 	if ic.HostResp, ic.HostErr = w.methodCallHandler(ctx, methodID, payload); ic.HostErr != nil {
 		if _, err := memory.Uint32FromInt(len(ic.HostErr.Error())); err != nil {
-			ic.HostErr = fmt.Errorf("host error message too large")
+			ic.HostErr = errors.New("host error message too large")
 		}
 		stack[0] = 0
 	} else if _, err := memory.Uint32FromInt(len(ic.HostResp)); err != nil {
@@ -232,9 +233,9 @@ func New(
 	rt wazero.Runtime,
 	methodCallHandler MethodCallHandler,
 	currentInvoke func() *invoke.Context,
-	logger logger.Logger,
+	logFn logger.Logger,
 ) (api.Module, error) {
-	return instantiateHookrModule(ctx, rt, methodCallHandler, currentInvoke, logger)
+	return instantiateHookrModule(ctx, rt, methodCallHandler, currentInvoke, logFn)
 }
 
 func (w *hookrModule) invokeContext(ctx context.Context) *invoke.Context {

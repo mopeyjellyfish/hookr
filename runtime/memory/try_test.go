@@ -28,13 +28,16 @@ func TestTryReadAndTryWrite(t *testing.T) {
 
 func TestTryReadAndTryWriteErrors(t *testing.T) {
 	mem := &MockMemory{Data: make([]byte, 2), ShouldFail: true}
-	if _, err := TryRead(mem, "field", 0, 1); err == nil || !strings.Contains(err.Error(), "field") {
+	if _, err := TryRead(mem, "field", 0, 1); err == nil ||
+		!strings.Contains(err.Error(), "field") {
 		t.Fatalf("expected read error, got %v", err)
 	}
-	if _, err := TryReadString(mem, "field", 0, 1); err == nil || !strings.Contains(err.Error(), "field") {
+	if _, err := TryReadString(mem, "field", 0, 1); err == nil ||
+		!strings.Contains(err.Error(), "field") {
 		t.Fatalf("expected read string error, got %v", err)
 	}
-	if err := TryWrite(mem, "field", 0, []byte("abc")); err == nil || !strings.Contains(err.Error(), "field") {
+	if err := TryWrite(mem, "field", 0, []byte("abc")); err == nil ||
+		!strings.Contains(err.Error(), "field") {
 		t.Fatalf("expected write error, got %v", err)
 	}
 }
