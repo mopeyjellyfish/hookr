@@ -424,7 +424,13 @@ func TestRuntimeHandshakeAllowsMissingOptionalMethods(t *testing.T) {
 		SchemaHash: SIMPLE_METHOD_SCHEMA_HASH,
 		Methods: []runtimecontract.Method{
 			{ID: 2, Name: "Echo", RequestType: "bytes", ResponseType: "bytes"},
-			{ID: 99, Name: "OptionalMissing", RequestType: "bytes", ResponseType: "bytes", Optional: true},
+			{
+				ID:           99,
+				Name:         "OptionalMissing",
+				RequestType:  "bytes",
+				ResponseType: "bytes",
+				Optional:     true,
+			},
 		},
 	}
 

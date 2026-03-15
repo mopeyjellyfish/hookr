@@ -64,6 +64,17 @@ docs/preview: docs/build
 	@echo "  >  Previewing docs site"
 	@npm run docs:preview
 
+## hooks/install: install repo-local git hooks
+hooks/install:
+	@echo "  >  Installing git hooks"
+	@chmod +x .githooks/pre-commit
+	@git config core.hooksPath .githooks
+
+## hooks/run: run the pre-commit checks
+hooks/run:
+	@echo "  >  Running pre-commit checks"
+	@.githooks/pre-commit
+
 ## build/all: build the binary for all platforms
 build/all: build/macos build/windows build/linux
 

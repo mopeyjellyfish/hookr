@@ -14,6 +14,8 @@ import (
 
 const i32 = api.ValueTypeI32
 
+var lenToU32 = memory.Uint32FromInt
+
 // MethodCallHandler handles host callbacks by numeric method ID.
 type MethodCallHandler func(ctx context.Context, methodID uint32, payload []byte) ([]byte, error)
 
@@ -92,11 +94,11 @@ func (w *hookrModule) hostCall(ctx context.Context, m api.Module, stack []uint64
 		return
 	}
 	if ic.HostResp, ic.HostErr = w.methodCallHandler(ctx, methodID, payload); ic.HostErr != nil {
-		if _, err := memory.Uint32FromInt(len(ic.HostErr.Error())); err != nil {
+		if _, err := lenToU32(len(ic.HostErr.Error())); err != nil {
 			ic.HostErr = errors.New("host error message too large")
 		}
 		stack[0] = 0
-	} else if _, err := memory.Uint32FromInt(len(ic.HostResp)); err != nil {
+	} else if _, err := lenToU32(len(ic.HostResp)); err != nil {
 		ic.HostErr = fmt.Errorf("host response too large: %w", err)
 		ic.HostResp = nil
 		stack[0] = 0
@@ -155,7 +157,7 @@ func (w *hookrModule) hostResponseLen(ctx context.Context, results []uint64) {
 	if ic := w.invokeContext(ctx); ic == nil {
 		results[0] = 0
 	} else if hostResp := ic.HostResp; hostResp != nil {
-		hostResponseLen, err := memory.Uint32FromInt(len(hostResp))
+		hostResponseLen, err := lenToU32(len(hostResp))
 		if err != nil {
 			ic.HostErr = fmt.Errorf("host response too large: %w", err)
 			ic.HostResp = nil
@@ -217,7 +219,7 @@ func (w *hookrModule) hostErrorLen(ctx context.Context, results []uint64) {
 		results[0] = 0
 	} else if hostErr := ic.HostErr; hostErr != nil {
 		errorMsg := hostErr.Error()
-		hostErrorLen, err := memory.Uint32FromInt(len(errorMsg))
+		hostErrorLen, err := lenToU32(len(errorMsg))
 		if err != nil {
 			results[0] = 0
 			return

@@ -3,13 +3,9 @@ package module
 import (
 	"context"
 	"errors"
-	"math"
 	"os"
 	"path/filepath"
-	"reflect"
-	goruntime "runtime"
 	"testing"
-	"unsafe"
 
 	"github.com/mopeyjellyfish/hookr/runtime/invoke"
 	runtimememory "github.com/mopeyjellyfish/hookr/runtime/memory"
@@ -286,11 +282,14 @@ func TestHookrModuleLengthAndDispatchBranches(t *testing.T) {
 	})
 
 	t.Run("hostCall rejects oversized host response", func(t *testing.T) {
+		restoreLenToU32 := stubLenToU32(t, 0, errors.New("too large"))
+		defer restoreLenToU32()
+
 		ic := &invoke.Context{}
 		h := &hookrModule{
 			currentInvoke: func() *invoke.Context { return ic },
 			methodCallHandler: func(_ context.Context, _ uint32, _ []byte) ([]byte, error) {
-				return hugeBytes(t, uint64(math.MaxUint32)+1), nil
+				return []byte("resp"), nil
 			},
 		}
 		stack := []uint64{1, 0, 0}
@@ -299,16 +298,23 @@ func TestHookrModuleLengthAndDispatchBranches(t *testing.T) {
 			t.Fatalf("expected failed host call, got %d", stack[0])
 		}
 		if ic.HostErr == nil || ic.HostResp != nil {
-			t.Fatalf("expected oversized host response error, got err=%v resp=%v", ic.HostErr, ic.HostResp)
+			t.Fatalf(
+				"expected oversized host response error, got err=%v resp=%v",
+				ic.HostErr,
+				ic.HostResp,
+			)
 		}
 	})
 
 	t.Run("hostCall normalizes oversized host error message", func(t *testing.T) {
+		restoreLenToU32 := stubLenToU32(t, 0, errors.New("too large"))
+		defer restoreLenToU32()
+
 		ic := &invoke.Context{}
 		h := &hookrModule{
 			currentInvoke: func() *invoke.Context { return ic },
 			methodCallHandler: func(_ context.Context, _ uint32, _ []byte) ([]byte, error) {
-				return nil, hugeError{msg: hugeString(t, uint64(math.MaxUint32)+1)}
+				return nil, errors.New("boom")
 			},
 		}
 		stack := []uint64{1, 0, 0}
@@ -338,7 +344,10 @@ func TestHookrModuleLengthAndDispatchBranches(t *testing.T) {
 	})
 
 	t.Run("hostResponseLen rejects oversized response", func(t *testing.T) {
-		ic := &invoke.Context{HostResp: hugeBytes(t, uint64(math.MaxUint32)+1)}
+		restoreLenToU32 := stubLenToU32(t, 0, errors.New("too large"))
+		defer restoreLenToU32()
+
+		ic := &invoke.Context{HostResp: []byte("resp")}
 		h := &hookrModule{currentInvoke: func() *invoke.Context { return ic }}
 		results := []uint64{99}
 		h.hostResponseLen(ctx, results)
@@ -346,7 +355,11 @@ func TestHookrModuleLengthAndDispatchBranches(t *testing.T) {
 			t.Fatalf("expected zero result, got %d", results[0])
 		}
 		if ic.HostErr == nil || ic.HostResp != nil {
-			t.Fatalf("expected oversized response error, got err=%v resp=%v", ic.HostErr, ic.HostResp)
+			t.Fatalf(
+				"expected oversized response error, got err=%v resp=%v",
+				ic.HostErr,
+				ic.HostResp,
+			)
 		}
 	})
 
@@ -367,7 +380,10 @@ func TestHookrModuleLengthAndDispatchBranches(t *testing.T) {
 	})
 
 	t.Run("hostErrorLen rejects oversized error message", func(t *testing.T) {
-		ic := &invoke.Context{HostErr: hugeError{msg: hugeString(t, uint64(math.MaxUint32)+1)}}
+		restoreLenToU32 := stubLenToU32(t, 0, errors.New("too large"))
+		defer restoreLenToU32()
+
+		ic := &invoke.Context{HostErr: errors.New("boom")}
 		h := &hookrModule{currentInvoke: func() *invoke.Context { return ic }}
 		results := []uint64{99}
 		h.hostErrorLen(ctx, results)
@@ -377,34 +393,13 @@ func TestHookrModuleLengthAndDispatchBranches(t *testing.T) {
 	})
 }
 
-type hugeError struct {
-	msg string
-}
-
-func (e hugeError) Error() string {
-	return e.msg
-}
-
-func hugeBytes(t *testing.T, n uint64) []byte {
+func stubLenToU32(t *testing.T, value uint32, err error) func() {
 	t.Helper()
-	backing := []byte{0}
-	var payload []byte
-	header := (*reflect.SliceHeader)(unsafe.Pointer(&payload))
-	header.Data = uintptr(unsafe.Pointer(&backing[0]))
-	header.Len = int(n)
-	header.Cap = int(n)
-	goruntime.KeepAlive(backing)
-	return payload
-}
-
-func hugeString(t *testing.T, n uint64) string {
-	t.Helper()
-	backing := []byte{'x'}
-	header := reflect.StringHeader{
-		Data: uintptr(unsafe.Pointer(&backing[0])),
-		Len:  int(n),
+	previous := lenToU32
+	lenToU32 = func(int) (uint32, error) {
+		return value, err
 	}
-	value := *(*string)(unsafe.Pointer(&header))
-	goruntime.KeepAlive(backing)
-	return value
+	return func() {
+		lenToU32 = previous
+	}
 }
