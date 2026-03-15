@@ -156,15 +156,15 @@ fixtures, and the TUI is documented in
 The intended host-side Go feel:
 
 ```go
-rt, err := examplehookr.Open(ctx, examplehookr.Config{
-	WasmPath: "./plugin.wasm",
-	Host:     hostImpl,
+plugin, err := examplehookr.Open(ctx, examplehookr.Config{
+	PluginPath: "./plugin.wasm",
+	Host:     host{},
 })
 if err != nil {
 	return err
 }
 
-resp, err := rt.Balance(ctx, req)
+resp, err := plugin.Balance(ctx, req)
 ```
 
 The intended plugin-side Go feel:

@@ -39,7 +39,7 @@ hookr inspect \
 ```bash
 hookr inspect \
   --schema ./contract.fbs \
-  --wasm ./plugin.wasm
+  --plugin ./plugin.wasm
 ```
 
 5. If the contract defines a `Host` service and the plugin needs callbacks
@@ -48,7 +48,7 @@ during startup, provide a host fixture:
 ```bash
 hookr inspect \
   --schema ./contract.fbs \
-  --wasm ./plugin.wasm \
+  --plugin ./plugin.wasm \
   --host-fixture ./fixtures/host.json
 ```
 

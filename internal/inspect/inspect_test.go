@@ -64,7 +64,7 @@ func TestRunPrintsWasmDetails(t *testing.T) {
 	var errOut bytes.Buffer
 	err := Run(Config{
 		SchemaPath:    "../../testdata/contracts/textfilter/textfilter.fbs",
-		WasmPath:      wasmPath,
+		PluginPath:    wasmPath,
 		Package:       "textfilterhookr",
 		AllowUnsigned: true,
 		Stdout:        &out,
@@ -75,7 +75,7 @@ func TestRunPrintsWasmDetails(t *testing.T) {
 	}
 	text := out.String()
 	for _, want := range []string{
-		"Plugin Wasm:",
+		"Plugin Artifact:",
 		"Plugin ABI: 2.0",
 		"Schema Hash Match: true",
 		"Plugin Methods:",
@@ -95,7 +95,7 @@ func TestRunPrintsWasmDetails(t *testing.T) {
 func TestRunRequiresExplicitTrustWhenLoadingWasm(t *testing.T) {
 	err := Run(Config{
 		SchemaPath: "../../testdata/contracts/textfilter/textfilter.fbs",
-		WasmPath:   "plugin.wasm",
+		PluginPath: "plugin.wasm",
 		Package:    "textfilterhookr",
 	})
 	if err == nil || !strings.Contains(err.Error(), "plugin trust not configured") {

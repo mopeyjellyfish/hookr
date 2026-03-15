@@ -52,7 +52,7 @@ type BinaryResult struct {
 type DebugInfo struct {
 	ContractName        string
 	SchemaPath          string
-	WasmPath            string
+	PluginPath          string
 	HostFixturePath     string
 	SchemaHash          string
 	PluginSchemaHash    string
@@ -67,8 +67,8 @@ func NewSession(cfg Config) (*Session, error) {
 	if cfg.SchemaPath == "" {
 		return nil, errors.New("schema path is required")
 	}
-	if cfg.WasmPath == "" {
-		return nil, errors.New("wasm path is required")
+	if cfg.PluginPath == "" {
+		return nil, errors.New("plugin path is required")
 	}
 	runner, model, schema, err := schemautil.LoadWithReflection(schemautil.Config{
 		SchemaPath:        cfg.SchemaPath,
@@ -91,7 +91,7 @@ func NewSession(cfg Config) (*Session, error) {
 		return nil, err
 	}
 	opts := []hookrruntime.Option{
-		hookrruntime.WithFile(cfg.WasmPath, fileOptions...),
+		hookrruntime.WithFile(cfg.PluginPath, fileOptions...),
 		hookrruntime.WithContractSchema(runtimeSchema(model)),
 	}
 	hostMethods := devhost.BindHostMethods(
@@ -249,7 +249,7 @@ func (s *Session) DebugInfo() DebugInfo {
 	info := DebugInfo{
 		ContractName:        s.contract.Name,
 		SchemaPath:          s.contract.SchemaPath,
-		WasmPath:            s.cfg.WasmPath,
+		PluginPath:          s.cfg.PluginPath,
 		HostFixturePath:     s.cfg.HostFixturePath,
 		SchemaHash:          hex.EncodeToString(s.contract.SchemaHash[:]),
 		ContractMethodCount: len(s.contract.PluginService.Methods),

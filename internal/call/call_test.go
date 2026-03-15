@@ -47,7 +47,7 @@ func TestRunTextFilter(t *testing.T) {
 			"textfilter",
 			"textfilter.fbs",
 		),
-		WasmPath:      wasmPath,
+		PluginPath:    wasmPath,
 		Method:        "Filter",
 		InputPath:     inputPath,
 		AllowUnsigned: true,
@@ -123,7 +123,7 @@ func TestRunURLBalancerWithHostFixture(t *testing.T) {
 			"urlbalancer",
 			"urlbalancer.fbs",
 		),
-		WasmPath:        wasmPath,
+		PluginPath:      wasmPath,
 		Method:          "Balance",
 		InputPath:       inputPath,
 		HostFixturePath: hostFixturePath,
@@ -173,7 +173,7 @@ func TestSessionDefaultRequestJSONUsesSchemaFields(t *testing.T) {
 			"textfilter",
 			"textfilter.fbs",
 		),
-		WasmPath:      wasmPath,
+		PluginPath:    wasmPath,
 		AllowUnsigned: true,
 	})
 	if err != nil {
@@ -213,7 +213,7 @@ func TestSessionDebugInfo(t *testing.T) {
 			"textfilter",
 			"textfilter.fbs",
 		),
-		WasmPath:      wasmPath,
+		PluginPath:    wasmPath,
 		AllowUnsigned: true,
 	})
 	if err != nil {
@@ -251,7 +251,7 @@ func TestSessionInvokePrepared(t *testing.T) {
 			"textfilter",
 			"textfilter.fbs",
 		),
-		WasmPath:      wasmPath,
+		PluginPath:    wasmPath,
 		AllowUnsigned: true,
 	})
 	if err != nil {
@@ -299,8 +299,8 @@ func TestRunRequiresExplicitTrust(t *testing.T) {
 			"textfilter",
 			"textfilter.fbs",
 		),
-		WasmPath: "plugin.wasm",
-		Method:   "Filter",
+		PluginPath: "plugin.wasm",
+		Method:     "Filter",
 	})
 	if err == nil || !strings.Contains(err.Error(), "plugin trust not configured") {
 		t.Fatalf("expected trust configuration error, got %v", err)

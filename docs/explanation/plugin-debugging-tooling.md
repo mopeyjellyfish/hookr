@@ -110,7 +110,7 @@ Target command:
 ```bash
 hookr inspect \
   --schema ./contract.fbs \
-  --wasm ./plugin.wasm
+  --plugin ./plugin.wasm
 ```
 
 Expected output:
@@ -133,7 +133,7 @@ Target command:
 ```bash
 hookr call \
   --schema ./contract.fbs \
-  --wasm ./plugin.wasm \
+  --plugin ./plugin.wasm \
   --method Balance \
   --input ./requests/balance.json
 ```
@@ -156,7 +156,7 @@ Target command:
 ```bash
 hookr call \
   --schema ./contract.fbs \
-  --wasm ./plugin.wasm \
+  --plugin ./plugin.wasm \
   --method Balance \
   --input ./requests/balance.json \
   --host-fixture ./fixtures/host.json
@@ -178,7 +178,7 @@ Target command:
 ```bash
 hookr tui \
   --schema ./contract.fbs \
-  --wasm ./plugin.wasm
+  --plugin ./plugin.wasm
 ```
 
 Expected behavior:
@@ -198,7 +198,7 @@ Add a Wasm-aware inspect path.
 
 Deliverables:
 
-- `hookr inspect --schema ... --wasm ...`
+- `hookr inspect --schema ... --plugin ...`
 - schema-only inspect remains supported
 - output includes handshake metadata and implemented methods
 - clear mismatch reporting for:
@@ -225,7 +225,7 @@ Add a non-interactive `hookr call` command.
 
 Deliverables:
 
-- `hookr call --schema --wasm --method --input`
+- `hookr call --schema --plugin --method --input`
 - request JSON loaded from file or stdin
 - response JSON written to stdout
 - support for methods on the default `Plugin` service
@@ -388,7 +388,7 @@ Planned:
 Planned flags:
 
 - `--schema`
-- `--wasm`
+- `--plugin`
 - `--method`
 - `--input`
 - `--host-fixture`
@@ -400,7 +400,7 @@ Planned flags:
 Planned flags:
 
 - `--schema`
-- `--wasm`
+- `--plugin`
 - `--host-fixture`
 
 ## Example Coverage
@@ -430,7 +430,7 @@ Test layers:
 
 - unit tests for reflection-driven JSON/FlatBuffers conversion
 - unit tests for callback fixture playback
-- integration tests for `hookr inspect --wasm`
+- integration tests for `hookr inspect --plugin`
 - integration tests for `hookr call`
 - fixture-based golden tests for JSON input and output
 - end-to-end tests over the example contracts

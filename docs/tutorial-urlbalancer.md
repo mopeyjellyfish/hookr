@@ -196,10 +196,10 @@ the important parts are:
 
 ```go
 type Config struct {
-	WasmPath       string
-	FileOptions    []hookrruntime.FileOption
+	PluginPath     string
+	FileOptions    []hookr.FileOption
 	Host           Host
-	RuntimeOptions []hookrruntime.Option
+	RuntimeOptions []hookr.Option
 }
 
 type Host interface {
@@ -217,7 +217,8 @@ func (r *Runtime) Balance(ctx context.Context, req *BalanceRequestT) (*BalanceRe
 
 `Config`
 
-- `WasmPath` tells Hookr which plugin Wasm module to load.
+- `PluginPath` is the plugin artifact path for this contract. You can point it at
+  any compatible `urlbalancer.wasm` build.
 - `FileOptions` controls trust policy for the Wasm artifact.
 - `Host` is your implementation of the host callback service.
 - `RuntimeOptions` exposes lower-level runtime tuning when needed.
@@ -226,6 +227,8 @@ func (r *Runtime) Balance(ctx context.Context, req *BalanceRequestT) (*BalanceRe
 
 - Hookr generates one method per `rpc_service Host` method.
 - If your schema adds more host callbacks, this interface grows with it.
+- Your Go host implements this interface directly. There is no manual callback
+  registry.
 
 `Open`
 
@@ -234,11 +237,19 @@ func (r *Runtime) Balance(ctx context.Context, req *BalanceRequestT) (*BalanceRe
 - binds the host callback methods,
 - returns a typed runtime wrapper.
 
+So the host callback registration story is simply: implement `Host`, then pass
+that implementation to `Open(...)` through `Config.Host`.
+
 `Runtime.GetInfo` and `Runtime.Balance`
 
 - are generated from `rpc_service Plugin`,
 - hide method IDs and wire encoding,
 - let the host call plugin methods as normal Go methods.
+
+Inside plugin code, the generated `PluginContext` exposes the opposite side of
+that same contract. `ctx.RngInt(...)` and `ctx.RngFloat(...)` are generated from
+`rpc_service Host`, so plugin authors call host callbacks as normal Go methods
+too.
 
 ## Step 4: Write The Plugin
 
@@ -401,49 +412,50 @@ import (
 	"log"
 	"path/filepath"
 
-	urlbalancerhookr "github.com/mopeyjellyfish/hookr/testdata/contracts/urlbalancer/gen/urlbalancerhookr"
+	hookr "github.com/mopeyjellyfish/hookr/runtime"
+	urlbalancer "github.com/mopeyjellyfish/hookr/testdata/contracts/urlbalancer/gen/urlbalancerhookr"
 )
 
 type host struct{}
 
-func (host) RngInt(_ context.Context, req *urlbalancerhookr.RngIntRequestT) (*urlbalancerhookr.RngIntResponseT, error) {
+func (host) RngInt(_ context.Context, req *urlbalancer.RngIntRequestT) (*urlbalancer.RngIntResponseT, error) {
 	midpoint := req.Min
 	if req.Max > req.Min {
 		midpoint = req.Min + ((req.Max - req.Min) / 2)
 	}
-	return &urlbalancerhookr.RngIntResponseT{Value: midpoint}, nil
+	return &urlbalancer.RngIntResponseT{Value: midpoint}, nil
 }
 
-func (host) RngFloat(_ context.Context, _ *urlbalancerhookr.RngFloatRequestT) (*urlbalancerhookr.RngFloatResponseT, error) {
-	return &urlbalancerhookr.RngFloatResponseT{Value: 0.5}, nil
+func (host) RngFloat(_ context.Context, _ *urlbalancer.RngFloatRequestT) (*urlbalancer.RngFloatResponseT, error) {
+	return &urlbalancer.RngFloatResponseT{Value: 0.5}, nil
 }
 
 func main() {
 	ctx := context.Background()
 	wasmPath := filepath.Join("testdata", "contracts", "urlbalancer", "bin", "urlbalancer.wasm")
 
-rt, err := urlbalancerhookr.Open(ctx, urlbalancerhookr.Config{
-	WasmPath: wasmPath,
-	FileOptions: []hookrruntime.FileOption{
-		hookrruntime.WithAllowUnsigned(),
-	},
-	Host: host{},
-})
+	plugin, err := urlbalancer.Open(ctx, urlbalancer.Config{
+		PluginPath: wasmPath,
+		FileOptions: []hookr.FileOption{
+			hookr.WithAllowUnsigned(),
+		},
+		Host: host{},
+	})
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer func() {
-		if err := rt.Close(ctx); err != nil {
+		if err := plugin.Close(ctx); err != nil {
 			log.Fatal(err)
 		}
 	}()
 
-	info, err := rt.GetInfo(ctx, &urlbalancerhookr.EmptyT{})
+	info, err := plugin.GetInfo(ctx, &urlbalancer.EmptyT{})
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	result, err := rt.Balance(ctx, &urlbalancerhookr.BalanceRequestT{
+	result, err := plugin.Balance(ctx, &urlbalancer.BalanceRequestT{
 		Url:   "https://example.com/api",
 		Nodes: []string{"node-a", "node-b", "node-c"},
 	})

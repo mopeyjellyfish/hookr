@@ -27,7 +27,7 @@ func main() {
 	wasmPath := filepath.Join("testdata", "contracts", "tickloop", "bin", "tickloop.wasm")
 
 	rt, err := tickloophookr.Open(ctx, tickloophookr.Config{
-		WasmPath:    wasmPath,
+		PluginPath:  wasmPath,
 		FileOptions: []hookrruntime.FileOption{hookrruntime.WithAllowUnsigned()},
 		Host:        host{},
 	})

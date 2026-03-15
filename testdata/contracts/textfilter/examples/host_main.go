@@ -17,7 +17,7 @@ func main() {
 	wasmPath := filepath.Join("testdata", "contracts", "textfilter", "bin", "textfilter.wasm")
 
 	rt, err := textfilterhookr.Open(ctx, textfilterhookr.Config{
-		WasmPath:    wasmPath,
+		PluginPath:  wasmPath,
 		FileOptions: []hookrruntime.FileOption{hookrruntime.WithAllowUnsigned()},
 	})
 	if err != nil {

@@ -59,7 +59,7 @@ Required flags:
 
 Key optional flags:
 
-- `--wasm`
+- `--plugin`
 - `--host-fixture`
 - `--hash`
 - `--allow-unsigned`
@@ -77,7 +77,7 @@ Invoke a plugin method using schema-driven JSON input and output.
 Required flags:
 
 - `--schema`
-- `--wasm`
+- `--plugin`
 - `--method`
 
 Key optional flags:
@@ -100,7 +100,7 @@ Open an interactive Bubble Tea-based terminal UI for inspecting and invoking plu
 Required flags:
 
 - `--schema`
-- `--wasm`
+- `--plugin`
 
 Key optional flags:
 
@@ -116,11 +116,11 @@ Key optional flags:
 
 Behavior notes:
 
-- `inspect`, `call`, and `tui` require explicit trust for the Wasm artifact: pass `--hash` for pinned plugins or `--allow-unsigned` for local dev builds
+- `inspect`, `call`, and `tui` require explicit trust for the plugin artifact: pass `--hash` for pinned plugins or `--allow-unsigned` for local dev builds
 - requests are pre-filled from the FlatBuffers schema
-- the top bar shows the active schema, Wasm, method, and live timing stats
+- the top bar shows the active schema, plugin, method, and live timing stats
 - request text is read-only inside the UI; editing uses `$VISUAL`, then `$EDITOR`
-- the plugin hot reloads when the Wasm file changes on disk
+- the plugin hot reloads when the plugin file changes on disk
 - single-key actions support one-off calls, loop mode, request reset, and pretty formatting
 - the shortcut legend stays visible at the bottom of the screen
 - the debug pane shows handshake/runtime metadata and loop timing stats
