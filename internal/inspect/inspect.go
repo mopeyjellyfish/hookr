@@ -24,7 +24,6 @@ type Config struct {
 	IncludePaths      []string
 	Package           string
 	PluginService     string
-	HostService       string
 	OptionalAttribute string
 	Stdout            io.Writer
 	Stderr            io.Writer
@@ -40,7 +39,6 @@ func Run(cfg Config) error {
 		IncludePaths:      cfg.IncludePaths,
 		Package:           cfg.Package,
 		PluginService:     cfg.PluginService,
-		HostService:       cfg.HostService,
 		OptionalAttribute: cfg.OptionalAttribute,
 	})
 	if err != nil {
@@ -77,17 +75,20 @@ func Run(cfg Config) error {
 			required,
 		)
 	}
-	if model.HostService != nil {
-		_, _ = fmt.Fprintf(out, "Host Service: %s\n", model.HostService.Name)
-		for _, method := range model.HostService.Methods {
-			_, _ = fmt.Fprintf(
-				out,
-				"  - %s id=%d req=%s resp=%s\n",
-				method.Name,
-				method.ID,
-				method.RequestType,
-				method.ResponseType,
-			)
+	if len(model.HostServices) > 0 {
+		_, _ = fmt.Fprintf(out, "Host Services:\n")
+		for _, service := range model.HostServices {
+			_, _ = fmt.Fprintf(out, "  %s\n", service.Name)
+			for _, method := range service.Methods {
+				_, _ = fmt.Fprintf(
+					out,
+					"    - %s id=%d req=%s resp=%s\n",
+					method.Name,
+					method.ID,
+					method.RequestType,
+					method.ResponseType,
+				)
+			}
 		}
 	}
 

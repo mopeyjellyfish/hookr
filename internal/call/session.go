@@ -76,7 +76,6 @@ func NewSession(cfg Config) (*Session, error) {
 		IncludePaths:      cfg.IncludePaths,
 		Package:           cfg.Package,
 		PluginService:     cfg.PluginService,
-		HostService:       cfg.HostService,
 		OptionalAttribute: cfg.OptionalAttribute,
 	})
 	if err != nil {

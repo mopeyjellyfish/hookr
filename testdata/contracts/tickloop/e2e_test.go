@@ -14,7 +14,7 @@ import (
 
 type testHost struct{}
 
-func (testHost) RngInt(_ context.Context, req *tickloophookr.RngIntRequestT) (*tickloophookr.RngIntResponseT, error) {
+func (testHost) Int(_ context.Context, req *tickloophookr.RngIntRequestT) (*tickloophookr.RngIntResponseT, error) {
 	if req == nil {
 		return &tickloophookr.RngIntResponseT{Value: 0}, nil
 	}
@@ -168,7 +168,9 @@ func openRuntime(t *testing.T, wasmPath string) *tickloophookr.Runtime {
 	rt, err := tickloophookr.Open(context.Background(), tickloophookr.Config{
 		PluginPath:  wasmPath,
 		FileOptions: []hookrruntime.FileOption{hookrruntime.WithAllowUnsigned()},
-		Host:        testHost{},
+		Host: tickloophookr.Host{
+			Rng: testHost{},
+		},
 	})
 	if err != nil {
 		t.Fatalf("open runtime: %v", err)

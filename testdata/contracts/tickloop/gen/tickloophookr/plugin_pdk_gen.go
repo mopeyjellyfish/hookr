@@ -13,7 +13,10 @@ import (
 	pdkcontract "github.com/mopeyjellyfish/hookr/pdk/contract"
 )
 
-type PluginContext struct{}
+type PluginContext struct {
+	Rng RngClient
+}
+
 
 type Plugin interface {
 	GetInfo(ctx *PluginContext, req *EmptyT) (*PluginInfoT, error)
@@ -26,7 +29,10 @@ type OptionalPluginWarmup interface {
 }
 
 
-func (ctx *PluginContext) RngIntView(req *RngIntRequestT, fn func(*RngIntResponse) error) error {
+type RngClient struct{}
+
+
+func (ctx RngClient) IntView(req *RngIntRequestT, fn func(*RngIntResponse) error) error {
 	if fn == nil {
 		return errors.New("response callback is required")
 	}
@@ -41,9 +47,9 @@ func (ctx *PluginContext) RngIntView(req *RngIntRequestT, fn func(*RngIntRespons
 	})
 }
 
-func (ctx *PluginContext) RngInt(req *RngIntRequestT) (*RngIntResponseT, error) {
+func (ctx RngClient) Int(req *RngIntRequestT) (*RngIntResponseT, error) {
 	var out *RngIntResponseT
-	err := ctx.RngIntView(req, func(response *RngIntResponse) error {
+	err := ctx.IntView(req, func(response *RngIntResponse) error {
 		out = response.UnPack()
 		return nil
 	})
@@ -52,6 +58,7 @@ func (ctx *PluginContext) RngInt(req *RngIntRequestT) (*RngIntResponseT, error) 
 	}
 	return out, nil
 }
+
 
 
 
@@ -74,11 +81,11 @@ func RegisterPlugin(plugin Plugin) error {
 
 func implementedPluginMethodIDs(plugin Plugin) []uint32 {
 	methods := []uint32{
-		MethodGetInfo,
-		MethodTick,
+		MethodPluginGetInfo,
+		MethodPluginTick,
 	}
 	if _, ok := any(plugin).(OptionalPluginWarmup); ok {
-		methods = append(methods, MethodWarmup)
+		methods = append(methods, MethodPluginWarmup)
 	}
 	return methods
 }
@@ -86,7 +93,7 @@ func implementedPluginMethodIDs(plugin Plugin) []uint32 {
 func dispatchPlugin(plugin Plugin, methodID uint32, payload []byte) ([]byte, error) {
 	ctx := &PluginContext{}
 	switch methodID {
-	case MethodGetInfo:
+	case MethodPluginGetInfo:
 		req, err := decodeEmpty(payload)
 		if err != nil {
 			return nil, err
@@ -96,7 +103,7 @@ func dispatchPlugin(plugin Plugin, methodID uint32, payload []byte) ([]byte, err
 			return nil, err
 		}
 		return encodePluginInfo(resp)
-	case MethodWarmup:
+	case MethodPluginWarmup:
 		req, err := decodeWarmupRequest(payload)
 		if err != nil {
 			return nil, err
@@ -110,7 +117,7 @@ func dispatchPlugin(plugin Plugin, methodID uint32, payload []byte) ([]byte, err
 			return nil, err
 		}
 		return encodeWarmupResponse(resp)
-	case MethodTick:
+	case MethodPluginTick:
 		req, err := decodeTickRequest(payload)
 		if err != nil {
 			return nil, err

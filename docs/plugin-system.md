@@ -53,9 +53,11 @@ Hookr should be opinionated about service layout while remaining generic.
 Default convention:
 
 - `Plugin` service: methods the host calls on the plugin
-- `Host` service: callbacks the plugin calls on the host
+- every other `rpc_service`: a host callback module the plugin can call
 
-CLI overrides can be added later, but the default should remain simple.
+Hookr auto-discovers host modules from the schema. The host side gets a
+generated aggregate `Host` struct with one field per module, and the plugin
+side gets namespaced clients such as `ctx.Rng.Int(...)`.
 
 Plugin methods are required by default. Optional methods should be expressed in
 the schema via Hookr-recognized FlatBuffers attributes.
@@ -109,7 +111,9 @@ Host side:
 ```go
 plugin, err := urlbalancerhookr.Open(ctx, urlbalancerhookr.Config{
 	PluginPath: "./plugin.wasm",
-	Host:     host{},
+	Host: urlbalancerhookr.Host{
+		Rng: host{},
+	},
 })
 if err != nil {
 	return err
@@ -175,8 +179,8 @@ These fixtures exist to prove that:
 
 - plugin method `GetInfo`
 - plugin method `Balance`
-- host callback `RngInt`
-- host callback `RngFloat`
+- host module `Rng`
+- callback methods `Int` and `Float`
 
 The plugin receives a request with a URL and a list of backend nodes, validates
 the URL, calls host RNG helpers, and selects a node to route to.

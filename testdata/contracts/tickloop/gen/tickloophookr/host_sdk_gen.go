@@ -20,21 +20,21 @@ var PluginSchema = runtimecontract.Schema{
 	Capabilities: ContractCapabilities,
 	Methods: []runtimecontract.Method{
 			{
-				ID:           runtimecontract.MethodID(MethodGetInfo),
+				ID:           runtimecontract.MethodID(MethodPluginGetInfo),
 				Name:         "GetInfo",
 				RequestType:  "Empty",
 				ResponseType: "PluginInfo",
 				Optional:     false,
 			},
 			{
-				ID:           runtimecontract.MethodID(MethodWarmup),
+				ID:           runtimecontract.MethodID(MethodPluginWarmup),
 				Name:         "Warmup",
 				RequestType:  "WarmupRequest",
 				ResponseType: "WarmupResponse",
 				Optional:     true,
 			},
 			{
-				ID:           runtimecontract.MethodID(MethodTick),
+				ID:           runtimecontract.MethodID(MethodPluginTick),
 				Name:         "Tick",
 				RequestType:  "TickRequest",
 				ResponseType: "TickResponse",
@@ -54,9 +54,14 @@ type Config struct {
 	RuntimeOptions []hookrruntime.Option
 }
 
-type Host interface {
-	RngInt(ctx context.Context, req *RngIntRequestT) (*RngIntResponseT, error)
+type Host struct {
+	Rng RngHost
 }
+
+type RngHost interface {
+	Int(ctx context.Context, req *RngIntRequestT) (*RngIntResponseT, error)
+}
+
 
 func Open(ctx context.Context, cfg Config) (*Runtime, error) {
 	if cfg.PluginPath == "" {
@@ -65,9 +70,6 @@ func Open(ctx context.Context, cfg Config) (*Runtime, error) {
 	opts := []hookrruntime.Option{
 		hookrruntime.WithFile(cfg.PluginPath, cfg.FileOptions...),
 		hookrruntime.WithContractSchema(PluginSchema),
-	}
-	if cfg.Host == nil {
-		return nil, errors.New("host implementation is required")
 	}
 	opts = append(opts, hookrruntime.WithHostMethodFns(bindHostMethods(cfg.Host)...))
 	opts = append(opts, cfg.RuntimeOptions...)
@@ -90,7 +92,7 @@ func (r *Runtime) SupportsGetInfo() bool {
 	if r == nil || r.rt == nil {
 		return false
 	}
-	return r.rt.HasPluginMethodID(MethodGetInfo)
+	return r.rt.HasPluginMethodID(MethodPluginGetInfo)
 }
 
 
@@ -98,7 +100,7 @@ func (r *Runtime) SupportsWarmup() bool {
 	if r == nil || r.rt == nil {
 		return false
 	}
-	return r.rt.HasPluginMethodID(MethodWarmup)
+	return r.rt.HasPluginMethodID(MethodPluginWarmup)
 }
 
 
@@ -106,7 +108,7 @@ func (r *Runtime) SupportsTick() bool {
 	if r == nil || r.rt == nil {
 		return false
 	}
-	return r.rt.HasPluginMethodID(MethodTick)
+	return r.rt.HasPluginMethodID(MethodPluginTick)
 }
 
 
@@ -115,7 +117,7 @@ func (r *Runtime) GetInfoView(ctx context.Context, req *EmptyT, fn func(*PluginI
 		return errors.New("response callback is required")
 	}
 	return withEncodedEmpty(req, func(payload []byte) error {
-		return r.rt.InvokeMethodWithResponse(ctx, MethodGetInfo, payload, func(response []byte) error {
+		return r.rt.InvokeMethodWithResponse(ctx, MethodPluginGetInfo, payload, func(response []byte) error {
 			out, err := decodePluginInfoView(response)
 			if err != nil {
 				return err
@@ -143,7 +145,7 @@ func (r *Runtime) WarmupView(ctx context.Context, req *WarmupRequestT, fn func(*
 		return errors.New("response callback is required")
 	}
 	return withEncodedWarmupRequest(req, func(payload []byte) error {
-		return r.rt.InvokeMethodWithResponse(ctx, MethodWarmup, payload, func(response []byte) error {
+		return r.rt.InvokeMethodWithResponse(ctx, MethodPluginWarmup, payload, func(response []byte) error {
 			out, err := decodeWarmupResponseView(response)
 			if err != nil {
 				return err
@@ -171,7 +173,7 @@ func (r *Runtime) TickView(ctx context.Context, req *TickRequestT, fn func(*Tick
 		return errors.New("response callback is required")
 	}
 	return withEncodedTickRequest(req, func(payload []byte) error {
-		return r.rt.InvokeMethodWithResponse(ctx, MethodTick, payload, func(response []byte) error {
+		return r.rt.InvokeMethodWithResponse(ctx, MethodPluginTick, payload, func(response []byte) error {
 			out, err := decodeTickResponseView(response)
 			if err != nil {
 				return err
@@ -194,13 +196,21 @@ func (r *Runtime) Tick(ctx context.Context, req *TickRequestT) (*TickResponseT, 
 }
 
 func bindHostMethods(host Host) []hookrruntime.HostMethod {
+	methods := make([]hookrruntime.HostMethod, 0)
+	if host.Rng != nil {
+		methods = append(methods, bindRngHostMethods(host.Rng)...)
+	}
+	return methods
+}
+
+func bindRngHostMethods(host RngHost) []hookrruntime.HostMethod {
 	return []hookrruntime.HostMethod{
 		hookrruntime.HostFnMethod(MethodRngInt, func(ctx context.Context, payload []byte) ([]byte, error) {
 			req, err := decodeRngIntRequest(payload)
 			if err != nil {
 				return nil, err
 			}
-			resp, err := host.RngInt(ctx, req)
+			resp, err := host.Int(ctx, req)
 			if err != nil {
 				return nil, err
 			}

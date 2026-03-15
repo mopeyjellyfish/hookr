@@ -12,11 +12,11 @@ import (
 
 type testHost struct{}
 
-func (testHost) RngInt(_ context.Context, _ *urlbalancerhookr.RngIntRequestT) (*urlbalancerhookr.RngIntResponseT, error) {
+func (testHost) Int(_ context.Context, _ *urlbalancerhookr.RngIntRequestT) (*urlbalancerhookr.RngIntResponseT, error) {
 	return &urlbalancerhookr.RngIntResponseT{Value: 1}, nil
 }
 
-func (testHost) RngFloat(_ context.Context, _ *urlbalancerhookr.RngFloatRequestT) (*urlbalancerhookr.RngFloatResponseT, error) {
+func (testHost) Float(_ context.Context, _ *urlbalancerhookr.RngFloatRequestT) (*urlbalancerhookr.RngFloatResponseT, error) {
 	return &urlbalancerhookr.RngFloatResponseT{Value: 0.5}, nil
 }
 
@@ -35,7 +35,9 @@ func TestURLBalancerE2E(t *testing.T) {
 	rt, err := urlbalancerhookr.Open(ctx, urlbalancerhookr.Config{
 		PluginPath:  outFile,
 		FileOptions: []hookrruntime.FileOption{hookrruntime.WithAllowUnsigned()},
-		Host:        testHost{},
+		Host: urlbalancerhookr.Host{
+			Rng: testHost{},
+		},
 	})
 	if err != nil {
 		t.Fatalf("open runtime: %v", err)

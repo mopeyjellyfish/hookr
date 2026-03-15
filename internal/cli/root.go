@@ -79,12 +79,6 @@ func newGenCommand() *cobra.Command {
 		"FlatBuffers plugin service name",
 	)
 	flags.StringVar(
-		&cfg.HostService,
-		"host-service",
-		cfg.HostService,
-		"FlatBuffers host callback service name",
-	)
-	flags.StringVar(
 		&cfg.OptionalAttribute,
 		"optional-attribute",
 		cfg.OptionalAttribute,
@@ -191,12 +185,6 @@ func newInspectCommand() *cobra.Command {
 		"FlatBuffers plugin service name",
 	)
 	flags.StringVar(
-		&cfg.HostService,
-		"host-service",
-		codegen.DefaultConfig().HostService,
-		"FlatBuffers host callback service name",
-	)
-	flags.StringVar(
 		&cfg.OptionalAttribute,
 		"optional-attribute",
 		codegen.DefaultConfig().OptionalAttribute,
@@ -261,12 +249,6 @@ func newCallCommand() *cobra.Command {
 		"FlatBuffers plugin service name",
 	)
 	flags.StringVar(
-		&cfg.HostService,
-		"host-service",
-		codegen.DefaultConfig().HostService,
-		"FlatBuffers host callback service name",
-	)
-	flags.StringVar(
 		&cfg.OptionalAttribute,
 		"optional-attribute",
 		codegen.DefaultConfig().OptionalAttribute,
@@ -323,12 +305,6 @@ func newTUICommand() *cobra.Command {
 		"plugin-service",
 		codegen.DefaultConfig().PluginService,
 		"FlatBuffers plugin service name",
-	)
-	flags.StringVar(
-		&cfg.HostService,
-		"host-service",
-		codegen.DefaultConfig().HostService,
-		"FlatBuffers host callback service name",
 	)
 	flags.StringVar(
 		&cfg.OptionalAttribute,

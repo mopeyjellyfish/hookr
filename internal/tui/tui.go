@@ -32,7 +32,6 @@ type Config struct {
 	IncludePaths      []string
 	Package           string
 	PluginService     string
-	HostService       string
 	OptionalAttribute string
 	Stdin             io.Reader
 	Stdout            io.Writer
@@ -1099,7 +1098,6 @@ func newSession(cfg Config) (*call.Session, error) {
 		IncludePaths:      cfg.IncludePaths,
 		Package:           cfg.Package,
 		PluginService:     cfg.PluginService,
-		HostService:       cfg.HostService,
 		OptionalAttribute: cfg.OptionalAttribute,
 	})
 }

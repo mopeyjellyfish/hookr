@@ -15,6 +15,7 @@ import (
 
 type PluginContext struct{}
 
+
 type Plugin interface {
 	GetInfo(ctx *PluginContext, req *EmptyT) (*PluginInfoT, error)
 	Filter(ctx *PluginContext, req *FilterRequestT) (*FilterResponseT, error)
@@ -41,8 +42,8 @@ func RegisterPlugin(plugin Plugin) error {
 
 func implementedPluginMethodIDs(plugin Plugin) []uint32 {
 	methods := []uint32{
-		MethodGetInfo,
-		MethodFilter,
+		MethodPluginGetInfo,
+		MethodPluginFilter,
 	}
 	return methods
 }
@@ -50,7 +51,7 @@ func implementedPluginMethodIDs(plugin Plugin) []uint32 {
 func dispatchPlugin(plugin Plugin, methodID uint32, payload []byte) ([]byte, error) {
 	ctx := &PluginContext{}
 	switch methodID {
-	case MethodGetInfo:
+	case MethodPluginGetInfo:
 		req, err := decodeEmpty(payload)
 		if err != nil {
 			return nil, err
@@ -60,7 +61,7 @@ func dispatchPlugin(plugin Plugin, methodID uint32, payload []byte) ([]byte, err
 			return nil, err
 		}
 		return encodePluginInfo(resp)
-	case MethodFilter:
+	case MethodPluginFilter:
 		req, err := decodeFilterRequest(payload)
 		if err != nil {
 			return nil, err

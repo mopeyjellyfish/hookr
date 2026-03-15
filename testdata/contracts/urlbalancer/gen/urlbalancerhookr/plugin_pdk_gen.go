@@ -13,7 +13,10 @@ import (
 	pdkcontract "github.com/mopeyjellyfish/hookr/pdk/contract"
 )
 
-type PluginContext struct{}
+type PluginContext struct {
+	Rng RngClient
+}
+
 
 type Plugin interface {
 	GetInfo(ctx *PluginContext, req *EmptyT) (*PluginInfoT, error)
@@ -21,35 +24,10 @@ type Plugin interface {
 }
 
 
-func (ctx *PluginContext) RngIntView(req *RngIntRequestT, fn func(*RngIntResponse) error) error {
-	if fn == nil {
-		return errors.New("response callback is required")
-	}
-	return withEncodedRngIntRequest(req, func(payload []byte) error {
-		return pdk.HostCallMethodWithResponse(MethodRngInt, payload, func(response []byte) error {
-			out, err := decodeRngIntResponseView(response)
-			if err != nil {
-				return err
-			}
-			return fn(out)
-		})
-	})
-}
-
-func (ctx *PluginContext) RngInt(req *RngIntRequestT) (*RngIntResponseT, error) {
-	var out *RngIntResponseT
-	err := ctx.RngIntView(req, func(response *RngIntResponse) error {
-		out = response.UnPack()
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
+type RngClient struct{}
 
 
-func (ctx *PluginContext) RngFloatView(req *RngFloatRequestT, fn func(*RngFloatResponse) error) error {
+func (ctx RngClient) FloatView(req *RngFloatRequestT, fn func(*RngFloatResponse) error) error {
 	if fn == nil {
 		return errors.New("response callback is required")
 	}
@@ -64,9 +42,9 @@ func (ctx *PluginContext) RngFloatView(req *RngFloatRequestT, fn func(*RngFloatR
 	})
 }
 
-func (ctx *PluginContext) RngFloat(req *RngFloatRequestT) (*RngFloatResponseT, error) {
+func (ctx RngClient) Float(req *RngFloatRequestT) (*RngFloatResponseT, error) {
 	var out *RngFloatResponseT
-	err := ctx.RngFloatView(req, func(response *RngFloatResponse) error {
+	err := ctx.FloatView(req, func(response *RngFloatResponse) error {
 		out = response.UnPack()
 		return nil
 	})
@@ -75,6 +53,35 @@ func (ctx *PluginContext) RngFloat(req *RngFloatRequestT) (*RngFloatResponseT, e
 	}
 	return out, nil
 }
+
+
+func (ctx RngClient) IntView(req *RngIntRequestT, fn func(*RngIntResponse) error) error {
+	if fn == nil {
+		return errors.New("response callback is required")
+	}
+	return withEncodedRngIntRequest(req, func(payload []byte) error {
+		return pdk.HostCallMethodWithResponse(MethodRngInt, payload, func(response []byte) error {
+			out, err := decodeRngIntResponseView(response)
+			if err != nil {
+				return err
+			}
+			return fn(out)
+		})
+	})
+}
+
+func (ctx RngClient) Int(req *RngIntRequestT) (*RngIntResponseT, error) {
+	var out *RngIntResponseT
+	err := ctx.IntView(req, func(response *RngIntResponse) error {
+		out = response.UnPack()
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 
 
 
@@ -97,8 +104,8 @@ func RegisterPlugin(plugin Plugin) error {
 
 func implementedPluginMethodIDs(plugin Plugin) []uint32 {
 	methods := []uint32{
-		MethodGetInfo,
-		MethodBalance,
+		MethodPluginGetInfo,
+		MethodPluginBalance,
 	}
 	return methods
 }
@@ -106,7 +113,7 @@ func implementedPluginMethodIDs(plugin Plugin) []uint32 {
 func dispatchPlugin(plugin Plugin, methodID uint32, payload []byte) ([]byte, error) {
 	ctx := &PluginContext{}
 	switch methodID {
-	case MethodGetInfo:
+	case MethodPluginGetInfo:
 		req, err := decodeEmpty(payload)
 		if err != nil {
 			return nil, err
@@ -116,7 +123,7 @@ func dispatchPlugin(plugin Plugin, methodID uint32, payload []byte) ([]byte, err
 			return nil, err
 		}
 		return encodePluginInfo(resp)
-	case MethodBalance:
+	case MethodPluginBalance:
 		req, err := decodeBalanceRequest(payload)
 		if err != nil {
 			return nil, err

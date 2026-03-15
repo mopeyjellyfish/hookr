@@ -90,16 +90,18 @@ func TestValidateFlatBuffersGoIdentifiers_NoCollision(t *testing.T) {
 				},
 			},
 		},
-		HostService: &contract.Service{
-			Name: "Host",
-			Methods: []contract.Method{
-				{
-					ServiceName:       "Host",
-					Name:              "RngInt",
-					RequestType:       "RngIntRequest",
-					RequestQualified:  "Hookr.RngIntRequest",
-					ResponseType:      "RngIntResponse",
-					ResponseQualified: "Hookr.RngIntResponse",
+		HostServices: []contract.Service{
+			{
+				Name: "Rng",
+				Methods: []contract.Method{
+					{
+						ServiceName:       "Rng",
+						Name:              "Int",
+						RequestType:       "RngIntRequest",
+						RequestQualified:  "Hookr.RngIntRequest",
+						ResponseType:      "RngIntResponse",
+						ResponseQualified: "Hookr.RngIntResponse",
+					},
 				},
 			},
 		},

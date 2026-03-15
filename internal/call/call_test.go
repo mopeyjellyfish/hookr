@@ -105,8 +105,8 @@ func TestRunURLBalancerWithHostFixture(t *testing.T) {
 
 	hostFixturePath := filepath.Join(dir, "host.json")
 	hostFixture := []byte(`{
-		"RngInt": { "response": { "value": 1 } },
-		"RngFloat": { "response": { "value": 0.5 } }
+		"Rng.Int": { "response": { "value": 1 } },
+		"Rng.Float": { "response": { "value": 0.5 } }
 	}`)
 	if err := os.WriteFile(hostFixturePath, hostFixture, 0o600); err != nil {
 		t.Fatalf("write host fixture: %v", err)

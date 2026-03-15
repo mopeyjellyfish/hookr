@@ -110,6 +110,115 @@ rpc_service Plugin {
 	}
 }
 
+func TestLoadContractDiscoversHostServices(t *testing.T) {
+	t.Parallel()
+
+	runner, err := flatc.New("")
+	if err != nil {
+		t.Skipf("flatc not available: %v", err)
+	}
+
+	tmpDir := t.TempDir()
+	schemaPath := filepath.Join(tmpDir, "modules.fbs")
+	writeFile(t, schemaPath, `
+namespace Hookr.Test.Modules;
+
+table UpdateRequest {}
+table UpdateResponse { ok:bool; }
+table IntRequest { min:int32; max:int32; }
+table IntResponse { value:int32; }
+table FloatRequest {}
+table FloatResponse { value:float32; }
+table PresenceRequest { key:string; }
+table PresenceResponse { online:bool; }
+
+rpc_service Presence {
+  Get(PresenceRequest):PresenceResponse;
+}
+
+rpc_service Plugin {
+  Update(UpdateRequest):UpdateResponse;
+}
+
+rpc_service Rng {
+  Float(FloatRequest):FloatResponse;
+  Int(IntRequest):IntResponse;
+}
+`)
+
+	model := loadContractForTest(t, runner, schemaPath, "modules")
+	if got := len(model.HostServices); got != 2 {
+		t.Fatalf("host services = %d, want 2", got)
+	}
+	if model.HostServices[0].Name != "Presence" || model.HostServices[1].Name != "Rng" {
+		t.Fatalf("host services = %#v, want Presence,Rng", model.HostServices)
+	}
+	if _, ok := model.HostMethod("Rng", "Int"); !ok {
+		t.Fatal("expected Rng.Int host method")
+	}
+	if _, ok := model.HostMethod("Presence", "Get"); !ok {
+		t.Fatal("expected Presence.Get host method")
+	}
+	if _, ok := model.HostMethod("Missing", "Get"); ok {
+		t.Fatal("unexpected host method for missing service")
+	}
+}
+
+func TestLoadContractHashStableForHostServiceOrder(t *testing.T) {
+	t.Parallel()
+
+	runner, err := flatc.New("")
+	if err != nil {
+		t.Skipf("flatc not available: %v", err)
+	}
+
+	tmpDir := t.TempDir()
+	schemaA := filepath.Join(tmpDir, "a.fbs")
+	schemaB := filepath.Join(tmpDir, "b.fbs")
+	const common = `
+namespace Hookr.Test.Modules;
+
+table UpdateRequest {}
+table UpdateResponse { ok:bool; }
+table IntRequest { min:int32; max:int32; }
+table IntResponse { value:int32; }
+table PresenceRequest { key:string; }
+table PresenceResponse { online:bool; }
+`
+	writeFile(t, schemaA, common+`
+rpc_service Plugin {
+  Update(UpdateRequest):UpdateResponse;
+}
+
+rpc_service Presence {
+  Get(PresenceRequest):PresenceResponse;
+}
+
+rpc_service Rng {
+  Int(IntRequest):IntResponse;
+}
+`)
+	writeFile(t, schemaB, common+`
+rpc_service Rng {
+  Int(IntRequest):IntResponse;
+}
+
+rpc_service Plugin {
+  Update(UpdateRequest):UpdateResponse;
+}
+
+rpc_service Presence {
+  Get(PresenceRequest):PresenceResponse;
+}
+`)
+
+	contractA := loadContractForTest(t, runner, schemaA, "modules")
+	contractB := loadContractForTest(t, runner, schemaB, "modules")
+	if contractA.SchemaHash != contractB.SchemaHash {
+		t.Fatalf("schema hash should remain stable when host service declaration order changes")
+	}
+}
+
 func loadContractForTest(
 	t *testing.T,
 	runner *flatc.Runner,

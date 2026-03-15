@@ -158,7 +158,9 @@ The intended host-side Go feel:
 ```go
 plugin, err := examplehookr.Open(ctx, examplehookr.Config{
 	PluginPath: "./plugin.wasm",
-	Host:     host{},
+	Host: examplehookr.Host{
+		Rng: host{},
+	},
 })
 if err != nil {
 	return err
@@ -199,7 +201,8 @@ The user should not manually:
 These decisions are now treated as defaults for implementation unless they
 prove unworkable in the first end-to-end slice.
 
-- [x] `Plugin` and `Host` are the default service names
+- [x] `Plugin` is the default plugin service name
+- [x] every non-`Plugin` `rpc_service` is auto-discovered as a host module
 - [x] plugin methods are required by default
 - [x] optionality should be defined in the schema
 - [x] the first Go API should be ergonomic while preserving a clear
@@ -264,15 +267,15 @@ rpc_service Plugin {
   Balance(BalanceRequest):BalanceResponse;
 }
 
-rpc_service Host {
-  RngInt(RngIntRequest):RngIntResponse;
+rpc_service Rng {
+  Int(RngIntRequest):RngIntResponse;
 }
 ```
 
 The intended Hookr interpretation:
 
 - `Plugin` methods are callable by the host
-- `Host` methods are callbacks callable by the plugin
+- every non-`Plugin` service is a host callback module callable by the plugin
 - Hookr generates method IDs, contract metadata, runtime glue, and typed Go
   APIs on top of the official FlatBuffers Go outputs
 

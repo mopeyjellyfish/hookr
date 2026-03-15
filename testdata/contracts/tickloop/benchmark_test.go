@@ -101,7 +101,9 @@ func openRuntimeBenchmark(b *testing.B, wasmPath string) *tickloophookr.Runtime 
 	rt, err := tickloophookr.Open(context.Background(), tickloophookr.Config{
 		PluginPath:  wasmPath,
 		FileOptions: []hookrruntime.FileOption{hookrruntime.WithAllowUnsigned()},
-		Host:        testHost{},
+		Host: tickloophookr.Host{
+			Rng: testHost{},
+		},
 	})
 	if err != nil {
 		b.Fatalf("open runtime: %v", err)

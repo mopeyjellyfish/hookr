@@ -6,6 +6,7 @@ import (
 	"hash/fnv"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/mopeyjellyfish/hookr/internal/flatbuffers/reflection"
@@ -13,7 +14,6 @@ import (
 
 const (
 	DefaultPluginService = "Plugin"
-	DefaultHostService   = "Host"
 	OptionalAttribute    = "hookr_optional"
 )
 
@@ -28,7 +28,6 @@ type LoadOptions struct {
 	PackageName       string
 	ContractName      string
 	PluginServiceName string
-	HostServiceName   string
 	OptionalAttribute string
 }
 
@@ -38,7 +37,7 @@ type Contract struct {
 	SchemaPath    string
 	BFBSPath      string
 	PluginService Service
-	HostService   *Service
+	HostServices  []Service
 	SchemaHash    [32]byte
 }
 
@@ -63,11 +62,21 @@ func (c Contract) PluginMethod(name string) (Method, bool) {
 	return c.PluginService.Method(name)
 }
 
-func (c Contract) HostMethod(name string) (Method, bool) {
-	if c.HostService == nil {
+func (c Contract) HostService(name string) (Service, bool) {
+	for _, service := range c.HostServices {
+		if service.Name == name {
+			return service, true
+		}
+	}
+	return Service{}, false
+}
+
+func (c Contract) HostMethod(serviceName string, methodName string) (Method, bool) {
+	service, ok := c.HostService(serviceName)
+	if !ok {
 		return Method{}, false
 	}
-	return c.HostService.Method(name)
+	return service.Method(methodName)
 }
 
 func (s Service) Method(name string) (Method, bool) {
@@ -90,10 +99,6 @@ func Load(opts LoadOptions) (Contract, error) {
 	if pluginServiceName == "" {
 		pluginServiceName = DefaultPluginService
 	}
-	hostServiceName := opts.HostServiceName
-	if hostServiceName == "" {
-		hostServiceName = DefaultHostService
-	}
 	optionalAttribute := opts.OptionalAttribute
 	if optionalAttribute == "" {
 		optionalAttribute = OptionalAttribute
@@ -109,11 +114,11 @@ func Load(opts LoadOptions) (Contract, error) {
 	if err != nil {
 		return Contract{}, err
 	}
-	host, err := loadOptionalService(schema, hostServiceName, optionalAttribute)
+	hostServices, err := loadHostServices(schema, pluginServiceName, optionalAttribute)
 	if err != nil {
 		return Contract{}, err
 	}
-	if err := ensureUniqueMethodIDs(plugin, host); err != nil {
+	if err := ensureUniqueMethodIDs(plugin, hostServices); err != nil {
 		return Contract{}, err
 	}
 
@@ -123,25 +128,35 @@ func Load(opts LoadOptions) (Contract, error) {
 		SchemaPath:    opts.SchemaPath,
 		BFBSPath:      opts.BFBSPath,
 		PluginService: plugin,
-		HostService:   host,
+		HostServices:  hostServices,
 	}
 	contract.SchemaHash = canonicalHash(schema, contract)
 	return contract, nil
 }
 
-func loadOptionalService(
+func loadHostServices(
 	schema *reflection.Schema,
-	wanted string,
+	pluginServiceName string,
 	optionalAttr string,
-) (*Service, error) {
-	service, err := loadService(schema, wanted, optionalAttr)
-	if err != nil {
-		if errors.Is(err, ErrPluginServiceMissing) {
-			return nil, nil
+) ([]Service, error) {
+	services := make([]Service, 0, schema.ServicesLength())
+	var svc reflection.Service
+	for i := 0; i < schema.ServicesLength(); i++ {
+		if !schema.Services(&svc, i) {
+			continue
 		}
-		return nil, err
+		name := shortName(bytesToString(svc.Name()))
+		if name == pluginServiceName {
+			continue
+		}
+		service, err := loadService(schema, name, optionalAttr)
+		if err != nil {
+			return nil, err
+		}
+		services = append(services, service)
 	}
-	return &service, nil
+	sortServices(services)
+	return services, nil
 }
 
 func loadService(schema *reflection.Schema, wanted string, optionalAttr string) (Service, error) {
@@ -192,12 +207,10 @@ func loadService(schema *reflection.Schema, wanted string, optionalAttr string) 
 	return Service{}, fmt.Errorf("%w: %s", ErrPluginServiceMissing, wanted)
 }
 
-func ensureUniqueMethodIDs(plugin Service, host *Service) error {
+func ensureUniqueMethodIDs(plugin Service, hostServices []Service) error {
 	seen := map[uint32]string{}
 	services := []Service{plugin}
-	if host != nil {
-		services = append(services, *host)
-	}
+	services = append(services, hostServices...)
 	for _, service := range services {
 		for _, method := range service.Methods {
 			if prior, ok := seen[method.ID]; ok {
@@ -243,6 +256,10 @@ func contractName(override, schemaPath, pluginServiceName string) string {
 
 func methodKey(method Method) string {
 	return method.ServiceName + "." + method.Name
+}
+
+func sortServices(services []Service) {
+	sort.Slice(services, func(i, j int) bool { return services[i].Name < services[j].Name })
 }
 
 func toExportedIdentifier(s string) string {

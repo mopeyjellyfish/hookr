@@ -27,7 +27,6 @@ Key optional flags:
 - `--flatc`
 - `--include`, `-I`
 - `--plugin-service`
-- `--host-service`
 - `--optional-attribute`
 - `--capabilities`
 
@@ -67,7 +66,6 @@ Key optional flags:
 - `--include`, `-I`
 - `--package`
 - `--plugin-service`
-- `--host-service`
 - `--optional-attribute`
 
 ### `hookr call`
@@ -90,7 +88,6 @@ Key optional flags:
 - `--include`, `-I`
 - `--package`
 - `--plugin-service`
-- `--host-service`
 - `--optional-attribute`
 
 ### `hookr tui`
@@ -111,7 +108,6 @@ Key optional flags:
 - `--include`, `-I`
 - `--package`
 - `--plugin-service`
-- `--host-service`
 - `--optional-attribute`
 
 Behavior notes:
@@ -139,6 +135,7 @@ Optional flags:
 ## Notes
 
 - `hookr gen` expects FlatBuffers schemas and an available `flatc` binary.
+- Hookr auto-discovers host callback modules from every non-`Plugin` `rpc_service` in the schema.
 - `hookr build` is TinyGo-first today; the CLI is structured so more build backends can be added later.
 - `hookr inspect` is useful for confirming schema hash, method IDs, required versus optional methods, and handshake-visible metadata before you wire a host.
 - `hookr call` is the fastest path for reproducing a request/response bug against a real plugin.

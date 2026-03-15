@@ -20,14 +20,14 @@ var PluginSchema = runtimecontract.Schema{
 	Capabilities: ContractCapabilities,
 	Methods: []runtimecontract.Method{
 			{
-				ID:           runtimecontract.MethodID(MethodGetInfo),
+				ID:           runtimecontract.MethodID(MethodPluginGetInfo),
 				Name:         "GetInfo",
 				RequestType:  "Empty",
 				ResponseType: "PluginInfo",
 				Optional:     false,
 			},
 			{
-				ID:           runtimecontract.MethodID(MethodBalance),
+				ID:           runtimecontract.MethodID(MethodPluginBalance),
 				Name:         "Balance",
 				RequestType:  "BalanceRequest",
 				ResponseType: "BalanceResponse",
@@ -47,10 +47,15 @@ type Config struct {
 	RuntimeOptions []hookrruntime.Option
 }
 
-type Host interface {
-	RngInt(ctx context.Context, req *RngIntRequestT) (*RngIntResponseT, error)
-	RngFloat(ctx context.Context, req *RngFloatRequestT) (*RngFloatResponseT, error)
+type Host struct {
+	Rng RngHost
 }
+
+type RngHost interface {
+	Float(ctx context.Context, req *RngFloatRequestT) (*RngFloatResponseT, error)
+	Int(ctx context.Context, req *RngIntRequestT) (*RngIntResponseT, error)
+}
+
 
 func Open(ctx context.Context, cfg Config) (*Runtime, error) {
 	if cfg.PluginPath == "" {
@@ -59,9 +64,6 @@ func Open(ctx context.Context, cfg Config) (*Runtime, error) {
 	opts := []hookrruntime.Option{
 		hookrruntime.WithFile(cfg.PluginPath, cfg.FileOptions...),
 		hookrruntime.WithContractSchema(PluginSchema),
-	}
-	if cfg.Host == nil {
-		return nil, errors.New("host implementation is required")
 	}
 	opts = append(opts, hookrruntime.WithHostMethodFns(bindHostMethods(cfg.Host)...))
 	opts = append(opts, cfg.RuntimeOptions...)
@@ -84,7 +86,7 @@ func (r *Runtime) SupportsGetInfo() bool {
 	if r == nil || r.rt == nil {
 		return false
 	}
-	return r.rt.HasPluginMethodID(MethodGetInfo)
+	return r.rt.HasPluginMethodID(MethodPluginGetInfo)
 }
 
 
@@ -92,7 +94,7 @@ func (r *Runtime) SupportsBalance() bool {
 	if r == nil || r.rt == nil {
 		return false
 	}
-	return r.rt.HasPluginMethodID(MethodBalance)
+	return r.rt.HasPluginMethodID(MethodPluginBalance)
 }
 
 
@@ -101,7 +103,7 @@ func (r *Runtime) GetInfoView(ctx context.Context, req *EmptyT, fn func(*PluginI
 		return errors.New("response callback is required")
 	}
 	return withEncodedEmpty(req, func(payload []byte) error {
-		return r.rt.InvokeMethodWithResponse(ctx, MethodGetInfo, payload, func(response []byte) error {
+		return r.rt.InvokeMethodWithResponse(ctx, MethodPluginGetInfo, payload, func(response []byte) error {
 			out, err := decodePluginInfoView(response)
 			if err != nil {
 				return err
@@ -129,7 +131,7 @@ func (r *Runtime) BalanceView(ctx context.Context, req *BalanceRequestT, fn func
 		return errors.New("response callback is required")
 	}
 	return withEncodedBalanceRequest(req, func(payload []byte) error {
-		return r.rt.InvokeMethodWithResponse(ctx, MethodBalance, payload, func(response []byte) error {
+		return r.rt.InvokeMethodWithResponse(ctx, MethodPluginBalance, payload, func(response []byte) error {
 			out, err := decodeBalanceResponseView(response)
 			if err != nil {
 				return err
@@ -152,28 +154,36 @@ func (r *Runtime) Balance(ctx context.Context, req *BalanceRequestT) (*BalanceRe
 }
 
 func bindHostMethods(host Host) []hookrruntime.HostMethod {
+	methods := make([]hookrruntime.HostMethod, 0)
+	if host.Rng != nil {
+		methods = append(methods, bindRngHostMethods(host.Rng)...)
+	}
+	return methods
+}
+
+func bindRngHostMethods(host RngHost) []hookrruntime.HostMethod {
 	return []hookrruntime.HostMethod{
-		hookrruntime.HostFnMethod(MethodRngInt, func(ctx context.Context, payload []byte) ([]byte, error) {
-			req, err := decodeRngIntRequest(payload)
-			if err != nil {
-				return nil, err
-			}
-			resp, err := host.RngInt(ctx, req)
-			if err != nil {
-				return nil, err
-			}
-			return encodeRngIntResponse(resp)
-		}),
 		hookrruntime.HostFnMethod(MethodRngFloat, func(ctx context.Context, payload []byte) ([]byte, error) {
 			req, err := decodeRngFloatRequest(payload)
 			if err != nil {
 				return nil, err
 			}
-			resp, err := host.RngFloat(ctx, req)
+			resp, err := host.Float(ctx, req)
 			if err != nil {
 				return nil, err
 			}
 			return encodeRngFloatResponse(resp)
+		}),
+		hookrruntime.HostFnMethod(MethodRngInt, func(ctx context.Context, payload []byte) ([]byte, error) {
+			req, err := decodeRngIntRequest(payload)
+			if err != nil {
+				return nil, err
+			}
+			resp, err := host.Int(ctx, req)
+			if err != nil {
+				return nil, err
+			}
+			return encodeRngIntResponse(resp)
 		}),
 	}
 }

@@ -18,7 +18,6 @@ type Config struct {
 	IncludePaths      []string
 	Package           string
 	PluginService     string
-	HostService       string
 	OptionalAttribute string
 }
 
@@ -61,7 +60,6 @@ func LoadWithReflection(cfg Config) (*flatc.Runner, contract.Contract, *reflecti
 		BFBSPath:          bfbsPath,
 		PackageName:       pkg,
 		PluginServiceName: cfg.PluginService,
-		HostServiceName:   cfg.HostService,
 		OptionalAttribute: cfg.OptionalAttribute,
 	})
 	if err != nil {

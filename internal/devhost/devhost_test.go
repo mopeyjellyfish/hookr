@@ -13,8 +13,8 @@ func TestLoadFixture(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "host.json")
 	data := []byte(`{
-		"Ping": { "response": { "ok": true } },
-		"RngInt": [
+		"Host.Ping": { "response": { "ok": true } },
+		"Rng.Int": [
 			{ "value": 1 },
 			{ "value": 3 }
 		]
@@ -30,11 +30,11 @@ func TestLoadFixture(t *testing.T) {
 	if len(fixture.Methods) != 2 {
 		t.Fatalf("fixture methods = %d, want 2", len(fixture.Methods))
 	}
-	if got := string(fixture.Methods["Ping"].Response); got == "" {
-		t.Fatal("expected Ping response fixture")
+	if got := string(fixture.Methods["Host.Ping"].Response); got == "" {
+		t.Fatal("expected Host.Ping response fixture")
 	}
-	if got := len(fixture.Methods["RngInt"].Responses); got != 2 {
-		t.Fatalf("RngInt responses = %d, want 2", got)
+	if got := len(fixture.Methods["Rng.Int"].Responses); got != 2 {
+		t.Fatalf("Rng.Int responses = %d, want 2", got)
 	}
 }
 

@@ -21,7 +21,7 @@
 
 ## Features
 
-- **Schema-defined contracts**: Host applications define `Plugin` and optional `Host` services in FlatBuffers
+- **Schema-defined contracts**: Host applications define one `Plugin` service and any number of host callback modules in FlatBuffers
 - **Generated Go SDK/PDK glue**: `hookr gen` produces typed host and plugin bindings
 - **Method-ID Wasm ABI**: Fast numeric dispatch suitable for tight plugin loops
 - **Integrity checks by default**: Plugin files are hash-verified unless the host explicitly allows unsigned artifacts
@@ -154,8 +154,8 @@ The generated package name is also your choice. In examples, aliasing the
 generated import to the contract name usually reads better than repeating the
 `...hookr` suffix in every type.
 
-If your contract defines host callbacks, the generated SDK makes that explicit.
-Here is a complete working host for the `urlbalancer` example:
+If your contract defines host callbacks, the generated SDK groups them by
+service. Here is a complete working host for the `urlbalancer` example:
 
 ```go
 package main
@@ -170,14 +170,14 @@ import (
 
 type host struct{}
 
-func (host) RngInt(_ context.Context, req *urlbalancer.RngIntRequestT) (*urlbalancer.RngIntResponseT, error) {
+func (host) Int(_ context.Context, req *urlbalancer.RngIntRequestT) (*urlbalancer.RngIntResponseT, error) {
 	if req == nil || req.Max <= req.Min {
 		return &urlbalancer.RngIntResponseT{Value: req.Min}, nil
 	}
 	return &urlbalancer.RngIntResponseT{Value: req.Min + ((req.Max - req.Min) / 2)}, nil
 }
 
-func (host) RngFloat(_ context.Context, _ *urlbalancer.RngFloatRequestT) (*urlbalancer.RngFloatResponseT, error) {
+func (host) Float(_ context.Context, _ *urlbalancer.RngFloatRequestT) (*urlbalancer.RngFloatResponseT, error) {
 	return &urlbalancer.RngFloatResponseT{Value: 0.5}, nil
 }
 
@@ -186,7 +186,9 @@ func main() {
 
 	plugin, err := urlbalancer.Open(ctx, urlbalancer.Config{
 		PluginPath: "./plugin.wasm",
-		Host:     host{},
+		Host: urlbalancer.Host{
+			Rng: host{},
+		},
 		FileOptions: []hookr.FileOption{
 			hookr.WithAllowUnsigned(),
 		},
@@ -204,7 +206,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-log.Printf("selected %s (valid=%v score=%.2f)", resp.SelectedNode, resp.Valid, resp.Score)
+	log.Printf("selected %s (valid=%v rng=%.2f)", resp.SelectedNode, resp.Valid, resp.RngFloat)
 }
 ```
 
@@ -213,9 +215,9 @@ log.Printf("selected %s (valid=%v score=%.2f)", resp.SelectedNode, resp.Valid, r
 Host callbacks are defined by the host application in the FlatBuffers contract,
 not by Hookr. The common pattern is:
 
-1. Define callback methods in `rpc_service Host`.
+1. Define callback modules as normal `rpc_service`s alongside `Plugin`.
 2. Run `hookr gen`.
-3. Implement the generated `Host` interface in your Go host.
+3. Implement the generated per-module interfaces in your Go host.
 4. Pass that implementation into `Config.Host` when opening the plugin.
 5. Call those callbacks from plugin code through `PluginContext`.
 
@@ -226,21 +228,23 @@ rpc_service Plugin {
   Balance(BalanceRequest):BalanceResponse;
 }
 
-rpc_service Host {
-  RngInt(RngIntRequest):RngIntResponse;
+rpc_service Rng {
+  Int(RngIntRequest):RngIntResponse;
 }
 ```
 
 ```go
 type host struct{}
 
-func (host) RngInt(ctx context.Context, req *urlbalancer.RngIntRequestT) (*urlbalancer.RngIntResponseT, error) {
+func (host) Int(ctx context.Context, req *urlbalancer.RngIntRequestT) (*urlbalancer.RngIntResponseT, error) {
 	return &urlbalancer.RngIntResponseT{Value: req.Min}, nil
 }
 
 plugin, err := urlbalancer.Open(ctx, urlbalancer.Config{
 	PluginPath: "./plugin.wasm",
-	Host:     host{},
+	Host: urlbalancer.Host{
+		Rng: host{},
+	},
 	FileOptions: []hookr.FileOption{
 		hookr.WithAllowUnsigned(),
 	},
@@ -249,7 +253,7 @@ plugin, err := urlbalancer.Open(ctx, urlbalancer.Config{
 
 ```go
 func (plugin) Balance(ctx *urlbalancer.PluginContext, req *urlbalancer.BalanceRequestT) (*urlbalancer.BalanceResponseT, error) {
-	rng, err := ctx.RngInt(&urlbalancer.RngIntRequestT{Min: 0, Max: int32(len(req.Nodes) - 1)})
+	rng, err := ctx.Rng.Int(&urlbalancer.RngIntRequestT{Min: 0, Max: int32(len(req.Nodes) - 1)})
 	if err != nil {
 		return nil, err
 	}
@@ -258,7 +262,7 @@ func (plugin) Balance(ctx *urlbalancer.PluginContext, req *urlbalancer.BalanceRe
 ```
 
 That is the whole registration story: the schema declares the callbacks, the
-host implements the generated interface, and Hookr wires the rest.
+host implements the generated module interfaces, and Hookr wires the rest.
 
 For plugin development, Hookr can validate and call plugins directly from the
 CLI. For example, this calls the `urlbalancer` plugin with a host callback

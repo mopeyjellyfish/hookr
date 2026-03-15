@@ -14,7 +14,7 @@ import (
 
 type host struct{}
 
-func (host) RngInt(_ context.Context, req *urlbalancerhookr.RngIntRequestT) (*urlbalancerhookr.RngIntResponseT, error) {
+func (host) Int(_ context.Context, req *urlbalancerhookr.RngIntRequestT) (*urlbalancerhookr.RngIntResponseT, error) {
 	midpoint := req.Min
 	if req.Max > req.Min {
 		midpoint = req.Min + ((req.Max - req.Min) / 2)
@@ -22,7 +22,7 @@ func (host) RngInt(_ context.Context, req *urlbalancerhookr.RngIntRequestT) (*ur
 	return &urlbalancerhookr.RngIntResponseT{Value: midpoint}, nil
 }
 
-func (host) RngFloat(_ context.Context, _ *urlbalancerhookr.RngFloatRequestT) (*urlbalancerhookr.RngFloatResponseT, error) {
+func (host) Float(_ context.Context, _ *urlbalancerhookr.RngFloatRequestT) (*urlbalancerhookr.RngFloatResponseT, error) {
 	return &urlbalancerhookr.RngFloatResponseT{Value: 0.5}, nil
 }
 
@@ -33,7 +33,9 @@ func main() {
 	rt, err := urlbalancerhookr.Open(ctx, urlbalancerhookr.Config{
 		PluginPath:  wasmPath,
 		FileOptions: []hookrruntime.FileOption{hookrruntime.WithAllowUnsigned()},
-		Host:        host{},
+		Host: urlbalancerhookr.Host{
+			Rng: host{},
+		},
 	})
 	if err != nil {
 		log.Fatal(err)

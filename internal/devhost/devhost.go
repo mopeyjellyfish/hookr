@@ -52,19 +52,21 @@ func BindHostMethods(
 	includePaths []string,
 	fixture Fixture,
 ) []hookrruntime.HostMethod {
-	if model.HostService == nil {
+	if len(model.HostServices) == 0 {
 		return nil
 	}
-	methods := make([]hookrruntime.HostMethod, 0, len(model.HostService.Methods))
-	for _, method := range model.HostService.Methods {
-		responder := newResponder(
-			method,
-			runner,
-			schemaPath,
-			includePaths,
-			fixture.Methods[method.Name],
-		)
-		methods = append(methods, hookrruntime.HostFnMethod(method.ID, responder.Call))
+	methods := make([]hookrruntime.HostMethod, 0)
+	for _, service := range model.HostServices {
+		for _, method := range service.Methods {
+			responder := newResponder(
+				method,
+				runner,
+				schemaPath,
+				includePaths,
+				fixture.Methods[hostFixtureKey(method)],
+			)
+			methods = append(methods, hookrruntime.HostFnMethod(method.ID, responder.Call))
+		}
 	}
 	return methods
 }
@@ -105,7 +107,7 @@ func (r *responder) Call(_ context.Context, _ []byte) ([]byte, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if len(r.responses) == 0 {
-		return nil, fmt.Errorf("no fixture response configured for host method %s", r.method.Name)
+		return nil, fmt.Errorf("no fixture response configured for host method %s", hostFixtureKey(r.method))
 	}
 	response := r.responses[0]
 	if len(r.responses) > 1 {
@@ -118,9 +120,13 @@ func (r *responder) Call(_ context.Context, _ []byte) ([]byte, error) {
 		response,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("encode fixture response for host method %s: %w", r.method.Name, err)
+		return nil, fmt.Errorf("encode fixture response for host method %s: %w", hostFixtureKey(r.method), err)
 	}
 	return data, nil
+}
+
+func hostFixtureKey(method contract.Method) string {
+	return method.ServiceName + "." + method.Name
 }
 
 func parseMethodFixture(raw json.RawMessage) (MethodFixture, error) {

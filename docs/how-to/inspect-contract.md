@@ -23,14 +23,13 @@ hookr inspect \
   --include ./third_party
 ```
 
-3. Optional service/attribute overrides:
+3. Optional plugin-service and attribute overrides:
 
 ```bash
 hookr inspect \
   --schema ./contract.fbs \
   --package mycontracthookr \
   --plugin-service EnginePlugin \
-  --host-service EngineHost \
   --optional-attribute hookr_optional
 ```
 
@@ -42,7 +41,7 @@ hookr inspect \
   --plugin ./plugin.wasm
 ```
 
-5. If the contract defines a `Host` service and the plugin needs callbacks
+5. If the contract defines host callback modules and the plugin needs callbacks
 during startup, provide a host fixture:
 
 ```bash
@@ -57,7 +56,7 @@ hookr inspect \
 - contract name
 - schema hash
 - plugin service methods and IDs
-- host service methods and IDs
+- host module methods and IDs
 - required vs optional plugin method flags
 - plugin ABI version and schema hash
 - plugin-reported method inventory

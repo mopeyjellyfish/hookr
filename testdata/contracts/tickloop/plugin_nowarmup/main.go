@@ -20,7 +20,7 @@ func (pluginNoWarmup) Tick(ctx *tickloophookr.PluginContext, req *tickloophookr.
 	if req == nil {
 		req = &tickloophookr.TickRequestT{}
 	}
-	rng, err := ctx.RngInt(&tickloophookr.RngIntRequestT{Min: -1, Max: 1})
+	rng, err := ctx.Rng.Int(&tickloophookr.RngIntRequestT{Min: -1, Max: 1})
 	if err != nil {
 		return nil, err
 	}
