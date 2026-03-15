@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 
 	flatbuffers "github.com/google/flatbuffers/go"
 	hookrruntime "github.com/mopeyjellyfish/hookr/runtime"
@@ -66,6 +67,9 @@ type RngHost interface {
 func Open(ctx context.Context, cfg Config) (*Runtime, error) {
 	if cfg.PluginPath == "" {
 		return nil, errors.New("plugin path is required")
+	}
+	if err := validateHostModules(cfg.Host); err != nil {
+		return nil, err
 	}
 	opts := []hookrruntime.Option{
 		hookrruntime.WithFile(cfg.PluginPath, cfg.FileOptions...),
@@ -195,9 +199,29 @@ func (r *Runtime) Tick(ctx context.Context, req *TickRequestT) (*TickResponseT, 
 	return out, nil
 }
 
+func validateHostModules(host Host) error {
+	if isNilHostModule(host.Rng) {
+		return errors.New("host module Rng is required")
+	}
+	return nil
+}
+
+func isNilHostModule(module any) bool {
+	if module == nil {
+		return true
+	}
+	value := reflect.ValueOf(module)
+	switch value.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		return value.IsNil()
+	default:
+		return false
+	}
+}
+
 func bindHostMethods(host Host) []hookrruntime.HostMethod {
 	methods := make([]hookrruntime.HostMethod, 0)
-	if host.Rng != nil {
+	if !isNilHostModule(host.Rng) {
 		methods = append(methods, bindRngHostMethods(host.Rng)...)
 	}
 	return methods

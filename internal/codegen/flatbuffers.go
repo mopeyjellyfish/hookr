@@ -163,14 +163,14 @@ func validateFlatBuffersGoIdentifiers(model contract.Contract) error {
 		typeOwners[typeName] = owner
 		return nil
 	}
-	checkMethods := func(methods []contract.Method) error {
+	checkPluginMethods := func(methods []contract.Method) error {
 		for _, method := range methods {
 			owner := method.ServiceName + "." + method.Name
 			goName := toExportedIdentifier(method.Name)
 			if err := registerIdentifier("method", goName, owner); err != nil {
 				return err
 			}
-			if err := registerIdentifier("constant", "Method"+goName, owner); err != nil {
+			if err := registerIdentifier("constant", "Method"+toExportedIdentifier(method.ServiceName)+goName, owner); err != nil {
 				return err
 			}
 			if method.Optional {
@@ -187,7 +187,33 @@ func validateFlatBuffersGoIdentifiers(model contract.Contract) error {
 		}
 		return nil
 	}
-	if err := checkMethods(model.PluginService.Methods); err != nil {
+	checkHostMethods := func(service contract.Service) error {
+		methodOwners := map[string]string{}
+		for _, method := range service.Methods {
+			owner := method.ServiceName + "." + method.Name
+			goName := toExportedIdentifier(method.Name)
+			if prior, ok := methodOwners[goName]; ok && prior != owner {
+				return fmt.Errorf(
+					"generated Go host method identifier collision for %q between %s and %s",
+					goName,
+					prior,
+					owner,
+				)
+			}
+			methodOwners[goName] = owner
+			if err := registerIdentifier("constant", "Method"+toExportedIdentifier(method.ServiceName)+goName, owner); err != nil {
+				return err
+			}
+			if err := registerType(method.RequestType, method.RequestQualified, owner+" request"); err != nil {
+				return err
+			}
+			if err := registerType(method.ResponseType, method.ResponseQualified, owner+" response"); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	if err := checkPluginMethods(model.PluginService.Methods); err != nil {
 		return err
 	}
 	moduleOwners := map[string]string{}
@@ -208,7 +234,7 @@ func validateFlatBuffersGoIdentifiers(model contract.Contract) error {
 		if err := registerIdentifier("host client", moduleName+"Client", service.Name); err != nil {
 			return err
 		}
-		if err := checkMethods(service.Methods); err != nil {
+		if err := checkHostMethods(service); err != nil {
 			return err
 		}
 	}
@@ -331,6 +357,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	{{- if .HasHostModules }}
+	"reflect"
+	{{- end }}
 
 	flatbuffers "github.com/google/flatbuffers/go"
 	hookrruntime "github.com/mopeyjellyfish/hookr/runtime"
@@ -387,6 +416,11 @@ func Open(ctx context.Context, cfg Config) (*Runtime, error) {
 	if cfg.PluginPath == "" {
 		return nil, errors.New("plugin path is required")
 	}
+	{{ if .HasHostModules -}}
+	if err := validateHostModules(cfg.Host); err != nil {
+		return nil, err
+	}
+	{{- end }}
 	opts := []hookrruntime.Option{
 		hookrruntime.WithFile(cfg.PluginPath, cfg.FileOptions...),
 		hookrruntime.WithContractSchema(PluginSchema),
@@ -450,10 +484,32 @@ func (r *Runtime) {{ .GoName }}(ctx context.Context, req *{{ .RequestType }}T) (
 {{ end -}}
 
 {{ if .HasHostModules -}}
+func validateHostModules(host Host) error {
+	{{- range .HostModules }}
+	if isNilHostModule(host.{{ .GoName }}) {
+		return errors.New("host module {{ .ServiceName }} is required")
+	}
+	{{- end }}
+	return nil
+}
+
+func isNilHostModule(module any) bool {
+	if module == nil {
+		return true
+	}
+	value := reflect.ValueOf(module)
+	switch value.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		return value.IsNil()
+	default:
+		return false
+	}
+}
+
 func bindHostMethods(host Host) []hookrruntime.HostMethod {
 	methods := make([]hookrruntime.HostMethod, 0)
 	{{- range .HostModules }}
-	if host.{{ .GoName }} != nil {
+	if !isNilHostModule(host.{{ .GoName }}) {
 		methods = append(methods, bind{{ .GoName }}HostMethods(host.{{ .GoName }})...)
 	}
 	{{- end }}

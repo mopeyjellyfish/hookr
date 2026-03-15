@@ -5,9 +5,10 @@ Hookr contracts are defined by the host application in FlatBuffers.
 ## Default Service Names
 
 - `Plugin`: methods the host calls on the plugin
-- `Host`: callbacks the plugin calls on the host
+- every other `rpc_service`: a host callback module the plugin calls
 
-These are configurable in CLI flags.
+`Plugin` is configurable through CLI flags. Host callback modules are
+auto-discovered from the remaining services in the schema.
 
 ## Optional Methods
 

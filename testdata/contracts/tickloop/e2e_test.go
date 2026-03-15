@@ -27,6 +27,15 @@ func (testHost) Int(_ context.Context, req *tickloophookr.RngIntRequestT) (*tick
 	return &tickloophookr.RngIntResponseT{Value: req.Min}, nil
 }
 
+type nilableHost struct{}
+
+func (*nilableHost) Int(_ context.Context, req *tickloophookr.RngIntRequestT) (*tickloophookr.RngIntResponseT, error) {
+	if req == nil {
+		return &tickloophookr.RngIntResponseT{Value: 0}, nil
+	}
+	return &tickloophookr.RngIntResponseT{Value: req.Min}, nil
+}
+
 func TestTickLoopE2E_WithWarmupPlugin(t *testing.T) {
 	t.Parallel()
 
@@ -141,6 +150,42 @@ func TestTickLoopE2E_WithoutWarmupPlugin(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "method not found") {
 		t.Fatalf("warmup error = %q, want contains 'method not found'", err.Error())
+	}
+}
+
+func TestTickLoopOpenRequiresHostModules(t *testing.T) {
+	t.Parallel()
+
+	wasmPath := buildPlugin(t, "plugin")
+	_, err := tickloophookr.Open(context.Background(), tickloophookr.Config{
+		PluginPath:  wasmPath,
+		FileOptions: []hookrruntime.FileOption{hookrruntime.WithAllowUnsigned()},
+	})
+	if err == nil {
+		t.Fatal("expected open to fail when host module is missing")
+	}
+	if !strings.Contains(err.Error(), "host module Rng is required") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestTickLoopOpenRejectsTypedNilHostModule(t *testing.T) {
+	t.Parallel()
+
+	wasmPath := buildPlugin(t, "plugin")
+	var rngHost *nilableHost
+	_, err := tickloophookr.Open(context.Background(), tickloophookr.Config{
+		PluginPath:  wasmPath,
+		FileOptions: []hookrruntime.FileOption{hookrruntime.WithAllowUnsigned()},
+		Host: tickloophookr.Host{
+			Rng: rngHost,
+		},
+	})
+	if err == nil {
+		t.Fatal("expected open to fail for typed-nil host module")
+	}
+	if !strings.Contains(err.Error(), "host module Rng is required") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 

@@ -75,9 +75,7 @@ type Runtime struct {
 	plugin            api.Module
 	compiled          wazero.CompiledModule
 
-	invokeMu      sync.Mutex
-	invokeCtx     *invoke.Context
-	invokeScratch invoke.Context
+	invokeMu sync.Mutex
 }
 
 // Will initialize the wazero runtime
@@ -268,6 +266,9 @@ func (e *Runtime) InvokeMethodWithResponse(
 	if e.plugin == nil {
 		return errors.New("plugin not initialized")
 	}
+	if invoke.From(ctx) != nil {
+		return errors.New("reentrant plugin invocation is not supported")
+	}
 
 	var (
 		results   []uint64
@@ -277,24 +278,26 @@ func (e *Runtime) InvokeMethodWithResponse(
 	)
 
 	e.invokeMu.Lock()
-	ic := &e.invokeScratch
+	ic := &invoke.Context{}
 	ic.Operation = ""
 	ic.PluginReq = payload
 	ic.PluginResp = nil
 	ic.PluginErr = ""
 	ic.HostResp = nil
 	ic.HostErr = nil
-	e.invokeCtx = ic
+	ctx = invoke.New(ctx, ic)
+	defer func() {
+		ic.PluginReq = nil
+		ic.PluginResp = nil
+		ic.PluginErr = ""
+		ic.HostResp = nil
+		ic.HostErr = nil
+		e.invokeMu.Unlock()
+	}()
+
 	results, err = e.pluginCall.Call(ctx, uint64(methodID), uint64(len(payload)))
 	resp = ic.PluginResp
 	pluginErr = ic.PluginErr
-	e.invokeCtx = nil
-	ic.PluginReq = nil
-	ic.PluginResp = nil
-	ic.PluginErr = ""
-	ic.HostResp = nil
-	ic.HostErr = nil
-	e.invokeMu.Unlock()
 
 	if err != nil {
 		return fmt.Errorf("error while making method %d call: %w", methodID, err)
@@ -555,7 +558,7 @@ func decodeABIVersion(encoded uint64) (major, minor uint16, err error) {
 }
 
 func (e *Runtime) currentInvoke() *invoke.Context {
-	return e.invokeCtx
+	return nil
 }
 
 func (e *Runtime) loadPluginMethods(fn api.Function) (map[uint32]struct{}, error) {
@@ -594,12 +597,10 @@ func (e *Runtime) callWithInvokeContext0(
 	fn api.Function,
 ) ([]uint64, error) {
 	e.invokeMu.Lock()
-	e.invokeCtx = ic
 	defer func() {
-		e.invokeCtx = nil
 		e.invokeMu.Unlock()
 	}()
-	return fn.Call(ctx)
+	return fn.Call(invoke.New(ctx, ic))
 }
 
 func (e *Runtime) callWithInvokeContext2(
@@ -610,10 +611,8 @@ func (e *Runtime) callWithInvokeContext2(
 	arg1 uint64,
 ) ([]uint64, error) {
 	e.invokeMu.Lock()
-	e.invokeCtx = ic
 	defer func() {
-		e.invokeCtx = nil
 		e.invokeMu.Unlock()
 	}()
-	return fn.Call(ctx, arg0, arg1)
+	return fn.Call(invoke.New(ctx, ic), arg0, arg1)
 }

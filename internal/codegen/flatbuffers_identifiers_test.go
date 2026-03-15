@@ -111,3 +111,53 @@ func TestValidateFlatBuffersGoIdentifiers_NoCollision(t *testing.T) {
 		t.Fatalf("unexpected collision error: %v", err)
 	}
 }
+
+func TestValidateFlatBuffersGoIdentifiers_AllowsSameMethodNameAcrossHostModules(t *testing.T) {
+	model := contract.Contract{
+		PluginService: contract.Service{
+			Name: "Plugin",
+			Methods: []contract.Method{
+				{
+					ServiceName:       "Plugin",
+					Name:              "Run",
+					RequestType:       "RunRequest",
+					RequestQualified:  "Hookr.RunRequest",
+					ResponseType:      "RunResponse",
+					ResponseQualified: "Hookr.RunResponse",
+				},
+			},
+		},
+		HostServices: []contract.Service{
+			{
+				Name: "Rng",
+				Methods: []contract.Method{
+					{
+						ServiceName:       "Rng",
+						Name:              "Int",
+						RequestType:       "RngIntRequest",
+						RequestQualified:  "Hookr.RngIntRequest",
+						ResponseType:      "RngIntResponse",
+						ResponseQualified: "Hookr.RngIntResponse",
+					},
+				},
+			},
+			{
+				Name: "Shuffle",
+				Methods: []contract.Method{
+					{
+						ServiceName:       "Shuffle",
+						Name:              "Int",
+						RequestType:       "ShuffleIntRequest",
+						RequestQualified:  "Hookr.ShuffleIntRequest",
+						ResponseType:      "ShuffleIntResponse",
+						ResponseQualified: "Hookr.ShuffleIntResponse",
+					},
+				},
+			},
+		},
+	}
+
+	if err := validateFlatBuffersGoIdentifiers(model); err != nil {
+		t.Fatalf("unexpected collision error: %v", err)
+	}
+}
