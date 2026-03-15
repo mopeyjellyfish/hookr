@@ -1,3 +1,15 @@
+# [2.2.0](https://github.com/mopeyjellyfish/hookr/compare/v2.1.0...v2.2.0) (2026-03-15)
+
+
+### Bug Fixes
+
+* harden runtime invocation and host module validation ([922322c](https://github.com/mopeyjellyfish/hookr/commit/922322cbb03aafd014dad51908d87b385be86a83))
+
+
+### Features
+
+* support auto-discovered host rpc modules ([3776715](https://github.com/mopeyjellyfish/hookr/commit/37767150dd6917144bf86881aab59c394473eecc))
+
 # [2.1.0](https://github.com/mopeyjellyfish/hookr/compare/v2.0.0...v2.1.0) (2026-03-15)
 
 
