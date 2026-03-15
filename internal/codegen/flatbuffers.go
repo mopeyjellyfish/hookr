@@ -2,6 +2,7 @@ package codegen
 
 import (
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -43,7 +44,7 @@ type flatbuffersTypeTemplate struct {
 
 func generateFlatBuffers(cfg Config) error {
 	if !strings.EqualFold(cfg.Lang, "go") {
-		return fmt.Errorf("flatbuffers generation currently supports only --lang go")
+		return errors.New("flatbuffers generation currently supports only --lang go")
 	}
 	runner, err := flatc.New(cfg.FlatcPath)
 	if err != nil {
@@ -131,7 +132,13 @@ func validateFlatBuffersGoIdentifiers(model contract.Contract) error {
 	typeOwners := map[string]string{}
 	registerIdentifier := func(kind string, identifier string, owner string) error {
 		if prior, ok := idOwners[identifier]; ok && prior != owner {
-			return fmt.Errorf("generated Go %s identifier collision for %q between %s and %s", kind, identifier, prior, owner)
+			return fmt.Errorf(
+				"generated Go %s identifier collision for %q between %s and %s",
+				kind,
+				identifier,
+				prior,
+				owner,
+			)
 		}
 		idOwners[identifier] = owner
 		return nil
@@ -281,6 +288,7 @@ package {{ .PackageName }}
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	flatbuffers "github.com/google/flatbuffers/go"
 	hookrruntime "github.com/mopeyjellyfish/hookr/runtime"
@@ -365,14 +373,26 @@ func (r *Runtime) Supports{{ .GoName }}() bool {
 {{ end -}}
 
 {{ range .PluginMethods }}
+func (r *Runtime) {{ .GoName }}View(ctx context.Context, req *{{ .RequestType }}T, fn func(*{{ .ResponseType }}) error) error {
+	if fn == nil {
+		return errors.New("response callback is required")
+	}
+	return withEncoded{{ .RequestType }}(req, func(payload []byte) error {
+		return r.rt.InvokeMethodWithResponse(ctx, {{ .ConstName }}, payload, func(response []byte) error {
+			out, err := decode{{ .ResponseType }}View(response)
+			if err != nil {
+				return err
+			}
+			return fn(out)
+		})
+	})
+}
+
 func (r *Runtime) {{ .GoName }}(ctx context.Context, req *{{ .RequestType }}T) (*{{ .ResponseType }}T, error) {
 	var out *{{ .ResponseType }}T
-	err := withEncoded{{ .RequestType }}(req, func(payload []byte) error {
-		return r.rt.InvokeMethodWithResponse(ctx, {{ .ConstName }}, payload, func(response []byte) error {
-			var err error
-			out, err = decode{{ .ResponseType }}(response)
-			return err
-		})
+	err := r.{{ .GoName }}View(ctx, req, func(response *{{ .ResponseType }}) error {
+		out = response.UnPack()
+		return nil
 	})
 	if err != nil {
 		return nil, err
@@ -430,6 +450,18 @@ func releaseBuilder(builder *flatbuffers.Builder) {
 	}
 }
 
+func decodeFlatbuffer(typeName string, payload []byte, decode func([]byte) any) (_ any, err error) {
+	if len(payload) < flatbuffers.SizeUint32 {
+		return nil, fmt.Errorf("decode %s: invalid flatbuffer payload", typeName)
+	}
+	defer func() {
+		if recover() != nil {
+			err = fmt.Errorf("decode %s: invalid flatbuffer payload", typeName)
+		}
+	}()
+	return decode(payload), nil
+}
+
 {{ range .UniqueTypes }}
 func encode{{ .TypeName }}(msg *{{ .TypeName }}T) ([]byte, error) {
 	if msg == nil {
@@ -454,8 +486,21 @@ func withEncoded{{ .TypeName }}(msg *{{ .TypeName }}T, fn func([]byte) error) er
 }
 
 func decode{{ .TypeName }}(payload []byte) (*{{ .TypeName }}T, error) {
-	msg := GetRootAs{{ .TypeName }}(payload, 0)
+	msg, err := decode{{ .TypeName }}View(payload)
+	if err != nil {
+		return nil, err
+	}
 	return msg.UnPack(), nil
+}
+
+func decode{{ .TypeName }}View(payload []byte) (*{{ .TypeName }}, error) {
+	msg, err := decodeFlatbuffer("{{ .TypeName }}", payload, func(raw []byte) any {
+		return GetRootAs{{ .TypeName }}(raw, 0)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return msg.(*{{ .TypeName }}), nil
 }
 
 {{ end -}}
@@ -469,6 +514,7 @@ package {{ .PackageName }}
 
 import (
 	"errors"
+	"fmt"
 
 	flatbuffers "github.com/google/flatbuffers/go"
 	"github.com/mopeyjellyfish/hookr/pdk"
@@ -496,14 +542,26 @@ type {{ .OptionalIfaceName }} interface {
 
 {{ if .HasHostService -}}
 {{ range .HostMethods }}
+func (ctx *PluginContext) {{ .GoName }}View(req *{{ .RequestType }}T, fn func(*{{ .ResponseType }}) error) error {
+	if fn == nil {
+		return errors.New("response callback is required")
+	}
+	return withEncoded{{ .RequestType }}(req, func(payload []byte) error {
+		return pdk.HostCallMethodWithResponse({{ .ConstName }}, payload, func(response []byte) error {
+			out, err := decode{{ .ResponseType }}View(response)
+			if err != nil {
+				return err
+			}
+			return fn(out)
+		})
+	})
+}
+
 func (ctx *PluginContext) {{ .GoName }}(req *{{ .RequestType }}T) (*{{ .ResponseType }}T, error) {
 	var out *{{ .ResponseType }}T
-	err := withEncoded{{ .RequestType }}(req, func(payload []byte) error {
-		return pdk.HostCallMethodWithResponse({{ .ConstName }}, payload, func(response []byte) error {
-			var err error
-			out, err = decode{{ .ResponseType }}(response)
-			return err
-		})
+	err := ctx.{{ .GoName }}View(req, func(response *{{ .ResponseType }}) error {
+		out = response.UnPack()
+		return nil
 	})
 	if err != nil {
 		return nil, err
@@ -604,6 +662,18 @@ func releaseBuilder(builder *flatbuffers.Builder) {
 	}
 }
 
+func decodeFlatbuffer(typeName string, payload []byte, decode func([]byte) any) (_ any, err error) {
+	if len(payload) < flatbuffers.SizeUint32 {
+		return nil, fmt.Errorf("decode %s: invalid flatbuffer payload", typeName)
+	}
+	defer func() {
+		if recover() != nil {
+			err = fmt.Errorf("decode %s: invalid flatbuffer payload", typeName)
+		}
+	}()
+	return decode(payload), nil
+}
+
 {{ range .UniqueTypes }}
 func encode{{ .TypeName }}(msg *{{ .TypeName }}T) ([]byte, error) {
 	if msg == nil {
@@ -628,8 +698,21 @@ func withEncoded{{ .TypeName }}(msg *{{ .TypeName }}T, fn func([]byte) error) er
 }
 
 func decode{{ .TypeName }}(payload []byte) (*{{ .TypeName }}T, error) {
-	msg := GetRootAs{{ .TypeName }}(payload, 0)
+	msg, err := decode{{ .TypeName }}View(payload)
+	if err != nil {
+		return nil, err
+	}
 	return msg.UnPack(), nil
+}
+
+func decode{{ .TypeName }}View(payload []byte) (*{{ .TypeName }}, error) {
+	msg, err := decodeFlatbuffer("{{ .TypeName }}", payload, func(raw []byte) any {
+		return GetRootAs{{ .TypeName }}(raw, 0)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return msg.(*{{ .TypeName }}), nil
 }
 
 {{ end -}}

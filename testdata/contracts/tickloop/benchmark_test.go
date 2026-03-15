@@ -33,6 +33,35 @@ func BenchmarkTickLoopTick(b *testing.B) {
 	}
 }
 
+func BenchmarkTickLoopTickView(b *testing.B) {
+	wasmPath := buildPluginBenchmark(b, "plugin")
+	rt := openRuntimeBenchmark(b, wasmPath)
+	defer closeRuntimeBenchmark(b, rt)
+
+	req := &tickloophookr.TickRequestT{
+		Tick:      1,
+		DtMicros:  16666,
+		StateHash: 1000,
+		Events:    3,
+	}
+
+	var nextStateHash uint64
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		req.Tick = uint64(i + 1)
+		if err := rt.TickView(context.Background(), req, func(resp *tickloophookr.TickResponse) error {
+			nextStateHash = resp.NextStateHash()
+			return nil
+		}); err != nil {
+			b.Fatalf("tick view: %v", err)
+		}
+	}
+	if nextStateHash == 0 {
+		b.Fatal("expected non-zero next state hash")
+	}
+}
+
 func BenchmarkTickLoopWarmup(b *testing.B) {
 	wasmPath := buildPluginBenchmark(b, "plugin")
 	rt := openRuntimeBenchmark(b, wasmPath)

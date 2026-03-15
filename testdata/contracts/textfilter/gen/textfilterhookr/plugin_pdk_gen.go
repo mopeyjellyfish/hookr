@@ -6,6 +6,7 @@ package textfilterhookr
 
 import (
 	"errors"
+	"fmt"
 
 	flatbuffers "github.com/google/flatbuffers/go"
 	"github.com/mopeyjellyfish/hookr/pdk"
@@ -101,6 +102,18 @@ func releaseBuilder(builder *flatbuffers.Builder) {
 	}
 }
 
+func decodeFlatbuffer(typeName string, payload []byte, decode func([]byte) any) (_ any, err error) {
+	if len(payload) < flatbuffers.SizeUint32 {
+		return nil, fmt.Errorf("decode %s: invalid flatbuffer payload", typeName)
+	}
+	defer func() {
+		if recover() != nil {
+			err = fmt.Errorf("decode %s: invalid flatbuffer payload", typeName)
+		}
+	}()
+	return decode(payload), nil
+}
+
 
 func encodeEmpty(msg *EmptyT) ([]byte, error) {
 	if msg == nil {
@@ -125,8 +138,21 @@ func withEncodedEmpty(msg *EmptyT, fn func([]byte) error) error {
 }
 
 func decodeEmpty(payload []byte) (*EmptyT, error) {
-	msg := GetRootAsEmpty(payload, 0)
+	msg, err := decodeEmptyView(payload)
+	if err != nil {
+		return nil, err
+	}
 	return msg.UnPack(), nil
+}
+
+func decodeEmptyView(payload []byte) (*Empty, error) {
+	msg, err := decodeFlatbuffer("Empty", payload, func(raw []byte) any {
+		return GetRootAsEmpty(raw, 0)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return msg.(*Empty), nil
 }
 
 
@@ -153,8 +179,21 @@ func withEncodedFilterRequest(msg *FilterRequestT, fn func([]byte) error) error 
 }
 
 func decodeFilterRequest(payload []byte) (*FilterRequestT, error) {
-	msg := GetRootAsFilterRequest(payload, 0)
+	msg, err := decodeFilterRequestView(payload)
+	if err != nil {
+		return nil, err
+	}
 	return msg.UnPack(), nil
+}
+
+func decodeFilterRequestView(payload []byte) (*FilterRequest, error) {
+	msg, err := decodeFlatbuffer("FilterRequest", payload, func(raw []byte) any {
+		return GetRootAsFilterRequest(raw, 0)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return msg.(*FilterRequest), nil
 }
 
 
@@ -181,8 +220,21 @@ func withEncodedFilterResponse(msg *FilterResponseT, fn func([]byte) error) erro
 }
 
 func decodeFilterResponse(payload []byte) (*FilterResponseT, error) {
-	msg := GetRootAsFilterResponse(payload, 0)
+	msg, err := decodeFilterResponseView(payload)
+	if err != nil {
+		return nil, err
+	}
 	return msg.UnPack(), nil
+}
+
+func decodeFilterResponseView(payload []byte) (*FilterResponse, error) {
+	msg, err := decodeFlatbuffer("FilterResponse", payload, func(raw []byte) any {
+		return GetRootAsFilterResponse(raw, 0)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return msg.(*FilterResponse), nil
 }
 
 
@@ -209,7 +261,20 @@ func withEncodedPluginInfo(msg *PluginInfoT, fn func([]byte) error) error {
 }
 
 func decodePluginInfo(payload []byte) (*PluginInfoT, error) {
-	msg := GetRootAsPluginInfo(payload, 0)
+	msg, err := decodePluginInfoView(payload)
+	if err != nil {
+		return nil, err
+	}
 	return msg.UnPack(), nil
+}
+
+func decodePluginInfoView(payload []byte) (*PluginInfo, error) {
+	msg, err := decodeFlatbuffer("PluginInfo", payload, func(raw []byte) any {
+		return GetRootAsPluginInfo(raw, 0)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return msg.(*PluginInfo), nil
 }
 

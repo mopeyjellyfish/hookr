@@ -33,7 +33,12 @@ func NewRegistry(methods ...PluginMethod) (*Registry, error) {
 	}
 	for _, method := range methods {
 		if method.Handler == nil {
-			return nil, fmt.Errorf("%w (id=%d name=%q)", ErrMethodHandlerMissing, method.ID, method.Name)
+			return nil, fmt.Errorf(
+				"%w (id=%d name=%q)",
+				ErrMethodHandlerMissing,
+				method.ID,
+				method.Name,
+			)
 		}
 		if _, ok := reg.byID[method.ID]; ok {
 			return nil, fmt.Errorf("%w (%d)", ErrMethodIDDuplicate, method.ID)

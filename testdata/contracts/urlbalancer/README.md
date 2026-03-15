@@ -69,7 +69,8 @@ Inspect the contract:
 ```bash
 hookr inspect \
   --schema ./testdata/contracts/urlbalancer/urlbalancer.fbs \
-  --package urlbalancerhookr
+  --package urlbalancerhookr \
+  --allow-unsigned
 ```
 
 The generated package lives under `testdata/contracts/urlbalancer/gen/urlbalancerhookr`.

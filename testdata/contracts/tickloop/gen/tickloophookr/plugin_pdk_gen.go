@@ -6,6 +6,7 @@ package tickloophookr
 
 import (
 	"errors"
+	"fmt"
 
 	flatbuffers "github.com/google/flatbuffers/go"
 	"github.com/mopeyjellyfish/hookr/pdk"
@@ -25,14 +26,26 @@ type OptionalPluginWarmup interface {
 }
 
 
+func (ctx *PluginContext) RngIntView(req *RngIntRequestT, fn func(*RngIntResponse) error) error {
+	if fn == nil {
+		return errors.New("response callback is required")
+	}
+	return withEncodedRngIntRequest(req, func(payload []byte) error {
+		return pdk.HostCallMethodWithResponse(MethodRngInt, payload, func(response []byte) error {
+			out, err := decodeRngIntResponseView(response)
+			if err != nil {
+				return err
+			}
+			return fn(out)
+		})
+	})
+}
+
 func (ctx *PluginContext) RngInt(req *RngIntRequestT) (*RngIntResponseT, error) {
 	var out *RngIntResponseT
-	err := withEncodedRngIntRequest(req, func(payload []byte) error {
-		return pdk.HostCallMethodWithResponse(MethodRngInt, payload, func(response []byte) error {
-			var err error
-			out, err = decodeRngIntResponse(response)
-			return err
-		})
+	err := ctx.RngIntView(req, func(response *RngIntResponse) error {
+		out = response.UnPack()
+		return nil
 	})
 	if err != nil {
 		return nil, err
@@ -139,6 +152,18 @@ func releaseBuilder(builder *flatbuffers.Builder) {
 	}
 }
 
+func decodeFlatbuffer(typeName string, payload []byte, decode func([]byte) any) (_ any, err error) {
+	if len(payload) < flatbuffers.SizeUint32 {
+		return nil, fmt.Errorf("decode %s: invalid flatbuffer payload", typeName)
+	}
+	defer func() {
+		if recover() != nil {
+			err = fmt.Errorf("decode %s: invalid flatbuffer payload", typeName)
+		}
+	}()
+	return decode(payload), nil
+}
+
 
 func encodeEmpty(msg *EmptyT) ([]byte, error) {
 	if msg == nil {
@@ -163,8 +188,21 @@ func withEncodedEmpty(msg *EmptyT, fn func([]byte) error) error {
 }
 
 func decodeEmpty(payload []byte) (*EmptyT, error) {
-	msg := GetRootAsEmpty(payload, 0)
+	msg, err := decodeEmptyView(payload)
+	if err != nil {
+		return nil, err
+	}
 	return msg.UnPack(), nil
+}
+
+func decodeEmptyView(payload []byte) (*Empty, error) {
+	msg, err := decodeFlatbuffer("Empty", payload, func(raw []byte) any {
+		return GetRootAsEmpty(raw, 0)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return msg.(*Empty), nil
 }
 
 
@@ -191,8 +229,21 @@ func withEncodedPluginInfo(msg *PluginInfoT, fn func([]byte) error) error {
 }
 
 func decodePluginInfo(payload []byte) (*PluginInfoT, error) {
-	msg := GetRootAsPluginInfo(payload, 0)
+	msg, err := decodePluginInfoView(payload)
+	if err != nil {
+		return nil, err
+	}
 	return msg.UnPack(), nil
+}
+
+func decodePluginInfoView(payload []byte) (*PluginInfo, error) {
+	msg, err := decodeFlatbuffer("PluginInfo", payload, func(raw []byte) any {
+		return GetRootAsPluginInfo(raw, 0)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return msg.(*PluginInfo), nil
 }
 
 
@@ -219,8 +270,21 @@ func withEncodedRngIntRequest(msg *RngIntRequestT, fn func([]byte) error) error 
 }
 
 func decodeRngIntRequest(payload []byte) (*RngIntRequestT, error) {
-	msg := GetRootAsRngIntRequest(payload, 0)
+	msg, err := decodeRngIntRequestView(payload)
+	if err != nil {
+		return nil, err
+	}
 	return msg.UnPack(), nil
+}
+
+func decodeRngIntRequestView(payload []byte) (*RngIntRequest, error) {
+	msg, err := decodeFlatbuffer("RngIntRequest", payload, func(raw []byte) any {
+		return GetRootAsRngIntRequest(raw, 0)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return msg.(*RngIntRequest), nil
 }
 
 
@@ -247,8 +311,21 @@ func withEncodedRngIntResponse(msg *RngIntResponseT, fn func([]byte) error) erro
 }
 
 func decodeRngIntResponse(payload []byte) (*RngIntResponseT, error) {
-	msg := GetRootAsRngIntResponse(payload, 0)
+	msg, err := decodeRngIntResponseView(payload)
+	if err != nil {
+		return nil, err
+	}
 	return msg.UnPack(), nil
+}
+
+func decodeRngIntResponseView(payload []byte) (*RngIntResponse, error) {
+	msg, err := decodeFlatbuffer("RngIntResponse", payload, func(raw []byte) any {
+		return GetRootAsRngIntResponse(raw, 0)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return msg.(*RngIntResponse), nil
 }
 
 
@@ -275,8 +352,21 @@ func withEncodedTickRequest(msg *TickRequestT, fn func([]byte) error) error {
 }
 
 func decodeTickRequest(payload []byte) (*TickRequestT, error) {
-	msg := GetRootAsTickRequest(payload, 0)
+	msg, err := decodeTickRequestView(payload)
+	if err != nil {
+		return nil, err
+	}
 	return msg.UnPack(), nil
+}
+
+func decodeTickRequestView(payload []byte) (*TickRequest, error) {
+	msg, err := decodeFlatbuffer("TickRequest", payload, func(raw []byte) any {
+		return GetRootAsTickRequest(raw, 0)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return msg.(*TickRequest), nil
 }
 
 
@@ -303,8 +393,21 @@ func withEncodedTickResponse(msg *TickResponseT, fn func([]byte) error) error {
 }
 
 func decodeTickResponse(payload []byte) (*TickResponseT, error) {
-	msg := GetRootAsTickResponse(payload, 0)
+	msg, err := decodeTickResponseView(payload)
+	if err != nil {
+		return nil, err
+	}
 	return msg.UnPack(), nil
+}
+
+func decodeTickResponseView(payload []byte) (*TickResponse, error) {
+	msg, err := decodeFlatbuffer("TickResponse", payload, func(raw []byte) any {
+		return GetRootAsTickResponse(raw, 0)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return msg.(*TickResponse), nil
 }
 
 
@@ -331,8 +434,21 @@ func withEncodedWarmupRequest(msg *WarmupRequestT, fn func([]byte) error) error 
 }
 
 func decodeWarmupRequest(payload []byte) (*WarmupRequestT, error) {
-	msg := GetRootAsWarmupRequest(payload, 0)
+	msg, err := decodeWarmupRequestView(payload)
+	if err != nil {
+		return nil, err
+	}
 	return msg.UnPack(), nil
+}
+
+func decodeWarmupRequestView(payload []byte) (*WarmupRequest, error) {
+	msg, err := decodeFlatbuffer("WarmupRequest", payload, func(raw []byte) any {
+		return GetRootAsWarmupRequest(raw, 0)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return msg.(*WarmupRequest), nil
 }
 
 
@@ -359,7 +475,20 @@ func withEncodedWarmupResponse(msg *WarmupResponseT, fn func([]byte) error) erro
 }
 
 func decodeWarmupResponse(payload []byte) (*WarmupResponseT, error) {
-	msg := GetRootAsWarmupResponse(payload, 0)
+	msg, err := decodeWarmupResponseView(payload)
+	if err != nil {
+		return nil, err
+	}
 	return msg.UnPack(), nil
+}
+
+func decodeWarmupResponseView(payload []byte) (*WarmupResponse, error) {
+	msg, err := decodeFlatbuffer("WarmupResponse", payload, func(raw []byte) any {
+		return GetRootAsWarmupResponse(raw, 0)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return msg.(*WarmupResponse), nil
 }
 

@@ -30,7 +30,7 @@ func (c Config) Validate() error {
 		return errors.New("schema, out, and package are required")
 	}
 	if !strings.EqualFold(c.Lang, "go") {
-		return fmt.Errorf("hookr gen currently supports only --lang go")
+		return errors.New("hookr gen currently supports only --lang go")
 	}
 	if !strings.HasSuffix(strings.ToLower(c.SchemaPath), ".fbs") {
 		return errors.New("hookr gen requires a FlatBuffers schema (*.fbs)")
@@ -65,12 +65,36 @@ func ParseFlags(binaryName string, args []string) (Config, error) {
 	fs.StringVar(&cfg.Lang, "lang", cfg.Lang, "target language to generate (go)")
 	fs.StringVar(&cfg.FlatcPath, "flatc", cfg.FlatcPath, "path to flatc binary")
 	includeFlag := &stringSliceFlag{dst: &cfg.IncludePaths}
-	fs.Var(includeFlag, "include", "additional include directory for imported schemas (repeatable or comma-separated)")
+	fs.Var(
+		includeFlag,
+		"include",
+		"additional include directory for imported schemas (repeatable or comma-separated)",
+	)
 	fs.Var(includeFlag, "I", "shorthand for --include")
-	fs.StringVar(&cfg.PluginService, "plugin-service", cfg.PluginService, "FlatBuffers plugin service name")
-	fs.StringVar(&cfg.HostService, "host-service", cfg.HostService, "FlatBuffers host callback service name")
-	fs.StringVar(&cfg.OptionalAttribute, "optional-attribute", cfg.OptionalAttribute, "FlatBuffers attribute name used for optional plugin methods")
-	fs.Uint64Var(&cfg.Capabilities, "capabilities", cfg.Capabilities, "ABI feature capability bitmask to publish and require for this contract")
+	fs.StringVar(
+		&cfg.PluginService,
+		"plugin-service",
+		cfg.PluginService,
+		"FlatBuffers plugin service name",
+	)
+	fs.StringVar(
+		&cfg.HostService,
+		"host-service",
+		cfg.HostService,
+		"FlatBuffers host callback service name",
+	)
+	fs.StringVar(
+		&cfg.OptionalAttribute,
+		"optional-attribute",
+		cfg.OptionalAttribute,
+		"FlatBuffers attribute name used for optional plugin methods",
+	)
+	fs.Uint64Var(
+		&cfg.Capabilities,
+		"capabilities",
+		cfg.Capabilities,
+		"ABI feature capability bitmask to publish and require for this contract",
+	)
 	if err := fs.Parse(args); err != nil {
 		return Config{}, err
 	}

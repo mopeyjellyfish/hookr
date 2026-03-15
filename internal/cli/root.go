@@ -48,7 +48,12 @@ func newGenCommand() *cobra.Command {
 			if err := codegen.Generate(cfg); err != nil {
 				return err
 			}
-			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "hookr: generated package %s in %s\n", cfg.PackageName, filepath.Join(cfg.OutDir, cfg.PackageName))
+			_, _ = fmt.Fprintf(
+				cmd.ErrOrStderr(),
+				"hookr: generated package %s in %s\n",
+				cfg.PackageName,
+				filepath.Join(cfg.OutDir, cfg.PackageName),
+			)
 			return nil
 		},
 	}
@@ -60,11 +65,37 @@ func newGenCommand() *cobra.Command {
 	flags.StringVar(&cfg.ContractName, "name", cfg.ContractName, "contract name override")
 	flags.StringVar(&cfg.Lang, "lang", cfg.Lang, "target language to generate")
 	flags.StringVar(&cfg.FlatcPath, "flatc", cfg.FlatcPath, "path to flatc binary")
-	flags.StringSliceVarP(&cfg.IncludePaths, "include", "I", cfg.IncludePaths, "additional include directory for imported schemas (repeatable)")
-	flags.StringVar(&cfg.PluginService, "plugin-service", cfg.PluginService, "FlatBuffers plugin service name")
-	flags.StringVar(&cfg.HostService, "host-service", cfg.HostService, "FlatBuffers host callback service name")
-	flags.StringVar(&cfg.OptionalAttribute, "optional-attribute", cfg.OptionalAttribute, "FlatBuffers attribute name for optional plugin methods")
-	flags.Uint64Var(&cfg.Capabilities, "capabilities", cfg.Capabilities, "ABI feature capability bitmask for generated contracts")
+	flags.StringSliceVarP(
+		&cfg.IncludePaths,
+		"include",
+		"I",
+		cfg.IncludePaths,
+		"additional include directory for imported schemas (repeatable)",
+	)
+	flags.StringVar(
+		&cfg.PluginService,
+		"plugin-service",
+		cfg.PluginService,
+		"FlatBuffers plugin service name",
+	)
+	flags.StringVar(
+		&cfg.HostService,
+		"host-service",
+		cfg.HostService,
+		"FlatBuffers host callback service name",
+	)
+	flags.StringVar(
+		&cfg.OptionalAttribute,
+		"optional-attribute",
+		cfg.OptionalAttribute,
+		"FlatBuffers attribute name for optional plugin methods",
+	)
+	flags.Uint64Var(
+		&cfg.Capabilities,
+		"capabilities",
+		cfg.Capabilities,
+		"ABI feature capability bitmask for generated contracts",
+	)
 
 	_ = cmd.MarkFlagRequired("schema")
 	_ = cmd.MarkFlagRequired("out")
@@ -96,7 +127,12 @@ func newBuildCommand() *cobra.Command {
 	}
 
 	flags := cmd.Flags()
-	flags.StringVar(&cfg.PluginPath, "plugin", cfg.PluginPath, "path to the plugin package or main.go file")
+	flags.StringVar(
+		&cfg.PluginPath,
+		"plugin",
+		cfg.PluginPath,
+		"path to the plugin package or main.go file",
+	)
 	flags.StringVar(&cfg.OutputPath, "out", cfg.OutputPath, "path to the output wasm file")
 	flags.StringVar(&cfg.TinyGoPath, "tinygo", cfg.TinyGoPath, "path to tinygo binary")
 	flags.StringVar(&cfg.Target, "target", cfg.Target, "tinygo target")
@@ -126,13 +162,46 @@ func newInspectCommand() *cobra.Command {
 	flags := cmd.Flags()
 	flags.StringVar(&cfg.SchemaPath, "schema", cfg.SchemaPath, "path to the FlatBuffers schema")
 	flags.StringVar(&cfg.WasmPath, "wasm", cfg.WasmPath, "path to the plugin wasm file")
-	flags.StringVar(&cfg.HostFixturePath, "host-fixture", cfg.HostFixturePath, "path to a host callback fixture file")
+	flags.StringVar(
+		&cfg.HostFixturePath,
+		"host-fixture",
+		cfg.HostFixturePath,
+		"path to a host callback fixture file",
+	)
+	flags.StringVar(&cfg.Hash, "hash", cfg.Hash, "expected SHA-256 hash for the plugin wasm")
+	flags.BoolVar(
+		&cfg.AllowUnsigned,
+		"allow-unsigned",
+		cfg.AllowUnsigned,
+		"allow loading an unsigned plugin wasm",
+	)
 	flags.StringVar(&cfg.FlatcPath, "flatc", cfg.FlatcPath, "path to flatc binary")
-	flags.StringSliceVarP(&cfg.IncludePaths, "include", "I", cfg.IncludePaths, "additional include directory for imported schemas (repeatable)")
+	flags.StringSliceVarP(
+		&cfg.IncludePaths,
+		"include",
+		"I",
+		cfg.IncludePaths,
+		"additional include directory for imported schemas (repeatable)",
+	)
 	flags.StringVar(&cfg.Package, "package", cfg.Package, "Go package name used for generation")
-	flags.StringVar(&cfg.PluginService, "plugin-service", codegen.DefaultConfig().PluginService, "FlatBuffers plugin service name")
-	flags.StringVar(&cfg.HostService, "host-service", codegen.DefaultConfig().HostService, "FlatBuffers host callback service name")
-	flags.StringVar(&cfg.OptionalAttribute, "optional-attribute", codegen.DefaultConfig().OptionalAttribute, "FlatBuffers attribute name for optional plugin methods")
+	flags.StringVar(
+		&cfg.PluginService,
+		"plugin-service",
+		codegen.DefaultConfig().PluginService,
+		"FlatBuffers plugin service name",
+	)
+	flags.StringVar(
+		&cfg.HostService,
+		"host-service",
+		codegen.DefaultConfig().HostService,
+		"FlatBuffers host callback service name",
+	)
+	flags.StringVar(
+		&cfg.OptionalAttribute,
+		"optional-attribute",
+		codegen.DefaultConfig().OptionalAttribute,
+		"FlatBuffers attribute name for optional plugin methods",
+	)
 
 	_ = cmd.MarkFlagRequired("schema")
 
@@ -157,14 +226,52 @@ func newCallCommand() *cobra.Command {
 	flags.StringVar(&cfg.SchemaPath, "schema", cfg.SchemaPath, "path to the FlatBuffers schema")
 	flags.StringVar(&cfg.WasmPath, "wasm", cfg.WasmPath, "path to the plugin wasm file")
 	flags.StringVar(&cfg.Method, "method", cfg.Method, "plugin method name to invoke")
-	flags.StringVar(&cfg.InputPath, "input", cfg.InputPath, "path to request JSON file (defaults to stdin)")
-	flags.StringVar(&cfg.HostFixturePath, "host-fixture", cfg.HostFixturePath, "path to a host callback fixture file")
+	flags.StringVar(
+		&cfg.InputPath,
+		"input",
+		cfg.InputPath,
+		"path to request JSON file (defaults to stdin)",
+	)
+	flags.StringVar(
+		&cfg.HostFixturePath,
+		"host-fixture",
+		cfg.HostFixturePath,
+		"path to a host callback fixture file",
+	)
+	flags.StringVar(&cfg.Hash, "hash", cfg.Hash, "expected SHA-256 hash for the plugin wasm")
+	flags.BoolVar(
+		&cfg.AllowUnsigned,
+		"allow-unsigned",
+		cfg.AllowUnsigned,
+		"allow loading an unsigned plugin wasm",
+	)
 	flags.StringVar(&cfg.FlatcPath, "flatc", cfg.FlatcPath, "path to flatc binary")
-	flags.StringSliceVarP(&cfg.IncludePaths, "include", "I", cfg.IncludePaths, "additional include directory for imported schemas (repeatable)")
+	flags.StringSliceVarP(
+		&cfg.IncludePaths,
+		"include",
+		"I",
+		cfg.IncludePaths,
+		"additional include directory for imported schemas (repeatable)",
+	)
 	flags.StringVar(&cfg.Package, "package", cfg.Package, "Go package name used for generation")
-	flags.StringVar(&cfg.PluginService, "plugin-service", codegen.DefaultConfig().PluginService, "FlatBuffers plugin service name")
-	flags.StringVar(&cfg.HostService, "host-service", codegen.DefaultConfig().HostService, "FlatBuffers host callback service name")
-	flags.StringVar(&cfg.OptionalAttribute, "optional-attribute", codegen.DefaultConfig().OptionalAttribute, "FlatBuffers attribute name for optional plugin methods")
+	flags.StringVar(
+		&cfg.PluginService,
+		"plugin-service",
+		codegen.DefaultConfig().PluginService,
+		"FlatBuffers plugin service name",
+	)
+	flags.StringVar(
+		&cfg.HostService,
+		"host-service",
+		codegen.DefaultConfig().HostService,
+		"FlatBuffers host callback service name",
+	)
+	flags.StringVar(
+		&cfg.OptionalAttribute,
+		"optional-attribute",
+		codegen.DefaultConfig().OptionalAttribute,
+		"FlatBuffers attribute name for optional plugin methods",
+	)
 
 	_ = cmd.MarkFlagRequired("schema")
 	_ = cmd.MarkFlagRequired("wasm")
@@ -189,13 +296,46 @@ func newTUICommand() *cobra.Command {
 	flags := cmd.Flags()
 	flags.StringVar(&cfg.SchemaPath, "schema", cfg.SchemaPath, "path to the FlatBuffers schema")
 	flags.StringVar(&cfg.WasmPath, "wasm", cfg.WasmPath, "path to the plugin wasm file")
-	flags.StringVar(&cfg.HostFixturePath, "host-fixture", cfg.HostFixturePath, "path to a host callback fixture file")
+	flags.StringVar(
+		&cfg.HostFixturePath,
+		"host-fixture",
+		cfg.HostFixturePath,
+		"path to a host callback fixture file",
+	)
+	flags.StringVar(&cfg.Hash, "hash", cfg.Hash, "expected SHA-256 hash for the plugin wasm")
+	flags.BoolVar(
+		&cfg.AllowUnsigned,
+		"allow-unsigned",
+		cfg.AllowUnsigned,
+		"allow loading an unsigned plugin wasm",
+	)
 	flags.StringVar(&cfg.FlatcPath, "flatc", cfg.FlatcPath, "path to flatc binary")
-	flags.StringSliceVarP(&cfg.IncludePaths, "include", "I", cfg.IncludePaths, "additional include directory for imported schemas (repeatable)")
+	flags.StringSliceVarP(
+		&cfg.IncludePaths,
+		"include",
+		"I",
+		cfg.IncludePaths,
+		"additional include directory for imported schemas (repeatable)",
+	)
 	flags.StringVar(&cfg.Package, "package", cfg.Package, "Go package name used for generation")
-	flags.StringVar(&cfg.PluginService, "plugin-service", codegen.DefaultConfig().PluginService, "FlatBuffers plugin service name")
-	flags.StringVar(&cfg.HostService, "host-service", codegen.DefaultConfig().HostService, "FlatBuffers host callback service name")
-	flags.StringVar(&cfg.OptionalAttribute, "optional-attribute", codegen.DefaultConfig().OptionalAttribute, "FlatBuffers attribute name for optional plugin methods")
+	flags.StringVar(
+		&cfg.PluginService,
+		"plugin-service",
+		codegen.DefaultConfig().PluginService,
+		"FlatBuffers plugin service name",
+	)
+	flags.StringVar(
+		&cfg.HostService,
+		"host-service",
+		codegen.DefaultConfig().HostService,
+		"FlatBuffers host callback service name",
+	)
+	flags.StringVar(
+		&cfg.OptionalAttribute,
+		"optional-attribute",
+		codegen.DefaultConfig().OptionalAttribute,
+		"FlatBuffers attribute name for optional plugin methods",
+	)
 
 	_ = cmd.MarkFlagRequired("schema")
 	_ = cmd.MarkFlagRequired("wasm")
@@ -217,7 +357,12 @@ func newBenchCommand() *cobra.Command {
 	}
 
 	flags := cmd.Flags()
-	flags.StringVar(&cfg.PackagePath, "package", cfg.PackagePath, "Go package path containing benchmarks")
+	flags.StringVar(
+		&cfg.PackagePath,
+		"package",
+		cfg.PackagePath,
+		"Go package path containing benchmarks",
+	)
 	flags.StringVar(&cfg.Bench, "bench", cfg.Bench, "benchmark regex passed to go test")
 	flags.StringVar(&cfg.Run, "run", cfg.Run, "test regex passed to go test")
 	flags.IntVar(&cfg.Count, "count", cfg.Count, "benchmark run count")

@@ -3,12 +3,14 @@ package tui
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -24,6 +26,8 @@ type Config struct {
 	SchemaPath        string
 	WasmPath          string
 	HostFixturePath   string
+	Hash              string
+	AllowUnsigned     bool
 	FlatcPath         string
 	IncludePaths      []string
 	Package           string
@@ -82,16 +86,16 @@ type loopUpdateMsg struct {
 }
 
 type loopStats struct {
-	Iterations    int
-	Errors        int
-	Started       time.Time
-	Elapsed       time.Duration
-	Last          time.Duration
-	Min           time.Duration
-	Max           time.Duration
-	Total         time.Duration
-	RequestBytes  int
-	ResponseBytes int
+	Iterations         int
+	Errors             int
+	Started            time.Time
+	Elapsed            time.Duration
+	Last               time.Duration
+	Min                time.Duration
+	Max                time.Duration
+	Total              time.Duration
+	RequestBytes       int
+	ResponseBytes      int
 	TotalRequestBytes  int64
 	TotalResponseBytes int64
 }
@@ -134,49 +138,92 @@ type model struct {
 }
 
 var (
-	backgroundColor   = lipgloss.Color("#000000")
-	surfaceColor      = lipgloss.Color("#111111")
-	surfaceAltColor   = lipgloss.Color("#1A1A1A")
-	borderColor       = lipgloss.Color("#2D2D30")
-	focusColor        = lipgloss.Color("#569CD6")
-	errorColor        = lipgloss.Color("#F44747")
-	successColor      = lipgloss.Color("#6A9955")
-	textColor         = lipgloss.Color("#D4D4D4")
-	mutedColor        = lipgloss.Color("#808080")
-	accentColor       = lipgloss.Color("#4EC9B0")
-	warmColor         = lipgloss.Color("#DCDCAA")
-	stringColor       = lipgloss.Color("#CE9178")
+	backgroundColor = lipgloss.Color("#000000")
+	surfaceColor    = lipgloss.Color("#111111")
+	surfaceAltColor = lipgloss.Color("#1A1A1A")
+	borderColor     = lipgloss.Color("#2D2D30")
+	focusColor      = lipgloss.Color("#569CD6")
+	errorColor      = lipgloss.Color("#F44747")
+	successColor    = lipgloss.Color("#6A9955")
+	textColor       = lipgloss.Color("#D4D4D4")
+	mutedColor      = lipgloss.Color("#808080")
+	accentColor     = lipgloss.Color("#4EC9B0")
+	warmColor       = lipgloss.Color("#DCDCAA")
+	stringColor     = lipgloss.Color("#CE9178")
 
-	appStyle          = lipgloss.NewStyle().Padding(1).Background(backgroundColor).Foreground(textColor)
-	panelStyle        = lipgloss.NewStyle().Background(surfaceColor).Foreground(textColor).Border(lipgloss.RoundedBorder()).BorderForeground(borderColor).Padding(0, 1)
-	panelFocusStyle   = panelStyle.Copy().Background(surfaceAltColor).BorderForeground(focusColor)
-	panelErrorStyle   = panelStyle.Copy().Background(surfaceAltColor).BorderForeground(errorColor)
-	titleStyle        = lipgloss.NewStyle().Bold(true).Foreground(textColor)
-	subtleStyle       = lipgloss.NewStyle().Foreground(mutedColor)
-	statusStyle       = lipgloss.NewStyle().Foreground(textColor)
-	errorStyle        = lipgloss.NewStyle().Foreground(errorColor)
-	successStyle      = lipgloss.NewStyle().Foreground(successColor)
-	keyStyle          = lipgloss.NewStyle().Foreground(backgroundColor).Background(focusColor).Bold(true).Padding(0, 1)
+	appStyle = lipgloss.NewStyle().
+			Padding(1).
+			Background(backgroundColor).
+			Foreground(textColor)
+	panelStyle = lipgloss.NewStyle().
+			Background(surfaceColor).
+			Foreground(textColor).
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(borderColor).
+			Padding(0, 1)
+	panelFocusStyle = panelStyle.Copy().Background(surfaceAltColor).BorderForeground(focusColor)
+	panelErrorStyle = panelStyle.Copy().Background(surfaceAltColor).BorderForeground(errorColor)
+	titleStyle      = lipgloss.NewStyle().Bold(true).Foreground(textColor)
+	subtleStyle     = lipgloss.NewStyle().Foreground(mutedColor)
+	statusStyle     = lipgloss.NewStyle().Foreground(textColor)
+	errorStyle      = lipgloss.NewStyle().Foreground(errorColor)
+	successStyle    = lipgloss.NewStyle().Foreground(successColor)
+	keyStyle        = lipgloss.NewStyle().
+			Foreground(backgroundColor).
+			Background(focusColor).
+			Bold(true).
+			Padding(0, 1)
 	shortcutTextStyle = lipgloss.NewStyle().Foreground(textColor)
-	topBarStyle       = lipgloss.NewStyle().Background(surfaceAltColor).Foreground(textColor).Padding(0, 1).MarginBottom(1)
-	topChipStyle      = lipgloss.NewStyle().Foreground(textColor).Background(surfaceColor).Padding(0, 1).MarginRight(1)
-	topChipAccent     = topChipStyle.Copy().Foreground(backgroundColor).Background(focusColor).Bold(true)
-	topChipSuccess    = topChipStyle.Copy().Foreground(backgroundColor).Background(successColor).Bold(true)
-	topChipMuted      = topChipStyle.Copy().Foreground(textColor).Background(borderColor)
-	statusBarStyle    = lipgloss.NewStyle().Background(surfaceColor).Foreground(textColor).Padding(0, 1).MarginBottom(1)
-	footerBarStyle    = lipgloss.NewStyle().Background(surfaceAltColor).Foreground(textColor).Padding(0, 1).MarginTop(1)
-	statusChipStyle   = lipgloss.NewStyle().Foreground(backgroundColor).Background(accentColor).Bold(true).Padding(0, 1).MarginRight(1)
-	statusErrorStyle  = statusChipStyle.Copy().Background(errorColor)
-	statusBusyStyle   = statusChipStyle.Copy().Background(stringColor)
-	infoChipStyle     = lipgloss.NewStyle().Foreground(textColor).Background(borderColor).Padding(0, 1).MarginRight(1)
+	topBarStyle       = lipgloss.NewStyle().
+				Background(surfaceAltColor).
+				Foreground(textColor).
+				Padding(0, 1).
+				MarginBottom(1)
+	topChipStyle = lipgloss.NewStyle().
+			Foreground(textColor).
+			Background(surfaceColor).
+			Padding(0, 1).
+			MarginRight(1)
+	topChipAccent = topChipStyle.Copy().
+			Foreground(backgroundColor).
+			Background(focusColor).
+			Bold(true)
+	topChipSuccess = topChipStyle.Copy().
+			Foreground(backgroundColor).
+			Background(successColor).
+			Bold(true)
+	topChipMuted   = topChipStyle.Copy().Foreground(textColor).Background(borderColor)
+	statusBarStyle = lipgloss.NewStyle().
+			Background(surfaceColor).
+			Foreground(textColor).
+			Padding(0, 1).
+			MarginBottom(1)
+	footerBarStyle = lipgloss.NewStyle().
+			Background(surfaceAltColor).
+			Foreground(textColor).
+			Padding(0, 1).
+			MarginTop(1)
+	statusChipStyle = lipgloss.NewStyle().
+			Foreground(backgroundColor).
+			Background(accentColor).
+			Bold(true).
+			Padding(0, 1).
+			MarginRight(1)
+	statusErrorStyle = statusChipStyle.Copy().Background(errorColor)
+	statusBusyStyle  = statusChipStyle.Copy().Background(stringColor)
+	infoChipStyle    = lipgloss.NewStyle().
+				Foreground(textColor).
+				Background(borderColor).
+				Padding(0, 1).
+				MarginRight(1)
 )
 
 func Run(cfg Config) error {
 	if cfg.SchemaPath == "" {
-		return fmt.Errorf("schema path is required")
+		return errors.New("schema path is required")
 	}
 	if cfg.WasmPath == "" {
-		return fmt.Errorf("wasm path is required")
+		return errors.New("wasm path is required")
 	}
 	session, err := newSession(cfg)
 	if err != nil {
@@ -223,13 +270,15 @@ func newModel(cfg Config, session *call.Session) model {
 	delegate := list.NewDefaultDelegate()
 	delegate.Styles.NormalTitle = delegate.Styles.NormalTitle.Foreground(textColor)
 	delegate.Styles.NormalDesc = delegate.Styles.NormalDesc.Foreground(mutedColor)
-	delegate.Styles.SelectedTitle = delegate.Styles.SelectedTitle.Foreground(warmColor).BorderForeground(focusColor)
-	delegate.Styles.SelectedDesc = delegate.Styles.SelectedDesc.Foreground(textColor).BorderForeground(focusColor)
+	delegate.Styles.SelectedTitle = delegate.Styles.SelectedTitle.Foreground(warmColor).
+		BorderForeground(focusColor)
+	delegate.Styles.SelectedDesc = delegate.Styles.SelectedDesc.Foreground(textColor).
+		BorderForeground(focusColor)
 	delegate.Styles.DimmedTitle = delegate.Styles.DimmedTitle.Foreground(mutedColor)
 	delegate.Styles.DimmedDesc = delegate.Styles.DimmedDesc.Foreground(mutedColor)
 
 	methodList := list.New(items, delegate, 30, 12)
-	methodList.Title = fmt.Sprintf("%s Methods", contractModel.Name)
+	methodList.Title = contractModel.Name + " Methods"
 	methodList.SetShowStatusBar(false)
 	methodList.SetFilteringEnabled(false)
 	methodList.SetShowHelp(false)
@@ -237,7 +286,9 @@ func newModel(cfg Config, session *call.Session) model {
 
 	requestView := viewport.New(60, 12)
 	responseView := viewport.New(60, 10)
-	responseView.SetContent("Press c to call once, l to start or stop a tight loop, or e to edit the request in your editor.")
+	responseView.SetContent(
+		"Press c to call once, l to start or stop a tight loop, or e to edit the request in your editor.",
+	)
 	debugView := viewport.New(60, 10)
 
 	m := model{
@@ -315,7 +366,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.loading = false
 		m.lastError = msg.err
 		if msg.err != nil {
-			m.status = fmt.Sprintf("Call failed for %s", m.selected.Name)
+			m.status = "Call failed for " + m.selected.Name
 			m.refreshDebug()
 			return m, nil
 		}
@@ -334,7 +385,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.requests[m.selected.Name] = strings.TrimRight(msg.content, "\n")
 		m.renderRequest()
 		m.lastError = nil
-		m.status = fmt.Sprintf("Loaded request from editor for %s", m.selected.Name)
+		m.status = "Loaded request from editor for " + m.selected.Name
 		return m, nil
 	case loopUpdateMsg:
 		m.loopStats = msg.stats
@@ -368,11 +419,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case "tab":
 			m.focus = m.focus.next()
-			m.status = fmt.Sprintf("Focused %s", m.focus.label())
+			m.status = "Focused " + m.focus.label()
 			return m, nil
 		case "shift+tab":
 			m.focus = m.focus.prev()
-			m.status = fmt.Sprintf("Focused %s", m.focus.label())
+			m.status = "Focused " + m.focus.label()
 			return m, nil
 		case "e", "o":
 			m.status = fmt.Sprintf("Opening editor for %s...", m.selected.Name)
@@ -403,7 +454,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.lastError = nil
 			m.loopStats = loopStats{}
 			m.loop = startLoop(m.session, prepared)
-			m.status = fmt.Sprintf("Raw loop started for %s", m.selected.Name)
+			m.status = "Raw loop started for " + m.selected.Name
 			m.refreshDebug()
 			return m, waitLoopMsg(m.loop)
 		case "r":
@@ -439,8 +490,12 @@ func (m model) View() string {
 	leftWidth := max(28, m.width/4)
 	rightWidth := max(50, m.width-leftWidth-6)
 
-	leftPanel := m.panelFor(focusMethods).Width(leftWidth).Render(methodTitle + "\n" + m.methods.View())
-	reqPanel := m.panelFor(focusRequest).Width(rightWidth).Render(requestTitle + "\n" + m.request.View())
+	leftPanel := m.panelFor(focusMethods).
+		Width(leftWidth).
+		Render(methodTitle + "\n" + m.methods.View())
+	reqPanel := m.panelFor(focusRequest).
+		Width(rightWidth).
+		Render(requestTitle + "\n" + m.request.View())
 
 	responseBody := m.response.View()
 	responsePanelStyle := panelStyle
@@ -459,13 +514,19 @@ func (m model) View() string {
 		responsePanelStyle = m.panelFor(focusResponse)
 	}
 	respPanel := responsePanelStyle.Width(rightWidth).Render(responseTitle + "\n" + responseBody)
-	debugPanel := m.panelFor(focusDebug).Width(rightWidth).Render(debugTitle + "\n" + m.debug.View())
+	debugPanel := m.panelFor(focusDebug).
+		Width(rightWidth).
+		Render(debugTitle + "\n" + m.debug.View())
 
 	return appStyle.Render(lipgloss.JoinVertical(
 		lipgloss.Left,
 		m.renderTopBar(),
 		m.renderStatusBar(),
-		lipgloss.JoinHorizontal(lipgloss.Top, leftPanel, lipgloss.JoinVertical(lipgloss.Left, reqPanel, respPanel, debugPanel)),
+		lipgloss.JoinHorizontal(
+			lipgloss.Top,
+			leftPanel,
+			lipgloss.JoinVertical(lipgloss.Left, reqPanel, respPanel, debugPanel),
+		),
 		m.renderFooter(),
 	))
 }
@@ -478,18 +539,31 @@ func (m *model) renderTopBar() string {
 		topChipStyle.Render("method: " + zeroOrValue(m.selected.Name)),
 	}
 	if m.lastResult != nil {
-		parts = append(parts, topChipSuccess.Render("last: "+m.lastResult.Duration.Truncate(time.Microsecond).String()))
+		parts = append(
+			parts,
+			topChipSuccess.Render(
+				"last: "+m.lastResult.Duration.Truncate(time.Microsecond).String(),
+			),
+		)
 	}
 	if m.loop != nil || m.loopStats.Iterations > 0 {
-		parts = append(parts,
-			topChipSuccess.Render(fmt.Sprintf("loop: %d @ %s", m.loopStats.Iterations, averageDuration(m.loopStats).Truncate(time.Microsecond))),
+		parts = append(
+			parts,
+			topChipSuccess.Render(
+				fmt.Sprintf(
+					"loop: %d @ %s",
+					m.loopStats.Iterations,
+					averageDuration(m.loopStats).Truncate(time.Microsecond),
+				),
+			),
 			topChipSuccess.Render(fmt.Sprintf("cps: %.0f", callsPerSecond(m.loopStats))),
 		)
 	}
 	if m.reloading {
 		parts = append(parts, topChipMuted.Render("reloading"))
 	}
-	return topBarStyle.Width(max(0, m.width-2)).Render(lipgloss.JoinHorizontal(lipgloss.Left, parts...))
+	return topBarStyle.Width(max(0, m.width-2)).
+		Render(lipgloss.JoinHorizontal(lipgloss.Left, parts...))
 }
 
 func (m *model) renderPanelTitle(title string, pane paneFocus) string {
@@ -511,14 +585,18 @@ func (m *model) renderStatusBar() string {
 		)
 	}
 	if m.loop != nil || m.loopStats.Iterations > 0 {
-		parts = append(parts,
+		parts = append(
+			parts,
 			infoChipStyle.Render(fmt.Sprintf("calls/sec: %.0f", callsPerSecond(m.loopStats))),
-			infoChipStyle.Render("avg: "+averageDuration(m.loopStats).Truncate(time.Microsecond).String()),
+			infoChipStyle.Render(
+				"avg: "+averageDuration(m.loopStats).Truncate(time.Microsecond).String(),
+			),
 			infoChipStyle.Render("min: "+displayDuration(m.loopStats.Min).String()),
 			infoChipStyle.Render("max: "+displayDuration(m.loopStats.Max).String()),
 		)
 	}
-	return statusBarStyle.Width(max(0, m.width-2)).Render(lipgloss.JoinHorizontal(lipgloss.Left, parts...))
+	return statusBarStyle.Width(max(0, m.width-2)).
+		Render(lipgloss.JoinHorizontal(lipgloss.Left, parts...))
 }
 
 func (m *model) renderStatusChip() string {
@@ -556,7 +634,11 @@ func (m *model) renderFooter() string {
 }
 
 func renderShortcut(key string, label string) string {
-	return lipgloss.JoinHorizontal(lipgloss.Left, keyStyle.Render(key), shortcutTextStyle.Render(" "+label))
+	return lipgloss.JoinHorizontal(
+		lipgloss.Left,
+		keyStyle.Render(key),
+		shortcutTextStyle.Render(" "+label),
+	)
 }
 
 func (m *model) syncSelectionChange() {
@@ -564,7 +646,7 @@ func (m *model) syncSelectionChange() {
 	m.syncSelectedMethod()
 	if m.selected.Name != before {
 		m.renderRequest()
-		m.status = fmt.Sprintf("Selected %s", m.selected.Name)
+		m.status = "Selected " + m.selected.Name
 		m.refreshDebug()
 	}
 }
@@ -637,8 +719,15 @@ func (m *model) refreshDebug() {
 		debugRow("caps", fmt.Sprintf("0x%x", m.debugInfo.Capabilities)),
 		debugRow("expected hash", m.debugInfo.SchemaHash),
 		debugRow("plugin hash", zeroOrValue(m.debugInfo.PluginSchemaHash)),
-		debugRow("hash match", fmt.Sprintf("%t", m.debugInfo.SchemaHashMatch)),
-		debugRow("methods", fmt.Sprintf("%d / %d", len(m.debugInfo.PluginMethodIDs), m.debugInfo.ContractMethodCount)),
+		debugRow("hash match", strconv.FormatBool(m.debugInfo.SchemaHashMatch)),
+		debugRow(
+			"methods",
+			fmt.Sprintf(
+				"%d / %d",
+				len(m.debugInfo.PluginMethodIDs),
+				m.debugInfo.ContractMethodCount,
+			),
+		),
 	}
 	if m.cfg.HostFixturePath != "" {
 		lines = append(lines, debugRow("host fixture", m.cfg.HostFixturePath))
@@ -653,22 +742,36 @@ func (m *model) refreshDebug() {
 		)
 	}
 	if m.loop != nil || m.loopStats.Iterations > 0 {
-		lines = append(lines,
+		lines = append(
+			lines,
 			"",
 			subtleStyle.Render("LOOP"),
-			debugRow("iterations", fmt.Sprintf("%d", m.loopStats.Iterations)),
-			debugRow("errors", fmt.Sprintf("%d", m.loopStats.Errors)),
+			debugRow("iterations", strconv.Itoa(m.loopStats.Iterations)),
+			debugRow("errors", strconv.Itoa(m.loopStats.Errors)),
 			debugRow("calls/sec", fmt.Sprintf("%.2f", callsPerSecond(m.loopStats))),
 			debugRow("avg", averageDuration(m.loopStats).Truncate(time.Microsecond).String()),
 			debugRow("min", displayDuration(m.loopStats.Min).String()),
 			debugRow("max", displayDuration(m.loopStats.Max).String()),
 			debugRow("last", displayDuration(m.loopStats.Last).String()),
 			debugRow("elapsed", m.loopStats.Elapsed.Truncate(time.Millisecond).String()),
-			debugRow("req/resp", fmt.Sprintf("%dB / %dB", m.loopStats.RequestBytes, m.loopStats.ResponseBytes)),
+			debugRow(
+				"req/resp",
+				fmt.Sprintf("%dB / %dB", m.loopStats.RequestBytes, m.loopStats.ResponseBytes),
+			),
 			debugRow("req total", formatBytes(m.loopStats.TotalRequestBytes)),
 			debugRow("resp total", formatBytes(m.loopStats.TotalResponseBytes)),
-			debugRow("req/sec", formatBytesPerSecond(bytesPerSecond(m.loopStats.TotalRequestBytes, m.loopStats.Elapsed))),
-			debugRow("resp/sec", formatBytesPerSecond(bytesPerSecond(m.loopStats.TotalResponseBytes, m.loopStats.Elapsed))),
+			debugRow(
+				"req/sec",
+				formatBytesPerSecond(
+					bytesPerSecond(m.loopStats.TotalRequestBytes, m.loopStats.Elapsed),
+				),
+			),
+			debugRow(
+				"resp/sec",
+				formatBytesPerSecond(
+					bytesPerSecond(m.loopStats.TotalResponseBytes, m.loopStats.Elapsed),
+				),
+			),
 		)
 	}
 	m.debug.SetContent(strings.Join(lines, "\n"))
@@ -810,7 +913,7 @@ func editorCommand(path string) (*exec.Cmd, error) {
 	}
 	parts := strings.Fields(editor)
 	if len(parts) == 0 {
-		return nil, fmt.Errorf("editor command is empty")
+		return nil, errors.New("editor command is empty")
 	}
 	parts = append(parts, path)
 	return exec.Command(parts[0], parts[1:]...), nil
@@ -990,6 +1093,8 @@ func newSession(cfg Config) (*call.Session, error) {
 		SchemaPath:        cfg.SchemaPath,
 		WasmPath:          cfg.WasmPath,
 		HostFixturePath:   cfg.HostFixturePath,
+		Hash:              cfg.Hash,
+		AllowUnsigned:     cfg.AllowUnsigned,
 		FlatcPath:         cfg.FlatcPath,
 		IncludePaths:      cfg.IncludePaths,
 		Package:           cfg.Package,

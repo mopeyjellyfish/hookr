@@ -3,6 +3,7 @@ package devhost
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"sync"
@@ -56,7 +57,13 @@ func BindHostMethods(
 	}
 	methods := make([]hookrruntime.HostMethod, 0, len(model.HostService.Methods))
 	for _, method := range model.HostService.Methods {
-		responder := newResponder(method, runner, schemaPath, includePaths, fixture.Methods[method.Name])
+		responder := newResponder(
+			method,
+			runner,
+			schemaPath,
+			includePaths,
+			fixture.Methods[method.Name],
+		)
 		methods = append(methods, hookrruntime.HostFnMethod(method.ID, responder.Call))
 	}
 	return methods
@@ -93,7 +100,7 @@ func newResponder(
 
 func (r *responder) Call(_ context.Context, _ []byte) ([]byte, error) {
 	if r == nil {
-		return nil, fmt.Errorf("host responder is not configured")
+		return nil, errors.New("host responder is not configured")
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -104,7 +111,12 @@ func (r *responder) Call(_ context.Context, _ []byte) ([]byte, error) {
 	if len(r.responses) > 1 {
 		r.responses = r.responses[1:]
 	}
-	data, err := r.runner.EncodeJSON(r.schemaPath, r.includePaths, r.method.ResponseQualified, response)
+	data, err := r.runner.EncodeJSON(
+		r.schemaPath,
+		r.includePaths,
+		r.method.ResponseQualified,
+		response,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("encode fixture response for host method %s: %w", r.method.Name, err)
 	}
@@ -116,7 +128,8 @@ func parseMethodFixture(raw json.RawMessage) (MethodFixture, error) {
 		Response  json.RawMessage   `json:"response"`
 		Responses []json.RawMessage `json:"responses"`
 	}
-	if err := json.Unmarshal(raw, &obj); err == nil && (len(obj.Response) > 0 || len(obj.Responses) > 0) {
+	if err := json.Unmarshal(raw, &obj); err == nil &&
+		(len(obj.Response) > 0 || len(obj.Responses) > 0) {
 		return MethodFixture{Response: obj.Response, Responses: obj.Responses}, nil
 	}
 

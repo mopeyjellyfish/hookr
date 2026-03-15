@@ -2,6 +2,7 @@ package buildkit
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -30,10 +31,10 @@ func DefaultConfig() Config {
 
 func (c Config) Validate() error {
 	if c.PluginPath == "" {
-		return fmt.Errorf("plugin path is required")
+		return errors.New("plugin path is required")
 	}
 	if c.OutputPath == "" {
-		return fmt.Errorf("output path is required")
+		return errors.New("output path is required")
 	}
 	return nil
 }

@@ -3,12 +3,14 @@ package inspect
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 
 	"github.com/mopeyjellyfish/hookr/internal/devhost"
 	"github.com/mopeyjellyfish/hookr/internal/schemautil"
+	"github.com/mopeyjellyfish/hookr/internal/trustopts"
 	hookrruntime "github.com/mopeyjellyfish/hookr/runtime"
 )
 
@@ -16,6 +18,8 @@ type Config struct {
 	SchemaPath        string
 	WasmPath          string
 	HostFixturePath   string
+	Hash              string
+	AllowUnsigned     bool
 	FlatcPath         string
 	IncludePaths      []string
 	Package           string
@@ -28,7 +32,7 @@ type Config struct {
 
 func Run(cfg Config) error {
 	if cfg.SchemaPath == "" {
-		return fmt.Errorf("schema path is required")
+		return errors.New("schema path is required")
 	}
 	runner, model, err := schemautil.Load(schemautil.Config{
 		SchemaPath:        cfg.SchemaPath,
@@ -63,12 +67,27 @@ func Run(cfg Config) error {
 		if method.Optional {
 			required = "optional"
 		}
-		_, _ = fmt.Fprintf(out, "  - %s id=%d req=%s resp=%s %s\n", method.Name, method.ID, method.RequestType, method.ResponseType, required)
+		_, _ = fmt.Fprintf(
+			out,
+			"  - %s id=%d req=%s resp=%s %s\n",
+			method.Name,
+			method.ID,
+			method.RequestType,
+			method.ResponseType,
+			required,
+		)
 	}
 	if model.HostService != nil {
 		_, _ = fmt.Fprintf(out, "Host Service: %s\n", model.HostService.Name)
 		for _, method := range model.HostService.Methods {
-			_, _ = fmt.Fprintf(out, "  - %s id=%d req=%s resp=%s\n", method.Name, method.ID, method.RequestType, method.ResponseType)
+			_, _ = fmt.Fprintf(
+				out,
+				"  - %s id=%d req=%s resp=%s\n",
+				method.Name,
+				method.ID,
+				method.RequestType,
+				method.ResponseType,
+			)
 		}
 	}
 
@@ -77,14 +96,24 @@ func Run(cfg Config) error {
 	}
 	_, _ = fmt.Fprintf(errOut, "hookr: loading plugin %s\n", cfg.WasmPath)
 
+	fileOptions, err := trustopts.Build(cfg.Hash, cfg.AllowUnsigned)
+	if err != nil {
+		return err
+	}
 	hostFixture, err := devhost.LoadFixture(cfg.HostFixturePath)
 	if err != nil {
 		return err
 	}
 	opts := []hookrruntime.Option{
-		hookrruntime.WithFile(cfg.WasmPath, hookrruntime.WithAllowUnsigned()),
+		hookrruntime.WithFile(cfg.WasmPath, fileOptions...),
 	}
-	hostMethods := devhost.BindHostMethods(model, runner, cfg.SchemaPath, cfg.IncludePaths, hostFixture)
+	hostMethods := devhost.BindHostMethods(
+		model,
+		runner,
+		cfg.SchemaPath,
+		cfg.IncludePaths,
+		hostFixture,
+	)
 	if len(hostMethods) > 0 {
 		opts = append(opts, hookrruntime.WithHostMethodFns(hostMethods...))
 	}

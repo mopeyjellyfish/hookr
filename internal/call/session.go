@@ -5,14 +5,16 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/mopeyjellyfish/hookr/internal/contract"
-	"github.com/mopeyjellyfish/hookr/internal/flatbuffers/reflection"
 	"github.com/mopeyjellyfish/hookr/internal/devhost"
+	"github.com/mopeyjellyfish/hookr/internal/flatbuffers/reflection"
 	"github.com/mopeyjellyfish/hookr/internal/flatc"
 	"github.com/mopeyjellyfish/hookr/internal/schemautil"
+	"github.com/mopeyjellyfish/hookr/internal/trustopts"
 	hookrruntime "github.com/mopeyjellyfish/hookr/runtime"
 	runtimecontract "github.com/mopeyjellyfish/hookr/runtime/contract"
 )
@@ -32,11 +34,11 @@ type PreparedCall struct {
 }
 
 type Result struct {
-	Method       contract.Method
-	RequestBytes int
+	Method        contract.Method
+	RequestBytes  int
 	ResponseBytes int
-	Duration     time.Duration
-	ResponseJSON []byte
+	Duration      time.Duration
+	ResponseJSON  []byte
 }
 
 type BinaryResult struct {
@@ -48,25 +50,25 @@ type BinaryResult struct {
 }
 
 type DebugInfo struct {
-	ContractName       string
-	SchemaPath         string
-	WasmPath           string
-	HostFixturePath    string
-	SchemaHash         string
-	PluginSchemaHash   string
-	SchemaHashMatch    bool
-	ABIVersion         string
-	Capabilities       uint64
-	PluginMethodIDs    []uint32
+	ContractName        string
+	SchemaPath          string
+	WasmPath            string
+	HostFixturePath     string
+	SchemaHash          string
+	PluginSchemaHash    string
+	SchemaHashMatch     bool
+	ABIVersion          string
+	Capabilities        uint64
+	PluginMethodIDs     []uint32
 	ContractMethodCount int
 }
 
 func NewSession(cfg Config) (*Session, error) {
 	if cfg.SchemaPath == "" {
-		return nil, fmt.Errorf("schema path is required")
+		return nil, errors.New("schema path is required")
 	}
 	if cfg.WasmPath == "" {
-		return nil, fmt.Errorf("wasm path is required")
+		return nil, errors.New("wasm path is required")
 	}
 	runner, model, schema, err := schemautil.LoadWithReflection(schemautil.Config{
 		SchemaPath:        cfg.SchemaPath,
@@ -84,11 +86,21 @@ func NewSession(cfg Config) (*Session, error) {
 	if err != nil {
 		return nil, err
 	}
+	fileOptions, err := trustopts.Build(cfg.Hash, cfg.AllowUnsigned)
+	if err != nil {
+		return nil, err
+	}
 	opts := []hookrruntime.Option{
-		hookrruntime.WithFile(cfg.WasmPath, hookrruntime.WithAllowUnsigned()),
+		hookrruntime.WithFile(cfg.WasmPath, fileOptions...),
 		hookrruntime.WithContractSchema(runtimeSchema(model)),
 	}
-	hostMethods := devhost.BindHostMethods(model, runner, cfg.SchemaPath, cfg.IncludePaths, hostFixture)
+	hostMethods := devhost.BindHostMethods(
+		model,
+		runner,
+		cfg.SchemaPath,
+		cfg.IncludePaths,
+		hostFixture,
+	)
 	if len(hostMethods) > 0 {
 		opts = append(opts, hookrruntime.WithHostMethodFns(hostMethods...))
 	}
@@ -135,18 +147,32 @@ func (s *Session) DefaultRequestJSON(methodName string) (string, error) {
 	if template, err := buildTemplateJSON(s.schema, method.RequestQualified); err == nil {
 		return prettyJSON(template), nil
 	}
-	encoded, err := s.runner.EncodeJSON(s.cfg.SchemaPath, s.cfg.IncludePaths, method.RequestQualified, []byte("{}"))
+	encoded, err := s.runner.EncodeJSON(
+		s.cfg.SchemaPath,
+		s.cfg.IncludePaths,
+		method.RequestQualified,
+		[]byte("{}"),
+	)
 	if err != nil {
 		return "", fmt.Errorf("encode default request for %s: %w", method.Name, err)
 	}
-	decoded, err := s.runner.DecodeJSON(s.cfg.SchemaPath, s.cfg.IncludePaths, method.RequestQualified, encoded)
+	decoded, err := s.runner.DecodeJSON(
+		s.cfg.SchemaPath,
+		s.cfg.IncludePaths,
+		method.RequestQualified,
+		encoded,
+	)
 	if err != nil {
 		return "", fmt.Errorf("decode default request for %s: %w", method.Name, err)
 	}
 	return prettyJSON(decoded), nil
 }
 
-func (s *Session) InvokeJSON(ctx context.Context, methodName string, rawJSON []byte) (Result, error) {
+func (s *Session) InvokeJSON(
+	ctx context.Context,
+	methodName string,
+	rawJSON []byte,
+) (Result, error) {
 	prepared, err := s.PrepareJSON(methodName, rawJSON)
 	if err != nil {
 		return Result{}, err
@@ -155,7 +181,12 @@ func (s *Session) InvokeJSON(ctx context.Context, methodName string, rawJSON []b
 	if err != nil {
 		return Result{}, err
 	}
-	respJSON, err := s.runner.DecodeJSON(s.cfg.SchemaPath, s.cfg.IncludePaths, rawResult.Method.ResponseQualified, rawResult.Response)
+	respJSON, err := s.runner.DecodeJSON(
+		s.cfg.SchemaPath,
+		s.cfg.IncludePaths,
+		rawResult.Method.ResponseQualified,
+		rawResult.Response,
+	)
 	if err != nil {
 		return Result{}, fmt.Errorf("decode response for %s: %w", rawResult.Method.Name, err)
 	}
@@ -173,7 +204,12 @@ func (s *Session) PrepareJSON(methodName string, rawJSON []byte) (PreparedCall, 
 	if !ok {
 		return PreparedCall{}, fmt.Errorf("plugin method %q not found in contract", methodName)
 	}
-	payload, err := s.runner.EncodeJSON(s.cfg.SchemaPath, s.cfg.IncludePaths, method.RequestQualified, rawJSON)
+	payload, err := s.runner.EncodeJSON(
+		s.cfg.SchemaPath,
+		s.cfg.IncludePaths,
+		method.RequestQualified,
+		rawJSON,
+	)
 	if err != nil {
 		return PreparedCall{}, fmt.Errorf("encode request for %s: %w", method.Name, err)
 	}
@@ -186,7 +222,11 @@ func (s *Session) PrepareJSON(methodName string, rawJSON []byte) (PreparedCall, 
 func (s *Session) InvokePrepared(ctx context.Context, prepared PreparedCall) (BinaryResult, error) {
 	method := prepared.Method
 	if !s.rt.HasPluginMethodID(method.ID) {
-		return BinaryResult{}, fmt.Errorf("plugin does not implement method %s (%d)", method.Name, method.ID)
+		return BinaryResult{}, fmt.Errorf(
+			"plugin does not implement method %s (%d)",
+			method.Name,
+			method.ID,
+		)
 	}
 	start := time.Now()
 	response, err := s.rt.InvokeMethod(ctx, method.ID, prepared.Payload)
@@ -203,6 +243,9 @@ func (s *Session) InvokePrepared(ctx context.Context, prepared PreparedCall) (Bi
 }
 
 func (s *Session) DebugInfo() DebugInfo {
+	if s == nil {
+		return DebugInfo{}
+	}
 	info := DebugInfo{
 		ContractName:        s.contract.Name,
 		SchemaPath:          s.contract.SchemaPath,
@@ -211,7 +254,7 @@ func (s *Session) DebugInfo() DebugInfo {
 		SchemaHash:          hex.EncodeToString(s.contract.SchemaHash[:]),
 		ContractMethodCount: len(s.contract.PluginService.Methods),
 	}
-	if s == nil || s.rt == nil {
+	if s.rt == nil {
 		return info
 	}
 	if hs, ok := s.rt.PluginHandshake(); ok {

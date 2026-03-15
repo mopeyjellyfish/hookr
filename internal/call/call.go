@@ -2,6 +2,7 @@ package call
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -13,6 +14,8 @@ type Config struct {
 	Method            string
 	InputPath         string
 	HostFixturePath   string
+	Hash              string
+	AllowUnsigned     bool
 	FlatcPath         string
 	IncludePaths      []string
 	Package           string
@@ -26,13 +29,13 @@ type Config struct {
 
 func Run(cfg Config) error {
 	if cfg.SchemaPath == "" {
-		return fmt.Errorf("schema path is required")
+		return errors.New("schema path is required")
 	}
 	if cfg.WasmPath == "" {
-		return fmt.Errorf("wasm path is required")
+		return errors.New("wasm path is required")
 	}
 	if cfg.Method == "" {
-		return fmt.Errorf("method is required")
+		return errors.New("method is required")
 	}
 	errOut := cfg.Stderr
 	if errOut == nil {

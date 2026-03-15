@@ -11,6 +11,11 @@ export default defineConfig({
 	base,
 	cleanUrls: true,
 	lastUpdated: true,
+	markdown: {
+		languageAlias: {
+			fbs: "cpp"
+		}
+	},
 	themeConfig: {
 		nav: [
 			{ text: "Home", link: "/" },

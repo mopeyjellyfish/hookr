@@ -2,6 +2,7 @@ package flatc
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -48,7 +49,12 @@ func (r *Runner) GenerateGo(opts GoOptions) error {
 	return err
 }
 
-func (r *Runner) EncodeJSON(schemaPath string, includePaths []string, rootType string, rawJSON []byte) ([]byte, error) {
+func (r *Runner) EncodeJSON(
+	schemaPath string,
+	includePaths []string,
+	rootType string,
+	rawJSON []byte,
+) ([]byte, error) {
 	tmpDir, err := os.MkdirTemp("", "hookr-flatc-encode-*")
 	if err != nil {
 		return nil, fmt.Errorf("create temp dir: %w", err)
@@ -81,7 +87,12 @@ func (r *Runner) EncodeJSON(schemaPath string, includePaths []string, rootType s
 	return data, nil
 }
 
-func (r *Runner) DecodeJSON(schemaPath string, includePaths []string, rootType string, rawBinary []byte) ([]byte, error) {
+func (r *Runner) DecodeJSON(
+	schemaPath string,
+	includePaths []string,
+	rootType string,
+	rawBinary []byte,
+) ([]byte, error) {
 	tmpDir, err := os.MkdirTemp("", "hookr-flatc-decode-*")
 	if err != nil {
 		return nil, fmt.Errorf("create temp dir: %w", err)
@@ -155,7 +166,7 @@ func withSchemaDir(includePaths []string, schemaPath string) []string {
 
 func writeRootSchema(dir, schemaPath, rootType string) (string, error) {
 	if rootType == "" {
-		return "", fmt.Errorf("root type is required")
+		return "", errors.New("root type is required")
 	}
 	name := filepath.Base(schemaPath)
 	wrapperPath := filepath.Join(dir, "root.fbs")

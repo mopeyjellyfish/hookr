@@ -16,6 +16,7 @@ func TestFixtures(t *testing.T) {
 	packages := []string{
 		"./testdata/contracts/urlbalancer",
 		"./testdata/contracts/textfilter",
+		"./testdata/contracts/textfilter/gen/textfilterhookr",
 		"./testdata/contracts/tickloop",
 	}
 

@@ -11,9 +11,7 @@ type HostError struct {
 	message string
 }
 
-var (
-	methodDispatcher func(methodID uint32, payload []byte) ([]byte, error)
-)
+var methodDispatcher func(methodID uint32, payload []byte) ([]byte, error)
 
 const (
 	abiMajor         uint16 = 2

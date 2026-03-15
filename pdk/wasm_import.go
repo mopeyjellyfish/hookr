@@ -7,7 +7,6 @@ func pluginRequest(payloadPtr uintptr) bool { return false }
 func pluginResponse(ptr uintptr, len uint32) {}
 
 func pluginError(ptr uintptr, len uint32) {
-
 }
 
 func hostCall(

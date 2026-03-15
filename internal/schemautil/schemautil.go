@@ -1,6 +1,7 @@
 package schemautil
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -28,7 +29,7 @@ func Load(cfg Config) (*flatc.Runner, contract.Contract, error) {
 
 func LoadWithReflection(cfg Config) (*flatc.Runner, contract.Contract, *reflection.Schema, error) {
 	if cfg.SchemaPath == "" {
-		return nil, contract.Contract{}, nil, fmt.Errorf("schema path is required")
+		return nil, contract.Contract{}, nil, errors.New("schema path is required")
 	}
 	pkg := cfg.Package
 	if pkg == "" {

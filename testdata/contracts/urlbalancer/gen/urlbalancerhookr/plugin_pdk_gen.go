@@ -6,6 +6,7 @@ package urlbalancerhookr
 
 import (
 	"errors"
+	"fmt"
 
 	flatbuffers "github.com/google/flatbuffers/go"
 	"github.com/mopeyjellyfish/hookr/pdk"
@@ -20,14 +21,26 @@ type Plugin interface {
 }
 
 
+func (ctx *PluginContext) RngIntView(req *RngIntRequestT, fn func(*RngIntResponse) error) error {
+	if fn == nil {
+		return errors.New("response callback is required")
+	}
+	return withEncodedRngIntRequest(req, func(payload []byte) error {
+		return pdk.HostCallMethodWithResponse(MethodRngInt, payload, func(response []byte) error {
+			out, err := decodeRngIntResponseView(response)
+			if err != nil {
+				return err
+			}
+			return fn(out)
+		})
+	})
+}
+
 func (ctx *PluginContext) RngInt(req *RngIntRequestT) (*RngIntResponseT, error) {
 	var out *RngIntResponseT
-	err := withEncodedRngIntRequest(req, func(payload []byte) error {
-		return pdk.HostCallMethodWithResponse(MethodRngInt, payload, func(response []byte) error {
-			var err error
-			out, err = decodeRngIntResponse(response)
-			return err
-		})
+	err := ctx.RngIntView(req, func(response *RngIntResponse) error {
+		out = response.UnPack()
+		return nil
 	})
 	if err != nil {
 		return nil, err
@@ -36,14 +49,26 @@ func (ctx *PluginContext) RngInt(req *RngIntRequestT) (*RngIntResponseT, error) 
 }
 
 
+func (ctx *PluginContext) RngFloatView(req *RngFloatRequestT, fn func(*RngFloatResponse) error) error {
+	if fn == nil {
+		return errors.New("response callback is required")
+	}
+	return withEncodedRngFloatRequest(req, func(payload []byte) error {
+		return pdk.HostCallMethodWithResponse(MethodRngFloat, payload, func(response []byte) error {
+			out, err := decodeRngFloatResponseView(response)
+			if err != nil {
+				return err
+			}
+			return fn(out)
+		})
+	})
+}
+
 func (ctx *PluginContext) RngFloat(req *RngFloatRequestT) (*RngFloatResponseT, error) {
 	var out *RngFloatResponseT
-	err := withEncodedRngFloatRequest(req, func(payload []byte) error {
-		return pdk.HostCallMethodWithResponse(MethodRngFloat, payload, func(response []byte) error {
-			var err error
-			out, err = decodeRngFloatResponse(response)
-			return err
-		})
+	err := ctx.RngFloatView(req, func(response *RngFloatResponse) error {
+		out = response.UnPack()
+		return nil
 	})
 	if err != nil {
 		return nil, err
@@ -133,6 +158,18 @@ func releaseBuilder(builder *flatbuffers.Builder) {
 	}
 }
 
+func decodeFlatbuffer(typeName string, payload []byte, decode func([]byte) any) (_ any, err error) {
+	if len(payload) < flatbuffers.SizeUint32 {
+		return nil, fmt.Errorf("decode %s: invalid flatbuffer payload", typeName)
+	}
+	defer func() {
+		if recover() != nil {
+			err = fmt.Errorf("decode %s: invalid flatbuffer payload", typeName)
+		}
+	}()
+	return decode(payload), nil
+}
+
 
 func encodeBalanceRequest(msg *BalanceRequestT) ([]byte, error) {
 	if msg == nil {
@@ -157,8 +194,21 @@ func withEncodedBalanceRequest(msg *BalanceRequestT, fn func([]byte) error) erro
 }
 
 func decodeBalanceRequest(payload []byte) (*BalanceRequestT, error) {
-	msg := GetRootAsBalanceRequest(payload, 0)
+	msg, err := decodeBalanceRequestView(payload)
+	if err != nil {
+		return nil, err
+	}
 	return msg.UnPack(), nil
+}
+
+func decodeBalanceRequestView(payload []byte) (*BalanceRequest, error) {
+	msg, err := decodeFlatbuffer("BalanceRequest", payload, func(raw []byte) any {
+		return GetRootAsBalanceRequest(raw, 0)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return msg.(*BalanceRequest), nil
 }
 
 
@@ -185,8 +235,21 @@ func withEncodedBalanceResponse(msg *BalanceResponseT, fn func([]byte) error) er
 }
 
 func decodeBalanceResponse(payload []byte) (*BalanceResponseT, error) {
-	msg := GetRootAsBalanceResponse(payload, 0)
+	msg, err := decodeBalanceResponseView(payload)
+	if err != nil {
+		return nil, err
+	}
 	return msg.UnPack(), nil
+}
+
+func decodeBalanceResponseView(payload []byte) (*BalanceResponse, error) {
+	msg, err := decodeFlatbuffer("BalanceResponse", payload, func(raw []byte) any {
+		return GetRootAsBalanceResponse(raw, 0)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return msg.(*BalanceResponse), nil
 }
 
 
@@ -213,8 +276,21 @@ func withEncodedEmpty(msg *EmptyT, fn func([]byte) error) error {
 }
 
 func decodeEmpty(payload []byte) (*EmptyT, error) {
-	msg := GetRootAsEmpty(payload, 0)
+	msg, err := decodeEmptyView(payload)
+	if err != nil {
+		return nil, err
+	}
 	return msg.UnPack(), nil
+}
+
+func decodeEmptyView(payload []byte) (*Empty, error) {
+	msg, err := decodeFlatbuffer("Empty", payload, func(raw []byte) any {
+		return GetRootAsEmpty(raw, 0)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return msg.(*Empty), nil
 }
 
 
@@ -241,8 +317,21 @@ func withEncodedPluginInfo(msg *PluginInfoT, fn func([]byte) error) error {
 }
 
 func decodePluginInfo(payload []byte) (*PluginInfoT, error) {
-	msg := GetRootAsPluginInfo(payload, 0)
+	msg, err := decodePluginInfoView(payload)
+	if err != nil {
+		return nil, err
+	}
 	return msg.UnPack(), nil
+}
+
+func decodePluginInfoView(payload []byte) (*PluginInfo, error) {
+	msg, err := decodeFlatbuffer("PluginInfo", payload, func(raw []byte) any {
+		return GetRootAsPluginInfo(raw, 0)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return msg.(*PluginInfo), nil
 }
 
 
@@ -269,8 +358,21 @@ func withEncodedRngFloatRequest(msg *RngFloatRequestT, fn func([]byte) error) er
 }
 
 func decodeRngFloatRequest(payload []byte) (*RngFloatRequestT, error) {
-	msg := GetRootAsRngFloatRequest(payload, 0)
+	msg, err := decodeRngFloatRequestView(payload)
+	if err != nil {
+		return nil, err
+	}
 	return msg.UnPack(), nil
+}
+
+func decodeRngFloatRequestView(payload []byte) (*RngFloatRequest, error) {
+	msg, err := decodeFlatbuffer("RngFloatRequest", payload, func(raw []byte) any {
+		return GetRootAsRngFloatRequest(raw, 0)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return msg.(*RngFloatRequest), nil
 }
 
 
@@ -297,8 +399,21 @@ func withEncodedRngFloatResponse(msg *RngFloatResponseT, fn func([]byte) error) 
 }
 
 func decodeRngFloatResponse(payload []byte) (*RngFloatResponseT, error) {
-	msg := GetRootAsRngFloatResponse(payload, 0)
+	msg, err := decodeRngFloatResponseView(payload)
+	if err != nil {
+		return nil, err
+	}
 	return msg.UnPack(), nil
+}
+
+func decodeRngFloatResponseView(payload []byte) (*RngFloatResponse, error) {
+	msg, err := decodeFlatbuffer("RngFloatResponse", payload, func(raw []byte) any {
+		return GetRootAsRngFloatResponse(raw, 0)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return msg.(*RngFloatResponse), nil
 }
 
 
@@ -325,8 +440,21 @@ func withEncodedRngIntRequest(msg *RngIntRequestT, fn func([]byte) error) error 
 }
 
 func decodeRngIntRequest(payload []byte) (*RngIntRequestT, error) {
-	msg := GetRootAsRngIntRequest(payload, 0)
+	msg, err := decodeRngIntRequestView(payload)
+	if err != nil {
+		return nil, err
+	}
 	return msg.UnPack(), nil
+}
+
+func decodeRngIntRequestView(payload []byte) (*RngIntRequest, error) {
+	msg, err := decodeFlatbuffer("RngIntRequest", payload, func(raw []byte) any {
+		return GetRootAsRngIntRequest(raw, 0)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return msg.(*RngIntRequest), nil
 }
 
 
@@ -353,7 +481,20 @@ func withEncodedRngIntResponse(msg *RngIntResponseT, fn func([]byte) error) erro
 }
 
 func decodeRngIntResponse(payload []byte) (*RngIntResponseT, error) {
-	msg := GetRootAsRngIntResponse(payload, 0)
+	msg, err := decodeRngIntResponseView(payload)
+	if err != nil {
+		return nil, err
+	}
 	return msg.UnPack(), nil
+}
+
+func decodeRngIntResponseView(payload []byte) (*RngIntResponse, error) {
+	msg, err := decodeFlatbuffer("RngIntResponse", payload, func(raw []byte) any {
+		return GetRootAsRngIntResponse(raw, 0)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return msg.(*RngIntResponse), nil
 }
 

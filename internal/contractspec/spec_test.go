@@ -47,6 +47,9 @@ func TestSchemaValidationAndLookup(t *testing.T) {
 	require.True(t, schema.HasMethodID(10))
 	require.False(t, schema.HasMethodID(11))
 
-	schema.Methods = append(schema.Methods, Method{ID: 10, Name: "Two", RequestType: "Req", ResponseType: "Resp"})
+	schema.Methods = append(
+		schema.Methods,
+		Method{ID: 10, Name: "Two", RequestType: "Req", ResponseType: "Resp"},
+	)
 	require.ErrorIs(t, schema.Validate(), ErrMethodIDDuplicate)
 }

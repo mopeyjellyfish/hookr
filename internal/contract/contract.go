@@ -129,7 +129,11 @@ func Load(opts LoadOptions) (Contract, error) {
 	return contract, nil
 }
 
-func loadOptionalService(schema *reflection.Schema, wanted string, optionalAttr string) (*Service, error) {
+func loadOptionalService(
+	schema *reflection.Schema,
+	wanted string,
+	optionalAttr string,
+) (*Service, error) {
 	service, err := loadService(schema, wanted, optionalAttr)
 	if err != nil {
 		if errors.Is(err, ErrPluginServiceMissing) {

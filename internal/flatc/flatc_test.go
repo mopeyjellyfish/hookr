@@ -9,7 +9,17 @@ import (
 
 func TestBuildBFBSArgs_Includes(t *testing.T) {
 	args := buildBFBSArgs("contract.fbs", "/tmp/out", []string{"schemas", "common ", ""})
-	want := []string{"--binary", "--schema", "-I", "schemas", "-I", "common", "-o", "/tmp/out", "contract.fbs"}
+	want := []string{
+		"--binary",
+		"--schema",
+		"-I",
+		"schemas",
+		"-I",
+		"common",
+		"-o",
+		"/tmp/out",
+		"contract.fbs",
+	}
 	if !reflect.DeepEqual(args, want) {
 		t.Fatalf("buildBFBSArgs() = %#v, want %#v", args, want)
 	}
@@ -45,7 +55,9 @@ func TestEncodeDecodeJSON(t *testing.T) {
 		t.Fatalf("new runner: %v", err)
 	}
 	schemaPath := filepath.Join("..", "..", "testdata", "contracts", "textfilter", "textfilter.fbs")
-	raw := []byte(`{"input":"bad input","blocked_terms":["bad"],"replacement":"[x]","case_sensitive":false,"max_replacements":1}`)
+	raw := []byte(
+		`{"input":"bad input","blocked_terms":["bad"],"replacement":"[x]","case_sensitive":false,"max_replacements":1}`,
+	)
 	bin, err := runner.EncodeJSON(schemaPath, nil, "Hookr.Test.TextFilter.FilterRequest", raw)
 	if err != nil {
 		t.Fatalf("encode json: %v", err)

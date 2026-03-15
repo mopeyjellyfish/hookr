@@ -54,7 +54,11 @@ func ParseSchemaHashHex(s string) ([SchemaHashLen]byte, error) {
 		return out, fmt.Errorf("decode schema hash: %w", err)
 	}
 	if len(raw) != SchemaHashLen {
-		return out, fmt.Errorf("invalid schema hash length: got %d want %d", len(raw), SchemaHashLen)
+		return out, fmt.Errorf(
+			"invalid schema hash length: got %d want %d",
+			len(raw),
+			SchemaHashLen,
+		)
 	}
 	copy(out[:], raw)
 	return out, nil
@@ -62,13 +66,28 @@ func ParseSchemaHashHex(s string) ([SchemaHashLen]byte, error) {
 
 func ValidateHandshake(host, plugin Handshake) error {
 	if host.ABIMajor != plugin.ABIMajor {
-		return fmt.Errorf("%w: host=%d plugin=%d", ErrIncompatibleABIMajor, host.ABIMajor, plugin.ABIMajor)
+		return fmt.Errorf(
+			"%w: host=%d plugin=%d",
+			ErrIncompatibleABIMajor,
+			host.ABIMajor,
+			plugin.ABIMajor,
+		)
 	}
 	if host.ABIMinor != plugin.ABIMinor {
-		return fmt.Errorf("%w: host=%d plugin=%d", ErrIncompatibleABIMinor, host.ABIMinor, plugin.ABIMinor)
+		return fmt.Errorf(
+			"%w: host=%d plugin=%d",
+			ErrIncompatibleABIMinor,
+			host.ABIMinor,
+			plugin.ABIMinor,
+		)
 	}
 	if !bytes.Equal(host.SchemaHash[:], plugin.SchemaHash[:]) {
-		return fmt.Errorf("%w: host=%s plugin=%s", ErrSchemaHashMismatch, host.SchemaHashHex(), plugin.SchemaHashHex())
+		return fmt.Errorf(
+			"%w: host=%s plugin=%s",
+			ErrSchemaHashMismatch,
+			host.SchemaHashHex(),
+			plugin.SchemaHashHex(),
+		)
 	}
 	missing := host.Capabilities &^ plugin.Capabilities
 	if missing != 0 {

@@ -2,6 +2,7 @@ package call
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/mopeyjellyfish/hookr/internal/flatbuffers/reflection"
@@ -9,7 +10,7 @@ import (
 
 func buildTemplateJSON(schema *reflection.Schema, qualifiedName string) ([]byte, error) {
 	if schema == nil {
-		return nil, fmt.Errorf("schema reflection is unavailable")
+		return nil, errors.New("schema reflection is unavailable")
 	}
 	graph := newTemplateGraph(schema)
 	value, err := graph.objectTemplate(qualifiedName)
@@ -81,9 +82,16 @@ func (g *templateGraph) typeTemplate(typ *reflection.Type, field *reflection.Fie
 	switch typ.BaseType() {
 	case reflection.BaseTypeBool:
 		return field.DefaultInteger() != 0, nil
-	case reflection.BaseTypeByte, reflection.BaseTypeShort, reflection.BaseTypeInt, reflection.BaseTypeLong:
+	case reflection.BaseTypeByte,
+		reflection.BaseTypeShort,
+		reflection.BaseTypeInt,
+		reflection.BaseTypeLong:
 		return field.DefaultInteger(), nil
-	case reflection.BaseTypeUByte, reflection.BaseTypeUShort, reflection.BaseTypeUInt, reflection.BaseTypeULong, reflection.BaseTypeUType:
+	case reflection.BaseTypeUByte,
+		reflection.BaseTypeUShort,
+		reflection.BaseTypeUInt,
+		reflection.BaseTypeULong,
+		reflection.BaseTypeUType:
 		return uint64(field.DefaultInteger()), nil
 	case reflection.BaseTypeFloat, reflection.BaseTypeDouble:
 		return field.DefaultReal(), nil

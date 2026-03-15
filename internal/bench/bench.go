@@ -1,6 +1,7 @@
 package bench
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -28,7 +29,7 @@ func DefaultConfig() Config {
 
 func Run(cfg Config) error {
 	if cfg.PackagePath == "" {
-		return fmt.Errorf("package path is required")
+		return errors.New("package path is required")
 	}
 	args := []string{
 		"test",

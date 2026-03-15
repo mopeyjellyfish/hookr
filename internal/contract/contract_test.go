@@ -110,7 +110,12 @@ rpc_service Plugin {
 	}
 }
 
-func loadContractForTest(t *testing.T, runner *flatc.Runner, schemaPath string, pkg string) Contract {
+func loadContractForTest(
+	t *testing.T,
+	runner *flatc.Runner,
+	schemaPath string,
+	pkg string,
+) Contract {
 	t.Helper()
 
 	bfbsPath, err := runner.GenerateBFBS(schemaPath, t.TempDir(), nil)

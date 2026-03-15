@@ -94,7 +94,8 @@ hookr build \
 
 hookr inspect \
   --schema ./testdata/contracts/textfilter/textfilter.fbs \
-  --wasm ./testdata/contracts/textfilter/bin/textfilter.wasm
+  --wasm ./testdata/contracts/textfilter/bin/textfilter.wasm \
+  --allow-unsigned
 ```
 
 The consuming application owns the contract. Hookr owns the ABI, transport,
@@ -173,6 +174,7 @@ fixture instead of a handwritten host app:
 hookr call \
   --schema ./testdata/contracts/urlbalancer/urlbalancer.fbs \
   --wasm ./testdata/contracts/urlbalancer/bin/urlbalancer.wasm \
+  --allow-unsigned \
   --method Balance \
   --input ./testdata/contracts/urlbalancer/requests/balance.json \
   --host-fixture ./testdata/contracts/urlbalancer/fixtures/host.json
@@ -183,7 +185,8 @@ And for interactive exploration:
 ```bash
 hookr tui \
   --schema ./testdata/contracts/textfilter/textfilter.fbs \
-  --wasm ./testdata/contracts/textfilter/bin/textfilter.wasm
+  --wasm ./testdata/contracts/textfilter/bin/textfilter.wasm \
+  --allow-unsigned
 ```
 
 The TUI now:

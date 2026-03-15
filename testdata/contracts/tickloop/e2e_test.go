@@ -70,6 +70,29 @@ func TestTickLoopE2E_WithWarmupPlugin(t *testing.T) {
 		t.Fatalf("expected non-empty tick note")
 	}
 
+	var viewStateHash uint64
+	err = rt.TickView(context.Background(), &tickloophookr.TickRequestT{
+		Tick:      100,
+		DtMicros:  16666,
+		StateHash: 1005,
+		Events:    1,
+	}, func(resp *tickloophookr.TickResponse) error {
+		viewStateHash = resp.NextStateHash()
+		if !resp.ContinueRun() {
+			t.Fatal("continue_run = false, want true")
+		}
+		if string(resp.Note()) == "" {
+			t.Fatal("expected non-empty tick note")
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("tick view: %v", err)
+	}
+	if viewStateHash != 1008 {
+		t.Fatalf("tick view next state hash = %d, want 1008", viewStateHash)
+	}
+
 	warmupResp, err := rt.Warmup(context.Background(), &tickloophookr.WarmupRequestT{
 		TargetTicks: 64,
 	})

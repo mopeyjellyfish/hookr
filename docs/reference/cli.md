@@ -61,6 +61,8 @@ Key optional flags:
 
 - `--wasm`
 - `--host-fixture`
+- `--hash`
+- `--allow-unsigned`
 - `--flatc`
 - `--include`, `-I`
 - `--package`
@@ -82,6 +84,8 @@ Key optional flags:
 
 - `--input`
 - `--host-fixture`
+- `--hash`
+- `--allow-unsigned`
 - `--flatc`
 - `--include`, `-I`
 - `--package`
@@ -101,6 +105,8 @@ Required flags:
 Key optional flags:
 
 - `--host-fixture`
+- `--hash`
+- `--allow-unsigned`
 - `--flatc`
 - `--include`, `-I`
 - `--package`
@@ -110,6 +116,7 @@ Key optional flags:
 
 Behavior notes:
 
+- `inspect`, `call`, and `tui` require explicit trust for the Wasm artifact: pass `--hash` for pinned plugins or `--allow-unsigned` for local dev builds
 - requests are pre-filled from the FlatBuffers schema
 - the top bar shows the active schema, Wasm, method, and live timing stats
 - request text is read-only inside the UI; editing uses `$VISUAL`, then `$EDITOR`

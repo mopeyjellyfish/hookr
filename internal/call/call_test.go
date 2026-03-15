@@ -39,12 +39,20 @@ func TestRunTextFilter(t *testing.T) {
 	var out bytes.Buffer
 	var errOut bytes.Buffer
 	err := Run(Config{
-		SchemaPath: filepath.Join("..", "..", "testdata", "contracts", "textfilter", "textfilter.fbs"),
-		WasmPath:   wasmPath,
-		Method:     "Filter",
-		InputPath:  inputPath,
-		Stdout:     &out,
-		Stderr:     &errOut,
+		SchemaPath: filepath.Join(
+			"..",
+			"..",
+			"testdata",
+			"contracts",
+			"textfilter",
+			"textfilter.fbs",
+		),
+		WasmPath:      wasmPath,
+		Method:        "Filter",
+		InputPath:     inputPath,
+		AllowUnsigned: true,
+		Stdout:        &out,
+		Stderr:        &errOut,
 	})
 	if err != nil {
 		t.Fatalf("run call: %v", err)
@@ -73,7 +81,14 @@ func TestRunURLBalancerWithHostFixture(t *testing.T) {
 	dir := t.TempDir()
 	wasmPath := filepath.Join(dir, "urlbalancer.wasm")
 	buildCfg := buildkit.DefaultConfig()
-	buildCfg.PluginPath = filepath.Join("..", "..", "testdata", "contracts", "urlbalancer", "plugin")
+	buildCfg.PluginPath = filepath.Join(
+		"..",
+		"..",
+		"testdata",
+		"contracts",
+		"urlbalancer",
+		"plugin",
+	)
 	buildCfg.OutputPath = wasmPath
 	if err := buildkit.Build(buildCfg); err != nil {
 		t.Fatalf("build plugin: %v", err)
@@ -100,11 +115,19 @@ func TestRunURLBalancerWithHostFixture(t *testing.T) {
 	var out bytes.Buffer
 	var errOut bytes.Buffer
 	err := Run(Config{
-		SchemaPath:      filepath.Join("..", "..", "testdata", "contracts", "urlbalancer", "urlbalancer.fbs"),
+		SchemaPath: filepath.Join(
+			"..",
+			"..",
+			"testdata",
+			"contracts",
+			"urlbalancer",
+			"urlbalancer.fbs",
+		),
 		WasmPath:        wasmPath,
 		Method:          "Balance",
 		InputPath:       inputPath,
 		HostFixturePath: hostFixturePath,
+		AllowUnsigned:   true,
 		Stdout:          &out,
 		Stderr:          &errOut,
 	})
@@ -142,8 +165,16 @@ func TestSessionDefaultRequestJSONUsesSchemaFields(t *testing.T) {
 	}
 
 	session, err := NewSession(Config{
-		SchemaPath: filepath.Join("..", "..", "testdata", "contracts", "textfilter", "textfilter.fbs"),
-		WasmPath:   wasmPath,
+		SchemaPath: filepath.Join(
+			"..",
+			"..",
+			"testdata",
+			"contracts",
+			"textfilter",
+			"textfilter.fbs",
+		),
+		WasmPath:      wasmPath,
+		AllowUnsigned: true,
 	})
 	if err != nil {
 		t.Fatalf("new session: %v", err)
@@ -174,8 +205,16 @@ func TestSessionDebugInfo(t *testing.T) {
 	}
 
 	session, err := NewSession(Config{
-		SchemaPath: filepath.Join("..", "..", "testdata", "contracts", "textfilter", "textfilter.fbs"),
-		WasmPath:   wasmPath,
+		SchemaPath: filepath.Join(
+			"..",
+			"..",
+			"testdata",
+			"contracts",
+			"textfilter",
+			"textfilter.fbs",
+		),
+		WasmPath:      wasmPath,
+		AllowUnsigned: true,
 	})
 	if err != nil {
 		t.Fatalf("new session: %v", err)
@@ -204,8 +243,16 @@ func TestSessionInvokePrepared(t *testing.T) {
 	}
 
 	session, err := NewSession(Config{
-		SchemaPath: filepath.Join("..", "..", "testdata", "contracts", "textfilter", "textfilter.fbs"),
-		WasmPath:   wasmPath,
+		SchemaPath: filepath.Join(
+			"..",
+			"..",
+			"testdata",
+			"contracts",
+			"textfilter",
+			"textfilter.fbs",
+		),
+		WasmPath:      wasmPath,
+		AllowUnsigned: true,
 	})
 	if err != nil {
 		t.Fatalf("new session: %v", err)
@@ -231,9 +278,31 @@ func TestSessionInvokePrepared(t *testing.T) {
 		t.Fatalf("result method = %q, want Filter", result.Method.Name)
 	}
 	if result.RequestBytes == 0 || result.ResponseBytes == 0 {
-		t.Fatalf("expected non-zero payload sizes, got req=%d resp=%d", result.RequestBytes, result.ResponseBytes)
+		t.Fatalf(
+			"expected non-zero payload sizes, got req=%d resp=%d",
+			result.RequestBytes,
+			result.ResponseBytes,
+		)
 	}
 	if len(result.Response) == 0 {
 		t.Fatal("expected raw response bytes")
+	}
+}
+
+func TestRunRequiresExplicitTrust(t *testing.T) {
+	err := Run(Config{
+		SchemaPath: filepath.Join(
+			"..",
+			"..",
+			"testdata",
+			"contracts",
+			"textfilter",
+			"textfilter.fbs",
+		),
+		WasmPath: "plugin.wasm",
+		Method:   "Filter",
+	})
+	if err == nil || !strings.Contains(err.Error(), "plugin trust not configured") {
+		t.Fatalf("expected trust configuration error, got %v", err)
 	}
 }

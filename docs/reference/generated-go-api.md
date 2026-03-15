@@ -9,6 +9,7 @@ Typical host API:
 - `Open(ctx, Config) (*Runtime, error)`
 - `(*Runtime).Close(ctx) error`
 - typed plugin methods, for example `Balance(ctx, *BalanceRequestT) (*BalanceResponseT, error)`
+- borrowed-view plugin methods for hot paths, for example `BalanceView(ctx, *BalanceRequestT, func(*BalanceResponse) error) error`
 - `SupportsX()` optional-method introspection helpers
 
 `Config` includes:
@@ -28,6 +29,7 @@ Typical plugin API:
 - generated `Plugin` interface
 - `RegisterPlugin(plugin)` / `MustRegisterPlugin(plugin)`
 - `PluginContext` callback helpers, for example `ctx.RngInt(req)`
+- borrowed-view host callback helpers for hot paths, for example `ctx.RngIntView(req, func(*RngIntResponse) error) error`
 
 ## Generated Files
 

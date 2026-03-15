@@ -22,6 +22,7 @@ func TestRunPrintsContractDetails(t *testing.T) {
 		SchemaPath:        "../../testdata/contracts/textfilter/textfilter.fbs",
 		Package:           "textfilterhookr",
 		OptionalAttribute: "hookr_optional",
+		AllowUnsigned:     true,
 		Stdout:            &out,
 		Stderr:            &errOut,
 	})
@@ -40,7 +41,10 @@ func TestRunPrintsContractDetails(t *testing.T) {
 			t.Fatalf("expected output to contain %q in %q", want, text)
 		}
 	}
-	if !strings.Contains(errOut.String(), "hookr: inspecting schema ../../testdata/contracts/textfilter/textfilter.fbs") {
+	if !strings.Contains(
+		errOut.String(),
+		"hookr: inspecting schema ../../testdata/contracts/textfilter/textfilter.fbs",
+	) {
 		t.Fatalf("expected stderr status, got %q", errOut.String())
 	}
 }
@@ -59,11 +63,12 @@ func TestRunPrintsWasmDetails(t *testing.T) {
 	var out bytes.Buffer
 	var errOut bytes.Buffer
 	err := Run(Config{
-		SchemaPath: "../../testdata/contracts/textfilter/textfilter.fbs",
-		WasmPath:   wasmPath,
-		Package:    "textfilterhookr",
-		Stdout:     &out,
-		Stderr:     &errOut,
+		SchemaPath:    "../../testdata/contracts/textfilter/textfilter.fbs",
+		WasmPath:      wasmPath,
+		Package:       "textfilterhookr",
+		AllowUnsigned: true,
+		Stdout:        &out,
+		Stderr:        &errOut,
 	})
 	if err != nil {
 		t.Fatalf("run inspect: %v", err)
@@ -84,5 +89,16 @@ func TestRunPrintsWasmDetails(t *testing.T) {
 		if !strings.Contains(errOut.String(), want) {
 			t.Fatalf("stderr missing %q in %q", want, errOut.String())
 		}
+	}
+}
+
+func TestRunRequiresExplicitTrustWhenLoadingWasm(t *testing.T) {
+	err := Run(Config{
+		SchemaPath: "../../testdata/contracts/textfilter/textfilter.fbs",
+		WasmPath:   "plugin.wasm",
+		Package:    "textfilterhookr",
+	})
+	if err == nil || !strings.Contains(err.Error(), "plugin trust not configured") {
+		t.Fatalf("expected trust configuration error, got %v", err)
 	}
 }

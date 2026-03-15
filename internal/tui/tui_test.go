@@ -20,8 +20,15 @@ func TestNewModelView(t *testing.T) {
 	}()
 
 	m := newModel(Config{
-		SchemaPath: filepath.Join("..", "..", "testdata", "contracts", "textfilter", "textfilter.fbs"),
-		WasmPath:   "plugin.wasm",
+		SchemaPath: filepath.Join(
+			"..",
+			"..",
+			"testdata",
+			"contracts",
+			"textfilter",
+			"textfilter.fbs",
+		),
+		WasmPath: "plugin.wasm",
 	}, session)
 	if m.selected.Name != "Filter" {
 		t.Fatalf("selected method = %q, want Filter", m.selected.Name)
@@ -82,7 +89,10 @@ func TestModelResetUsesSchemaPrefill(t *testing.T) {
 	updated, _ := m.Update(keyMsg("r"))
 	tuiModel := updated.(model)
 	if !strings.Contains(tuiModel.requestValue(), `"input"`) {
-		t.Fatalf("expected reset request to include schema-derived fields, got %q", tuiModel.requestValue())
+		t.Fatalf(
+			"expected reset request to include schema-derived fields, got %q",
+			tuiModel.requestValue(),
+		)
 	}
 }
 
@@ -152,8 +162,16 @@ func buildTextFilterSession(t *testing.T) *call.Session {
 		t.Fatalf("build plugin: %v", err)
 	}
 	session, err := call.NewSession(call.Config{
-		SchemaPath: filepath.Join("..", "..", "testdata", "contracts", "textfilter", "textfilter.fbs"),
-		WasmPath:   wasmPath,
+		SchemaPath: filepath.Join(
+			"..",
+			"..",
+			"testdata",
+			"contracts",
+			"textfilter",
+			"textfilter.fbs",
+		),
+		WasmPath:      wasmPath,
+		AllowUnsigned: true,
 	})
 	if err != nil {
 		t.Fatalf("new session: %v", err)

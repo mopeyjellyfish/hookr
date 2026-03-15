@@ -29,7 +29,8 @@ func TestConfigValidate(t *testing.T) {
 	if err := (Config{}).Validate(); err == nil || !strings.Contains(err.Error(), "plugin path") {
 		t.Fatalf("expected plugin path validation error, got %v", err)
 	}
-	if err := (Config{PluginPath: "./plugin"}).Validate(); err == nil || !strings.Contains(err.Error(), "output path") {
+	if err := (Config{PluginPath: "./plugin"}).Validate(); err == nil ||
+		!strings.Contains(err.Error(), "output path") {
 		t.Fatalf("expected output path validation error, got %v", err)
 	}
 	if err := (Config{PluginPath: "./plugin", OutputPath: "./plugin.wasm"}).Validate(); err != nil {

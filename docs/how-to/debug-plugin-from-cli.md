@@ -9,7 +9,8 @@ Validate and invoke a plugin without writing a Go host first.
 ```bash
 hookr inspect \
   --schema ./testdata/contracts/textfilter/textfilter.fbs \
-  --wasm ./testdata/contracts/textfilter/bin/textfilter.wasm
+  --wasm ./testdata/contracts/textfilter/bin/textfilter.wasm \
+  --allow-unsigned
 ```
 
 That shows:
@@ -40,6 +41,7 @@ Call the plugin:
 hookr call \
   --schema ./testdata/contracts/textfilter/textfilter.fbs \
   --wasm ./testdata/contracts/textfilter/bin/textfilter.wasm \
+  --allow-unsigned \
   --method Filter \
   --input ./request.json
 ```
@@ -79,6 +81,7 @@ Example call:
 hookr call \
   --schema ./testdata/contracts/urlbalancer/urlbalancer.fbs \
   --wasm ./testdata/contracts/urlbalancer/bin/urlbalancer.wasm \
+  --allow-unsigned \
   --method Balance \
   --input ./balance.json \
   --host-fixture ./host.json
@@ -91,7 +94,8 @@ For exploratory work, use the Bubble Tea terminal UI:
 ```bash
 hookr tui \
   --schema ./testdata/contracts/textfilter/textfilter.fbs \
-  --wasm ./testdata/contracts/textfilter/bin/textfilter.wasm
+  --wasm ./testdata/contracts/textfilter/bin/textfilter.wasm \
+  --allow-unsigned
 ```
 
 The TUI lets you:
