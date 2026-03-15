@@ -14,7 +14,7 @@ import (
 
 type host struct{}
 
-func (host) RngInt(_ context.Context, req *tickloophookr.RngIntRequestT) (*tickloophookr.RngIntResponseT, error) {
+func (host) Int(_ context.Context, req *tickloophookr.RngIntRequestT) (*tickloophookr.RngIntResponseT, error) {
 	mid := req.Min
 	if req.Max > req.Min {
 		mid = req.Min + ((req.Max - req.Min) / 2)
@@ -29,7 +29,9 @@ func main() {
 	rt, err := tickloophookr.Open(ctx, tickloophookr.Config{
 		PluginPath:  wasmPath,
 		FileOptions: []hookrruntime.FileOption{hookrruntime.WithAllowUnsigned()},
-		Host:        host{},
+		Host: tickloophookr.Host{
+			Rng: host{},
+		},
 	})
 	if err != nil {
 		log.Fatal(err)

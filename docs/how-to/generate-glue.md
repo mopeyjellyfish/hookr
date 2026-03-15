@@ -26,16 +26,17 @@ hookr gen \
   --include ./third_party
 ```
 
-3. For non-default service names:
+3. For non-default plugin service names:
 
 ```bash
 hookr gen \
   --schema ./contract.fbs \
   --out ./gen \
   --package mycontracthookr \
-  --plugin-service EnginePlugin \
-  --host-service EngineHost
+  --plugin-service EnginePlugin
 ```
+
+Every non-`Plugin` `rpc_service` is auto-discovered as a host callback module.
 
 ## Output
 

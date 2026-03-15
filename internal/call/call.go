@@ -20,7 +20,6 @@ type Config struct {
 	IncludePaths      []string
 	Package           string
 	PluginService     string
-	HostService       string
 	OptionalAttribute string
 	Stdin             io.Reader
 	Stdout            io.Writer

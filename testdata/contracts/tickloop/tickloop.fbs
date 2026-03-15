@@ -51,6 +51,6 @@ rpc_service Plugin {
   Warmup(WarmupRequest):WarmupResponse (hookr_optional);
 }
 
-rpc_service Host {
-  RngInt(RngIntRequest):RngIntResponse;
+rpc_service Rng {
+  Int(RngIntRequest):RngIntResponse;
 }

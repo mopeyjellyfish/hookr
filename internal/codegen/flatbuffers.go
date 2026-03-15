@@ -22,13 +22,22 @@ type flatbuffersTemplateData struct {
 	SchemaHashLiterals   []string
 	ContractCapabilities uint64
 	PluginMethods        []flatbuffersMethodTemplate
-	HostMethods          []flatbuffersMethodTemplate
+	HostModules          []flatbuffersModuleTemplate
 	UniqueTypes          []flatbuffersTypeTemplate
-	HasHostService       bool
+	HasHostModules       bool
+}
+
+type flatbuffersModuleTemplate struct {
+	ServiceName   string
+	GoName        string
+	InterfaceName string
+	ClientName    string
+	Methods       []flatbuffersMethodTemplate
 }
 
 type flatbuffersMethodTemplate struct {
 	ID                uint32
+	ServiceName       string
 	Name              string
 	GoName            string
 	ConstName         string
@@ -79,7 +88,6 @@ func generateFlatBuffers(cfg Config) error {
 		PackageName:       cfg.PackageName,
 		ContractName:      cfg.ContractName,
 		PluginServiceName: cfg.PluginService,
-		HostServiceName:   cfg.HostService,
 		OptionalAttribute: cfg.OptionalAttribute,
 	})
 	if err != nil {
@@ -102,12 +110,9 @@ func generateFlatBuffers(cfg Config) error {
 		SchemaHashLiterals:   byteLiterals(model.SchemaHash[:]),
 		ContractCapabilities: cfg.Capabilities,
 		PluginMethods:        buildTemplateMethods(model.PluginService.Methods),
-		HostMethods:          buildTemplateMethods(nil),
+		HostModules:          buildTemplateModules(model.HostServices),
 		UniqueTypes:          collectTemplateTypes(model),
-		HasHostService:       model.HostService != nil && len(model.HostService.Methods) > 0,
-	}
-	if model.HostService != nil {
-		td.HostMethods = buildTemplateMethods(model.HostService.Methods)
+		HasHostModules:       len(model.HostServices) > 0,
 	}
 
 	writes := []struct {
@@ -158,14 +163,14 @@ func validateFlatBuffersGoIdentifiers(model contract.Contract) error {
 		typeOwners[typeName] = owner
 		return nil
 	}
-	checkMethods := func(methods []contract.Method) error {
+	checkPluginMethods := func(methods []contract.Method) error {
 		for _, method := range methods {
 			owner := method.ServiceName + "." + method.Name
 			goName := toExportedIdentifier(method.Name)
 			if err := registerIdentifier("method", goName, owner); err != nil {
 				return err
 			}
-			if err := registerIdentifier("constant", "Method"+goName, owner); err != nil {
+			if err := registerIdentifier("constant", "Method"+toExportedIdentifier(method.ServiceName)+goName, owner); err != nil {
 				return err
 			}
 			if method.Optional {
@@ -182,11 +187,54 @@ func validateFlatBuffersGoIdentifiers(model contract.Contract) error {
 		}
 		return nil
 	}
-	if err := checkMethods(model.PluginService.Methods); err != nil {
+	checkHostMethods := func(service contract.Service) error {
+		methodOwners := map[string]string{}
+		for _, method := range service.Methods {
+			owner := method.ServiceName + "." + method.Name
+			goName := toExportedIdentifier(method.Name)
+			if prior, ok := methodOwners[goName]; ok && prior != owner {
+				return fmt.Errorf(
+					"generated Go host method identifier collision for %q between %s and %s",
+					goName,
+					prior,
+					owner,
+				)
+			}
+			methodOwners[goName] = owner
+			if err := registerIdentifier("constant", "Method"+toExportedIdentifier(method.ServiceName)+goName, owner); err != nil {
+				return err
+			}
+			if err := registerType(method.RequestType, method.RequestQualified, owner+" request"); err != nil {
+				return err
+			}
+			if err := registerType(method.ResponseType, method.ResponseQualified, owner+" response"); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	if err := checkPluginMethods(model.PluginService.Methods); err != nil {
 		return err
 	}
-	if model.HostService != nil {
-		if err := checkMethods(model.HostService.Methods); err != nil {
+	moduleOwners := map[string]string{}
+	for _, service := range model.HostServices {
+		moduleName := toExportedIdentifier(service.Name)
+		if prior, ok := moduleOwners[moduleName]; ok && prior != service.Name {
+			return fmt.Errorf(
+				"generated Go host module identifier collision for %q between %s and %s",
+				moduleName,
+				prior,
+				service.Name,
+			)
+		}
+		moduleOwners[moduleName] = service.Name
+		if err := registerIdentifier("host interface", moduleName+"Host", service.Name); err != nil {
+			return err
+		}
+		if err := registerIdentifier("host client", moduleName+"Client", service.Name); err != nil {
+			return err
+		}
+		if err := checkHostMethods(service); err != nil {
 			return err
 		}
 	}
@@ -197,11 +245,13 @@ func buildTemplateMethods(methods []contract.Method) []flatbuffersMethodTemplate
 	out := make([]flatbuffersMethodTemplate, 0, len(methods))
 	for _, method := range methods {
 		exported := toExportedIdentifier(method.Name)
+		serviceExported := toExportedIdentifier(method.ServiceName)
 		out = append(out, flatbuffersMethodTemplate{
 			ID:                method.ID,
+			ServiceName:       method.ServiceName,
 			Name:              method.Name,
 			GoName:            exported,
-			ConstName:         "Method" + exported,
+			ConstName:         "Method" + serviceExported + exported,
 			RequestType:       method.RequestType,
 			ResponseType:      method.ResponseType,
 			Optional:          method.Optional,
@@ -209,6 +259,22 @@ func buildTemplateMethods(methods []contract.Method) []flatbuffersMethodTemplate
 		})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	return out
+}
+
+func buildTemplateModules(services []contract.Service) []flatbuffersModuleTemplate {
+	out := make([]flatbuffersModuleTemplate, 0, len(services))
+	for _, service := range services {
+		goName := toExportedIdentifier(service.Name)
+		out = append(out, flatbuffersModuleTemplate{
+			ServiceName:   service.Name,
+			GoName:        goName,
+			InterfaceName: goName + "Host",
+			ClientName:    goName + "Client",
+			Methods:       buildTemplateMethods(service.Methods),
+		})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ServiceName < out[j].ServiceName })
 	return out
 }
 
@@ -221,8 +287,8 @@ func collectTemplateTypes(model contract.Contract) []flatbuffersTypeTemplate {
 		}
 	}
 	collect(model.PluginService.Methods)
-	if model.HostService != nil {
-		collect(model.HostService.Methods)
+	for _, service := range model.HostServices {
+		collect(service.Methods)
 	}
 	names := make([]string, 0, len(seen))
 	for name := range seen {
@@ -272,9 +338,11 @@ const ContractCapabilities uint64 = {{ .ContractCapabilities }}
 const {{ .ConstName }} uint32 = {{ .ID }}
 {{ end }}
 
-{{ if .HasHostService }}
-{{ range .HostMethods -}}
+{{ if .HasHostModules }}
+{{ range .HostModules }}
+{{ range .Methods -}}
 const {{ .ConstName }} uint32 = {{ .ID }}
+{{ end }}
 {{ end }}
 {{ end }}
 `
@@ -289,6 +357,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	{{- if .HasHostModules }}
+	"reflect"
+	{{- end }}
 
 	flatbuffers "github.com/google/flatbuffers/go"
 	hookrruntime "github.com/mopeyjellyfish/hookr/runtime"
@@ -319,32 +390,42 @@ type Runtime struct {
 type Config struct {
 	PluginPath     string
 	FileOptions    []hookrruntime.FileOption
-	{{- if .HasHostService }}
+	{{- if .HasHostModules }}
 	Host           Host
 	{{- end }}
 	RuntimeOptions []hookrruntime.Option
 }
 
-{{ if .HasHostService -}}
-type Host interface {
-	{{- range .HostMethods }}
+{{ if .HasHostModules -}}
+type Host struct {
+	{{- range .HostModules }}
+	{{ .GoName }} {{ .InterfaceName }}
+	{{- end }}
+}
+
+{{ range .HostModules -}}
+type {{ .InterfaceName }} interface {
+	{{- range .Methods }}
 	{{ .GoName }}(ctx context.Context, req *{{ .RequestType }}T) (*{{ .ResponseType }}T, error)
 	{{- end }}
 }
+{{ end -}}
 {{- end }}
 
 func Open(ctx context.Context, cfg Config) (*Runtime, error) {
 	if cfg.PluginPath == "" {
 		return nil, errors.New("plugin path is required")
 	}
+	{{ if .HasHostModules -}}
+	if err := validateHostModules(cfg.Host); err != nil {
+		return nil, err
+	}
+	{{- end }}
 	opts := []hookrruntime.Option{
 		hookrruntime.WithFile(cfg.PluginPath, cfg.FileOptions...),
 		hookrruntime.WithContractSchema(PluginSchema),
 	}
-	{{ if .HasHostService -}}
-	if cfg.Host == nil {
-		return nil, errors.New("host implementation is required")
-	}
+	{{ if .HasHostModules -}}
 	opts = append(opts, hookrruntime.WithHostMethodFns(bindHostMethods(cfg.Host)...))
 	{{- end }}
 	opts = append(opts, cfg.RuntimeOptions...)
@@ -402,10 +483,43 @@ func (r *Runtime) {{ .GoName }}(ctx context.Context, req *{{ .RequestType }}T) (
 
 {{ end -}}
 
-{{ if .HasHostService -}}
+{{ if .HasHostModules -}}
+func validateHostModules(host Host) error {
+	{{- range .HostModules }}
+	if isNilHostModule(host.{{ .GoName }}) {
+		return errors.New("host module {{ .ServiceName }} is required")
+	}
+	{{- end }}
+	return nil
+}
+
+func isNilHostModule(module any) bool {
+	if module == nil {
+		return true
+	}
+	value := reflect.ValueOf(module)
+	switch value.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		return value.IsNil()
+	default:
+		return false
+	}
+}
+
 func bindHostMethods(host Host) []hookrruntime.HostMethod {
+	methods := make([]hookrruntime.HostMethod, 0)
+	{{- range .HostModules }}
+	if !isNilHostModule(host.{{ .GoName }}) {
+		methods = append(methods, bind{{ .GoName }}HostMethods(host.{{ .GoName }})...)
+	}
+	{{- end }}
+	return methods
+}
+
+{{ range .HostModules -}}
+func bind{{ .GoName }}HostMethods(host {{ .InterfaceName }}) []hookrruntime.HostMethod {
 	return []hookrruntime.HostMethod{
-		{{- range .HostMethods }}
+		{{- range .Methods }}
 		hookrruntime.HostFnMethod({{ .ConstName }}, func(ctx context.Context, payload []byte) ([]byte, error) {
 			req, err := decode{{ .RequestType }}(payload)
 			if err != nil {
@@ -421,6 +535,7 @@ func bindHostMethods(host Host) []hookrruntime.HostMethod {
 	}
 }
 
+{{ end -}}
 {{ end -}}
 
 type flatbuffersPacker interface {
@@ -521,7 +636,15 @@ import (
 	pdkcontract "github.com/mopeyjellyfish/hookr/pdk/contract"
 )
 
+{{ if .HasHostModules -}}
+type PluginContext struct {
+	{{- range .HostModules }}
+	{{ .GoName }} {{ .ClientName }}
+	{{- end }}
+}
+{{ else -}}
 type PluginContext struct{}
+{{ end }}
 
 type Plugin interface {
 	{{- range .PluginMethods }}
@@ -540,9 +663,13 @@ type {{ .OptionalIfaceName }} interface {
 {{ end -}}
 {{ end -}}
 
-{{ if .HasHostService -}}
-{{ range .HostMethods }}
-func (ctx *PluginContext) {{ .GoName }}View(req *{{ .RequestType }}T, fn func(*{{ .ResponseType }}) error) error {
+{{ if .HasHostModules -}}
+{{ range .HostModules }}
+type {{ .ClientName }} struct{}
+
+{{ $clientName := .ClientName -}}
+{{ range .Methods }}
+func (ctx {{ $clientName }}) {{ .GoName }}View(req *{{ .RequestType }}T, fn func(*{{ .ResponseType }}) error) error {
 	if fn == nil {
 		return errors.New("response callback is required")
 	}
@@ -557,7 +684,7 @@ func (ctx *PluginContext) {{ .GoName }}View(req *{{ .RequestType }}T, fn func(*{
 	})
 }
 
-func (ctx *PluginContext) {{ .GoName }}(req *{{ .RequestType }}T) (*{{ .ResponseType }}T, error) {
+func (ctx {{ $clientName }}) {{ .GoName }}(req *{{ .RequestType }}T) (*{{ .ResponseType }}T, error) {
 	var out *{{ .ResponseType }}T
 	err := ctx.{{ .GoName }}View(req, func(response *{{ .ResponseType }}) error {
 		out = response.UnPack()
@@ -570,6 +697,7 @@ func (ctx *PluginContext) {{ .GoName }}(req *{{ .RequestType }}T) (*{{ .Response
 }
 
 {{ end -}}
+{{ end }}
 {{ end }}
 
 func MustRegisterPlugin(plugin Plugin) {

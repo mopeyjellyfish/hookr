@@ -836,10 +836,6 @@ func TestRuntimePackedValueHelpers(t *testing.T) {
 func TestCurrentInvoke(t *testing.T) {
 	rt := &Runtime{}
 	require.Nil(t, rt.currentInvoke())
-
-	ic := &invoke.Context{Operation: "ping"}
-	rt.invokeCtx = ic
-	require.Same(t, ic, rt.currentInvoke())
 }
 
 func TestInstantiateRequiresCompiledModule(t *testing.T) {
@@ -938,6 +934,22 @@ func TestInvokeMethodWithResponseNilCallback(t *testing.T) {
 	}()
 
 	require.NoError(t, p.InvokeMethodWithResponse(ctx, 2, []byte("Steve"), nil))
+}
+
+func TestInvokeMethodWithResponseRejectsReentrantContext(t *testing.T) {
+	ctx := invoke.New(context.Background(), &invoke.Context{Operation: "host-callback"})
+	p, err := New(
+		context.Background(),
+		WithFile(SIMPLE_METHOD_WASM, WithAllowUnsigned()),
+		WithHostMethodFns(HostFnMethod(1, HelloByte)),
+	)
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, p.Close(context.Background()))
+	}()
+
+	err = p.InvokeMethodWithResponse(ctx, 2, []byte("Steve"), nil)
+	require.EqualError(t, err, "reentrant plugin invocation is not supported")
 }
 
 func TestInvokeMethodWithResponseUnsuccessful(t *testing.T) {

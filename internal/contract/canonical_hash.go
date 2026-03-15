@@ -72,14 +72,14 @@ type canonicalEnum struct {
 }
 
 type canonicalContract struct {
-	ABIVersion       string            `json:"abi_version"`
-	FileIdentifier   string            `json:"file_identifier,omitempty"`
-	FileExtension    string            `json:"file_extension,omitempty"`
-	AdvancedFeatures uint64            `json:"advanced_features,omitempty"`
-	Plugin           canonicalService  `json:"plugin"`
-	Host             *canonicalService `json:"host,omitempty"`
-	Objects          []canonicalObject `json:"objects,omitempty"`
-	Enums            []canonicalEnum   `json:"enums,omitempty"`
+	ABIVersion       string             `json:"abi_version"`
+	FileIdentifier   string             `json:"file_identifier,omitempty"`
+	FileExtension    string             `json:"file_extension,omitempty"`
+	AdvancedFeatures uint64             `json:"advanced_features,omitempty"`
+	Plugin           canonicalService   `json:"plugin"`
+	Hosts            []canonicalService `json:"hosts,omitempty"`
+	Objects          []canonicalObject  `json:"objects,omitempty"`
+	Enums            []canonicalEnum    `json:"enums,omitempty"`
 }
 
 func canonicalHash(schema *reflection.Schema, contract Contract) [32]byte {
@@ -92,17 +92,19 @@ func canonicalHash(schema *reflection.Schema, contract Contract) [32]byte {
 		AdvancedFeatures: uint64(schema.AdvancedFeatures()),
 		Plugin:           builder.service(contract.PluginService),
 	}
-	if contract.HostService != nil {
-		host := builder.service(*contract.HostService)
-		canonical.Host = &host
+	if len(contract.HostServices) > 0 {
+		canonical.Hosts = make([]canonicalService, 0, len(contract.HostServices))
+		for _, host := range contract.HostServices {
+			canonical.Hosts = append(canonical.Hosts, builder.service(host))
+		}
 	}
 
 	for _, method := range contract.PluginService.Methods {
 		builder.visitObject(method.RequestQualified)
 		builder.visitObject(method.ResponseQualified)
 	}
-	if contract.HostService != nil {
-		for _, method := range contract.HostService.Methods {
+	for _, service := range contract.HostServices {
+		for _, method := range service.Methods {
 			builder.visitObject(method.RequestQualified)
 			builder.visitObject(method.ResponseQualified)
 		}

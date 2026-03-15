@@ -1,12 +1,9 @@
 # Plugin Debugging And Development Tooling
 
 Hookr can already generate bindings, build plugins, inspect schema-derived
-contract metadata, and run benchmarks. The next missing loop is day-to-day
-plugin development tooling: loading a plugin module, validating it against a
-contract, making ad hoc calls, stubbing host callbacks, and exploring behavior
-without writing a full host application first.
-
-This document defines that plan.
+contract metadata, make ad hoc calls, stub host callbacks, run benchmarks, and
+explore a plugin through a TUI. This document records the reasoning behind that
+developer workflow and the smaller improvements that still remain.
 
 ## Problem
 
@@ -14,17 +11,18 @@ Today Hookr is strong at:
 
 - generating Go host SDK and plugin PDK glue from FlatBuffers
 - building TinyGo-based plugin Wasm binaries
-- opening plugins from real host code
+- inspecting a schema or a schema + plugin pair from the CLI
+- making ad hoc calls into a plugin with JSON fixtures
+- supplying generic host callback fixtures
+- exploring plugin methods through the Bubble Tea TUI
 - benchmarking fixture contracts
 
-Today Hookr is weak at:
+Today Hookr is still weaker at:
 
-- inspecting a `.wasm` plugin against a schema from the CLI
-- listing implemented methods from the actual loaded module
-- making ad hoc method calls into a plugin
-- supplying temporary host callback behavior during development
-- iterating on request and response payloads without a custom host
-- debugging optional-method behavior and handshake state
+- publishing broader benchmark/debug snapshots from the tooling
+- surfacing richer callback traces and replay artifacts
+- giving developers more packaged workflows around iterative fixture capture
+- turning the current TUI into a more advanced performance and trace console
 
 That gap matters because Hookr is intended to be the foundation for other
 applications. A host application should define the contract, but Hookr should
@@ -190,139 +188,54 @@ Expected behavior:
 - see callback activity and validation errors
 - save fixtures from the session
 
-## Phased Plan
+## Current Status
 
-### Phase 1: Deep Inspect
-
-Add a Wasm-aware inspect path.
-
-Deliverables:
+The main loop is now implemented:
 
 - `hookr inspect --schema ... --plugin ...`
-- schema-only inspect remains supported
-- output includes handshake metadata and implemented methods
-- clear mismatch reporting for:
-  - ABI version
-  - schema hash
-  - missing required methods
-  - unknown published methods
+- `hookr call --schema ... --plugin ... --method ...`
+- `hookr call ... --host-fixture ...`
+- `hookr tui --schema ... --plugin ...`
 
-Implementation notes:
+The underlying design also landed the way this plan intended:
 
-- extend the existing `internal/inspect` package instead of creating a second
-  inspection flow
-- reuse the existing runtime loader and contract metadata parsing
-- support both human-readable text and machine-readable JSON output
+- schema plus plugin is the unit of inspection
+- FlatBuffers remains the runtime transport
+- JSON remains the human-facing format for CLI/TUI workflows
+- the TUI sits on top of the same execution engine used by `hookr call`
+- callback fixtures are contract-driven and method-oriented
 
-Acceptance criteria:
-
-- a developer can validate a plugin module without writing host code
-- CI can use `hookr inspect` as a contract gate
-
-### Phase 2: Ad Hoc Invocation
-
-Add a non-interactive `hookr call` command.
-
-Deliverables:
-
-- `hookr call --schema --plugin --method --input`
-- request JSON loaded from file or stdin
-- response JSON written to stdout
-- support for methods on the default `Plugin` service
-
-Implementation notes:
-
-- create a new `internal/call` package
-- use `.bfbs` reflection data to map JSON to request builders
-- use the same reflection data to map response buffers back to JSON
-- keep the first pass focused on tables, scalars, strings, and vectors
-
-Acceptance criteria:
-
-- every first-party example contract can be called via `hookr call`
-- request and response fixtures can be stored in the repo
-
-### Phase 3: Development Host Stubs
-
-Add generic host callback stubbing.
-
-Deliverables:
-
-- `--host-fixture` support for `hookr call`
-- static response stubs
-- sequential response stubs
-- deterministic random support for callback-heavy contracts
-
-Implementation notes:
-
-- add `internal/devhost` or `internal/stubhost`
-- the fixture format should be contract-driven and method-oriented
-- callback invocation logs should be capturable for debugging
-
-Fixture shape example:
+Host fixture keys now use `Service.Method`, for example:
 
 ```json
 {
-  "RngInt": [
-    { "value": { "value": 1 } },
-    { "value": { "value": 3 } }
-  ],
-  "RngFloat": {
-    "mode": "constant",
-    "value": { "value": 0.5 }
-  }
+  "Rng.Int": { "response": { "value": 1 } },
+  "Rng.Float": { "response": { "value": 0.5 } }
 }
 ```
 
-Acceptance criteria:
+## Remaining Improvements
 
-- callback-heavy fixtures like `urlbalancer` can be exercised from the CLI
-- callback behavior is deterministic when driven by fixtures
+The tooling loop is closed, but there is still room to improve it.
 
-### Phase 4: Fixture Workflow
+### Better Trace And Snapshot Workflows
 
-Make requests and callback behavior reusable.
+- add optional callback trace output for repeated CLI/TUI debugging sessions
+- add easier response snapshot export for golden-style debugging
+- standardize how traces and snapshots are stored beside fixtures
 
-Deliverables:
+### Richer TUI Diagnostics
 
-- request fixture conventions in the examples
-- response snapshot output option
-- callback trace output option
-- fixture directories that can be checked into source control
+- make loop and callback statistics more comprehensive
+- add clearer callback activity summaries when a plugin is callback-heavy
+- keep improving readability for long responses and runtime metadata
 
-Implementation notes:
+### Broader Fixture Coverage
 
-- standardize file layout for examples and docs
-- make fixtures easy to consume in tests and docs
-
-Acceptance criteria:
-
-- docs examples can be run directly from checked-in fixtures
-- developers can reproduce bugs using fixture files alone
-
-### Phase 5: Interactive TUI
-
-Add an optional interactive UI on top of the validated CLI flow.
-
-Deliverables:
-
-- `hookr tui`
-- method list
-- request editor
-- invoke panel
-- response panel
-- callback trace panel
-
-Implementation notes:
-
-- build on the exact same invocation and fixture engine used by `hookr call`
-- do not build a second execution stack just for the TUI
-- start simple and schema-aware rather than attempting a full IDE
-
-Acceptance criteria:
-
-- a developer can load a plugin and inspect behavior without leaving Hookr
-- the TUI uses the same schema and fixtures as the CLI
+- add more checked-in fixture flows for callback-heavy modules
+- add more examples that exercise optional methods and failure modes
+- align benchmark fixtures with the same reproducible request/host-fixture
+  workflows
 
 ## Architecture Changes Needed
 
@@ -337,14 +250,14 @@ The current repo already has useful building blocks:
 
 The plan should extend those pieces rather than introduce parallel paths.
 
-### New packages likely needed
+### Packages used today
 
 - `internal/call`
   - coordinates schema loading, plugin loading, invocation, and output
-- `internal/jsonfb`
-  - reflection-driven JSON to FlatBuffers and FlatBuffers to JSON helpers
 - `internal/devhost`
   - generic callback stubbing and fixture playback
+- `internal/tui`
+  - Bubble Tea interface over the same call/session engine
 
 The exact names can change, but the separation should be maintained.
 
@@ -360,7 +273,7 @@ future TUI.
 
 ## Command Surface Proposal
 
-The future CLI should look like:
+The current CLI now looks like:
 
 - `hookr gen`
 - `hookr build`
@@ -369,39 +282,7 @@ The future CLI should look like:
 - `hookr bench`
 - `hookr tui`
 
-Expected details:
-
-### `hookr inspect`
-
-Current:
-
-- schema-only
-
-Planned:
-
-- schema-only inspection
-- schema plus Wasm inspection
-- optional JSON output
-
-### `hookr call`
-
-Planned flags:
-
-- `--schema`
-- `--plugin`
-- `--method`
-- `--input`
-- `--host-fixture`
-- `--output`
-- `--json`
-
-### `hookr tui`
-
-Planned flags:
-
-- `--schema`
-- `--plugin`
-- `--host-fixture`
+The main remaining CLI/TUI work is refinement, not missing core commands.
 
 ## Example Coverage
 
@@ -415,7 +296,7 @@ developer tooling:
 - `tickloop`
   - exercises tight-loop and benchmarking-oriented behavior
 
-Each example should eventually include:
+Each example should continue to include:
 
 - request fixtures
 - host callback fixtures when needed
@@ -465,14 +346,14 @@ and debugging layer, not the recommended production host API.
 
 ## Definition Of Done
 
-This loop is closed when Hookr can:
+The original loop described in this plan is now closed:
 
-- generate and build a plugin
-- inspect a plugin module against its contract
-- invoke plugin methods from the CLI
-- stub host callbacks generically
-- save and replay request fixtures
-- provide an interactive schema-aware TUI
+- Hookr can generate and build a plugin
+- Hookr can inspect a plugin module against its contract
+- Hookr can invoke plugin methods from the CLI
+- Hookr can stub host callbacks generically
+- Hookr can save and replay request fixtures
+- Hookr provides an interactive schema-aware TUI
 
-At that point, Hookr will support the full development loop for plugin authors
-and host authors, not just code generation and runtime embedding.
+What remains is polish, better traces, and broader benchmark/debug coverage,
+not a missing developer workflow.

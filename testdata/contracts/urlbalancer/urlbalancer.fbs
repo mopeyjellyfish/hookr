@@ -47,7 +47,7 @@ rpc_service Plugin {
   Balance(BalanceRequest):BalanceResponse;
 }
 
-rpc_service Host {
-  RngInt(RngIntRequest):RngIntResponse;
-  RngFloat(RngFloatRequest):RngFloatResponse;
+rpc_service Rng {
+  Int(RngIntRequest):RngIntResponse;
+  Float(RngFloatRequest):RngFloatResponse;
 }

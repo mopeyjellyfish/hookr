@@ -53,7 +53,9 @@ func openURLBalancerBenchmarkRuntime(b *testing.B, wasmPath string) *urlbalancer
 	rt, err := urlbalancerhookr.Open(context.Background(), urlbalancerhookr.Config{
 		PluginPath:  wasmPath,
 		FileOptions: []hookrruntime.FileOption{hookrruntime.WithAllowUnsigned()},
-		Host:        testHost{},
+		Host: urlbalancerhookr.Host{
+			Rng: testHost{},
+		},
 	})
 	if err != nil {
 		b.Fatalf("open runtime: %v", err)

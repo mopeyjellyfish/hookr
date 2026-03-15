@@ -54,15 +54,15 @@ like `jq`.
 
 ## Stub Host Callbacks
 
-If the contract defines a `Host` service, provide a fixture file for callback
-responses.
+If the contract defines host callback modules, provide a fixture file for
+callback responses. Fixture keys use `Service.Method`.
 
 Example host fixture:
 
 ```json
 {
-  "RngInt": { "response": { "value": 1 } },
-  "RngFloat": { "response": { "value": 0.5 } }
+  "Rng.Int": { "response": { "value": 1 } },
+  "Rng.Float": { "response": { "value": 0.5 } }
 }
 ```
 

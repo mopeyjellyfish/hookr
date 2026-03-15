@@ -1,10 +1,10 @@
 {
-  "RngInt": {
+  "Rng.Int": {
     "response": {
       "value": 1
     }
   },
-  "RngFloat": {
+  "Rng.Float": {
     "response": {
       "value": 0.5
     }

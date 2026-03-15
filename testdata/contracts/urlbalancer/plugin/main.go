@@ -38,14 +38,14 @@ func (plugin) Balance(ctx *urlbalancerhookr.PluginContext, req *urlbalancerhookr
 		return resp, nil
 	}
 
-	rngIntResp, err := ctx.RngInt(&urlbalancerhookr.RngIntRequestT{
+	rngIntResp, err := ctx.Rng.Int(&urlbalancerhookr.RngIntRequestT{
 		Min: 0,
 		Max: int32(len(req.Nodes) - 1),
 	})
 	if err != nil {
 		return nil, err
 	}
-	rngFloatResp, err := ctx.RngFloat(&urlbalancerhookr.RngFloatRequestT{})
+	rngFloatResp, err := ctx.Rng.Float(&urlbalancerhookr.RngFloatRequestT{})
 	if err != nil {
 		return nil, err
 	}

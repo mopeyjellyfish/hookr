@@ -53,9 +53,11 @@ Hookr should be opinionated about service layout while remaining generic.
 Default convention:
 
 - `Plugin` service: methods the host calls on the plugin
-- `Host` service: callbacks the plugin calls on the host
+- every other `rpc_service`: a host callback module the plugin can call
 
-CLI overrides can be added later, but the default should remain simple.
+Hookr auto-discovers host modules from the schema. The host side gets a
+generated aggregate `Host` struct with one field per module, and the plugin
+side gets namespaced clients such as `ctx.Rng.Int(...)`.
 
 Plugin methods are required by default. Optional methods should be expressed in
 the schema via Hookr-recognized FlatBuffers attributes.
@@ -109,7 +111,9 @@ Host side:
 ```go
 plugin, err := urlbalancerhookr.Open(ctx, urlbalancerhookr.Config{
 	PluginPath: "./plugin.wasm",
-	Host:     host{},
+	Host: urlbalancerhookr.Host{
+		Rng: host{},
+	},
 })
 if err != nil {
 	return err
@@ -175,8 +179,8 @@ These fixtures exist to prove that:
 
 - plugin method `GetInfo`
 - plugin method `Balance`
-- host callback `RngInt`
-- host callback `RngFloat`
+- host module `Rng`
+- callback methods `Int` and `Float`
 
 The plugin receives a request with a URL and a list of backend nodes, validates
 the URL, calls host RNG helpers, and selects a node to route to.
@@ -185,15 +189,18 @@ the URL, calls host RNG helpers, and selects a node to route to.
 
 `tickloop` should be the benchmark-oriented hot-loop example.
 
-## Delivery Plan
+## Current Status And Next Steps
 
-1. Add the `urlbalancer`, `textfilter`, and `tickloop` FlatBuffers fixture
-   contracts.
-2. Make `hookr gen` depend on and orchestrate `flatc`.
-3. Read `.bfbs` into a Hookr contract model.
-4. Generate Go-only Hookr glue around official FlatBuffers-generated Go code.
-5. Add end-to-end host/plugin examples and tests for the fixture contracts.
-6. Add TinyGo-first plugin build support behind `hookr build`, with room to
-   support additional build paths later.
-7. Add benchmark fixtures around the generated path.
-8. After the Go path is solid, add Rust and Zig backends.
+The Go-first delivery plan described above is implemented:
+
+- Hookr generates Go SDK/PDK glue from `.fbs` through `flatc`
+- Hookr builds TinyGo plugins
+- Hookr has first-party `urlbalancer`, `textfilter`, and `tickloop` fixtures
+- Hookr supports inspect/call/TUI developer workflows
+- Hookr has benchmark fixtures and published benchmark snapshots
+
+The next phases are no longer about proving the core model. They are about:
+
+1. expanding the benchmark matrix,
+2. piloting the system in DICE,
+3. preparing future Rust and Zig backends without changing the Go-first API.

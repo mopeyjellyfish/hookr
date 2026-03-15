@@ -20,7 +20,6 @@ type Config struct {
 	FlatcPath         string
 	IncludePaths      []string
 	PluginService     string
-	HostService       string
 	OptionalAttribute string
 	Capabilities      uint64
 }
@@ -42,7 +41,6 @@ func DefaultConfig() Config {
 	return Config{
 		Lang:              "go",
 		PluginService:     contract.DefaultPluginService,
-		HostService:       contract.DefaultHostService,
 		OptionalAttribute: contract.OptionalAttribute,
 	}
 }
@@ -76,12 +74,6 @@ func ParseFlags(binaryName string, args []string) (Config, error) {
 		"plugin-service",
 		cfg.PluginService,
 		"FlatBuffers plugin service name",
-	)
-	fs.StringVar(
-		&cfg.HostService,
-		"host-service",
-		cfg.HostService,
-		"FlatBuffers host callback service name",
 	)
 	fs.StringVar(
 		&cfg.OptionalAttribute,

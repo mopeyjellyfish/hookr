@@ -3,36 +3,42 @@
 ## Goal
 
 Load a plugin Wasm module and call generated typed methods from a Go host.
-If your contract defines `rpc_service Host`, bind those callbacks so plugins can
-call back into the host.
+If your contract defines host callback modules, bind those callbacks so plugins
+can call back into the host.
 
 ## Steps
 
-1. Implement generated host callback interface.
+1. Implement generated host callback module interfaces.
 
 The generated package tells you exactly what to implement. If the schema
 defines:
 
 ```fbs
-rpc_service Host {
-  RngInt(RngIntRequest):RngIntResponse;
+rpc_service Rng {
+  Int(RngIntRequest):RngIntResponse;
 }
 ```
 
 the generated Go package will expose:
 
 ```go
-type Host interface {
-	RngInt(context.Context, *mycontracthookr.RngIntRequestT) (*mycontracthookr.RngIntResponseT, error)
+type Host struct {
+	Rng RngHost
+}
+
+type RngHost interface {
+	Int(context.Context, *mycontracthookr.RngIntRequestT) (*mycontracthookr.RngIntResponseT, error)
 }
 ```
 
 2. Open runtime through generated package:
 
 ```go
-	plugin, err := mycontracthookr.Open(ctx, mycontracthookr.Config{
-		PluginPath: "./bin/plugin.wasm",
-	Host:     host{},
+plugin, err := mycontracthookr.Open(ctx, mycontracthookr.Config{
+	PluginPath: "./bin/plugin.wasm",
+	Host: mycontracthookr.Host{
+		Rng: host{},
+	},
 	FileOptions: []hookr.FileOption{
 		hookr.WithAllowUnsigned(),
 	},
@@ -61,22 +67,22 @@ if err != nil {
 _ = resp
 ```
 
-For contracts with host callbacks, `host{}` must implement the generated `Host`
+For contracts with host callbacks, `host{}` must implement the generated module
 interface. A minimal example looks like this:
 
 ```go
 type host struct{}
 
-func (host) RngInt(ctx context.Context, req *mycontracthookr.RngIntRequestT) (*mycontracthookr.RngIntResponseT, error) {
+func (host) Int(ctx context.Context, req *mycontracthookr.RngIntRequestT) (*mycontracthookr.RngIntResponseT, error) {
 	return &mycontracthookr.RngIntResponseT{Value: req.Min}, nil
 }
 ```
 
-4. Use the callbacks from plugin code through `PluginContext`:
+4. Use the callbacks from plugin code through `PluginContext` module clients:
 
 ```go
 func (plugin) Balance(ctx *mycontracthookr.PluginContext, req *mycontracthookr.BalanceRequestT) (*mycontracthookr.BalanceResponseT, error) {
-	rng, err := ctx.RngInt(&mycontracthookr.RngIntRequestT{Min: 0, Max: 3})
+	rng, err := ctx.Rng.Int(&mycontracthookr.RngIntRequestT{Min: 0, Max: 3})
 	if err != nil {
 		return nil, err
 	}
@@ -84,8 +90,9 @@ func (plugin) Balance(ctx *mycontracthookr.PluginContext, req *mycontracthookr.B
 }
 ```
 
-There is no separate registration step for host methods. Passing `host{}` into
-`Config.Host` is the registration step.
+There is no separate registration step for host methods. Populating
+`Config.Host` with the generated module implementations is the registration
+step.
 
 ## Contract Validation
 

@@ -20,14 +20,14 @@ var PluginSchema = runtimecontract.Schema{
 	Capabilities: ContractCapabilities,
 	Methods: []runtimecontract.Method{
 			{
-				ID:           runtimecontract.MethodID(MethodGetInfo),
+				ID:           runtimecontract.MethodID(MethodPluginGetInfo),
 				Name:         "GetInfo",
 				RequestType:  "Empty",
 				ResponseType: "PluginInfo",
 				Optional:     false,
 			},
 			{
-				ID:           runtimecontract.MethodID(MethodFilter),
+				ID:           runtimecontract.MethodID(MethodPluginFilter),
 				Name:         "Filter",
 				RequestType:  "FilterRequest",
 				ResponseType: "FilterResponse",
@@ -52,6 +52,7 @@ func Open(ctx context.Context, cfg Config) (*Runtime, error) {
 	if cfg.PluginPath == "" {
 		return nil, errors.New("plugin path is required")
 	}
+	
 	opts := []hookrruntime.Option{
 		hookrruntime.WithFile(cfg.PluginPath, cfg.FileOptions...),
 		hookrruntime.WithContractSchema(PluginSchema),
@@ -77,7 +78,7 @@ func (r *Runtime) SupportsGetInfo() bool {
 	if r == nil || r.rt == nil {
 		return false
 	}
-	return r.rt.HasPluginMethodID(MethodGetInfo)
+	return r.rt.HasPluginMethodID(MethodPluginGetInfo)
 }
 
 
@@ -85,7 +86,7 @@ func (r *Runtime) SupportsFilter() bool {
 	if r == nil || r.rt == nil {
 		return false
 	}
-	return r.rt.HasPluginMethodID(MethodFilter)
+	return r.rt.HasPluginMethodID(MethodPluginFilter)
 }
 
 
@@ -94,7 +95,7 @@ func (r *Runtime) GetInfoView(ctx context.Context, req *EmptyT, fn func(*PluginI
 		return errors.New("response callback is required")
 	}
 	return withEncodedEmpty(req, func(payload []byte) error {
-		return r.rt.InvokeMethodWithResponse(ctx, MethodGetInfo, payload, func(response []byte) error {
+		return r.rt.InvokeMethodWithResponse(ctx, MethodPluginGetInfo, payload, func(response []byte) error {
 			out, err := decodePluginInfoView(response)
 			if err != nil {
 				return err
@@ -122,7 +123,7 @@ func (r *Runtime) FilterView(ctx context.Context, req *FilterRequestT, fn func(*
 		return errors.New("response callback is required")
 	}
 	return withEncodedFilterRequest(req, func(payload []byte) error {
-		return r.rt.InvokeMethodWithResponse(ctx, MethodFilter, payload, func(response []byte) error {
+		return r.rt.InvokeMethodWithResponse(ctx, MethodPluginFilter, payload, func(response []byte) error {
 			out, err := decodeFilterResponseView(response)
 			if err != nil {
 				return err
