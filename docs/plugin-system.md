@@ -107,16 +107,19 @@ The generated Go experience should be the default.
 Host side:
 
 ```go
-rt, err := urlbalancerhookr.Open(ctx, urlbalancerhookr.Config{
+plugin, err := urlbalancerhookr.Open(ctx, urlbalancerhookr.Config{
 	WasmPath: "./plugin.wasm",
-	Host:     hostImpl,
+	Host:     host{},
 })
 if err != nil {
 	return err
 }
 
-resp, err := rt.Balance(ctx, req)
+resp, err := plugin.Balance(ctx, req)
 ```
+
+`WasmPath` is the plugin artifact path. A host can swap different `.wasm`
+plugins there as long as they implement the same generated contract.
 
 Plugin side:
 

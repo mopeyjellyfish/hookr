@@ -111,29 +111,29 @@ import (
 	"fmt"
 	"log"
 
-	hookrruntime "github.com/mopeyjellyfish/hookr/runtime"
-	textfilterhookr "github.com/mopeyjellyfish/hookr/testdata/contracts/textfilter/gen/textfilterhookr"
+	hookr "github.com/mopeyjellyfish/hookr/runtime"
+	textfilter "github.com/mopeyjellyfish/hookr/testdata/contracts/textfilter/gen/textfilterhookr"
 )
 
 func main() {
 	ctx := context.Background()
 
-	rt, err := textfilterhookr.Open(ctx, textfilterhookr.Config{
+	plugin, err := textfilter.Open(ctx, textfilter.Config{
 		WasmPath: "./testdata/contracts/textfilter/bin/textfilter.wasm",
-		FileOptions: []hookrruntime.FileOption{
-			hookrruntime.WithAllowUnsigned(),
+		FileOptions: []hookr.FileOption{
+			hookr.WithAllowUnsigned(),
 		},
 	})
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer rt.Close(ctx)
+	defer plugin.Close(ctx)
 
-	info, err := rt.GetInfo(ctx, &textfilterhookr.EmptyT{})
+	info, err := plugin.GetInfo(ctx, &textfilter.EmptyT{})
 	if err != nil {
 		log.Fatal(err)
 	}
-	resp, err := rt.Filter(ctx, &textfilterhookr.FilterRequestT{
+	resp, err := plugin.Filter(ctx, &textfilter.FilterRequestT{
 		Input:        "this platform has bad words",
 		BlockedTerms: []string{"bad"},
 		Replacement:  "[filtered]",
@@ -146,25 +146,119 @@ func main() {
 }
 ```
 
-If your contract defines host callbacks, the generated SDK makes that explicit:
+`WasmPath` is the plugin artifact path for the generated contract. Hosts can
+swap in different `.wasm` files there as long as they were built against the
+same schema and generated package.
+
+The generated package name is also your choice. In examples, aliasing the
+generated import to the contract name usually reads better than repeating the
+`...hookr` suffix in every type.
+
+If your contract defines host callbacks, the generated SDK makes that explicit.
+Here is a complete working host for the `urlbalancer` example:
 
 ```go
-rt, err := urlbalancerhookr.Open(ctx, urlbalancerhookr.Config{
-	WasmPath: "./plugin.wasm",
-	Host:     hostImpl,
-	FileOptions: []hookrruntime.FileOption{
-		hookrruntime.WithAllowUnsigned(),
-	},
-})
-if err != nil {
-	return err
+package main
+
+import (
+	"context"
+	"log"
+
+	hookr "github.com/mopeyjellyfish/hookr/runtime"
+	urlbalancer "github.com/mopeyjellyfish/hookr/testdata/contracts/urlbalancer/gen/urlbalancerhookr"
+)
+
+type host struct{}
+
+func (host) RngInt(_ context.Context, req *urlbalancer.RngIntRequestT) (*urlbalancer.RngIntResponseT, error) {
+	if req == nil || req.Max <= req.Min {
+		return &urlbalancer.RngIntResponseT{Value: req.Min}, nil
+	}
+	return &urlbalancer.RngIntResponseT{Value: req.Min + ((req.Max - req.Min) / 2)}, nil
 }
 
-resp, err := rt.Balance(ctx, &urlbalancerhookr.BalanceRequestT{
-	Url:   "https://example.com/api",
-	Nodes: []string{"node-a", "node-b", "node-c"},
+func (host) RngFloat(_ context.Context, _ *urlbalancer.RngFloatRequestT) (*urlbalancer.RngFloatResponseT, error) {
+	return &urlbalancer.RngFloatResponseT{Value: 0.5}, nil
+}
+
+func main() {
+	ctx := context.Background()
+
+	plugin, err := urlbalancer.Open(ctx, urlbalancer.Config{
+		WasmPath: "./plugin.wasm",
+		Host:     host{},
+		FileOptions: []hookr.FileOption{
+			hookr.WithAllowUnsigned(),
+		},
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer plugin.Close(ctx)
+
+	resp, err := plugin.Balance(ctx, &urlbalancer.BalanceRequestT{
+		Url:   "https://example.com/api",
+		Nodes: []string{"node-a", "node-b", "node-c"},
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+log.Printf("selected %s (valid=%v score=%.2f)", resp.SelectedNode, resp.Valid, resp.Score)
+}
+```
+
+### Host Callbacks
+
+Host callbacks are defined by the host application in the FlatBuffers contract,
+not by Hookr. The common pattern is:
+
+1. Define callback methods in `rpc_service Host`.
+2. Run `hookr gen`.
+3. Implement the generated `Host` interface in your Go host.
+4. Pass that implementation into `Config.Host` when opening the plugin.
+5. Call those callbacks from plugin code through `PluginContext`.
+
+Minimal end-to-end shape:
+
+```fbs
+rpc_service Plugin {
+  Balance(BalanceRequest):BalanceResponse;
+}
+
+rpc_service Host {
+  RngInt(RngIntRequest):RngIntResponse;
+}
+```
+
+```go
+type host struct{}
+
+func (host) RngInt(ctx context.Context, req *urlbalancer.RngIntRequestT) (*urlbalancer.RngIntResponseT, error) {
+	return &urlbalancer.RngIntResponseT{Value: req.Min}, nil
+}
+
+plugin, err := urlbalancer.Open(ctx, urlbalancer.Config{
+	WasmPath: "./plugin.wasm",
+	Host:     host{},
+	FileOptions: []hookr.FileOption{
+		hookr.WithAllowUnsigned(),
+	},
 })
 ```
+
+```go
+func (plugin) Balance(ctx *urlbalancer.PluginContext, req *urlbalancer.BalanceRequestT) (*urlbalancer.BalanceResponseT, error) {
+	rng, err := ctx.RngInt(&urlbalancer.RngIntRequestT{Min: 0, Max: int32(len(req.Nodes) - 1)})
+	if err != nil {
+		return nil, err
+	}
+	return &urlbalancer.BalanceResponseT{SelectedNode: req.Nodes[rng.Value]}, nil
+}
+```
+
+That is the whole registration story: the schema declares the callbacks, the
+host implements the generated interface, and Hookr wires the rest.
 
 For plugin development, Hookr can validate and call plugins directly from the
 CLI. For example, this calls the `urlbalancer` plugin with a host callback
