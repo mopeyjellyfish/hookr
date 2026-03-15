@@ -47,6 +47,12 @@ const (
 	fnMethods      = "__hookr_methods"
 )
 
+var (
+	newWazeroRuntime          = wazero.NewRuntime
+	instantiateWASI           = wasi_snapshot_preview1.Instantiate
+	newAssemblyscriptExporter = assemblyscript.NewFunctionExporter
+)
+
 type Runtime struct {
 	newRuntime NewRuntime
 	ctx        context.Context
@@ -364,13 +370,7 @@ func (e *Runtime) validateContractHandshake() error {
 		return fmt.Errorf("plugin %s returned no results", fnSchemaHash)
 	}
 
-	hashPtr, hashLen, err := unpackPtrLenU64(hashResults[0])
-	if err != nil {
-		if !strict {
-			return nil
-		}
-		return fmt.Errorf("plugin %s returned invalid schema hash pointer: %w", fnSchemaHash, err)
-	}
+	hashPtr, hashLen := unpackPtrLenU64(hashResults[0])
 	if hashLen != runtimecontract.SchemaHashLen {
 		if !strict {
 			return nil
@@ -461,39 +461,42 @@ func (e *Runtime) validateContractHandshake() error {
 
 func (e *Runtime) Close(ctx context.Context) error {
 	var errs []error
-	if e.plugin != nil {
-		if err := e.plugin.Close(ctx); err != nil {
-			errs = append(errs, fmt.Errorf("error closing plugin: %w", err))
-		}
-	}
-
-	if e.hookr != nil {
-		if err := e.hookr.Close(ctx); err != nil {
-			errs = append(errs, fmt.Errorf("error closing hookr: %w", err))
-		}
-	}
-
-	if e.r != nil {
-		if err := e.r.Close(ctx); err != nil {
-			errs = append(errs, fmt.Errorf("error closing runtime: %w", err))
-		}
-	}
+	errs = append(
+		errs,
+		closeNamed(ctx, "plugin", e.plugin),
+		closeNamed(ctx, "hookr", e.hookr),
+		closeNamed(ctx, "runtime", e.r),
+	)
 	return errors.Join(errs...)
+}
+
+type closer interface {
+	Close(context.Context) error
+}
+
+func closeNamed(ctx context.Context, name string, c closer) error {
+	if c == nil {
+		return nil
+	}
+	if err := c.Close(ctx); err != nil {
+		return fmt.Errorf("error closing %s: %w", name, err)
+	}
+	return nil
 }
 
 // DefaultRuntime implements NewRuntime by returning a wazero runtime with WASI
 // and AssemblyScript host functions instantiated.
 func DefaultRuntime(ctx context.Context) (wazero.Runtime, error) {
-	r := wazero.NewRuntime(ctx)
+	r := newWazeroRuntime(ctx)
 
-	if _, err := wasi_snapshot_preview1.Instantiate(ctx, r); err != nil {
+	if _, err := instantiateWASI(ctx, r); err != nil {
 		_ = r.Close(ctx)
 		return nil, err
 	}
 
 	// This disables the abort message as no other engines write it.
 	envBuilder := r.NewHostModuleBuilder("env")
-	assemblyscript.NewFunctionExporter().WithAbortMessageDisabled().ExportFunctions(envBuilder)
+	newAssemblyscriptExporter().WithAbortMessageDisabled().ExportFunctions(envBuilder)
 	if _, err := envBuilder.Instantiate(ctx); err != nil {
 		_ = r.Close(ctx)
 		return nil, err
@@ -537,16 +540,8 @@ func New(ctx context.Context, opts ...Option) (_ *Runtime, err error) {
 	return e, nil
 }
 
-func unpackPtrLenU64(encoded uint64) (ptr, dataLen uint32, err error) {
-	ptr, err = runtimememory.Uint32FromUint64(encoded >> 32)
-	if err != nil {
-		return 0, 0, err
-	}
-	dataLen, err = runtimememory.Uint32FromUint64(encoded & 0xFFFFFFFF)
-	if err != nil {
-		return 0, 0, err
-	}
-	return ptr, dataLen, nil
+func unpackPtrLenU64(encoded uint64) (ptr, dataLen uint32) {
+	return api.DecodeU32(encoded >> 32), api.DecodeU32(encoded)
 }
 
 func decodeABIVersion(encoded uint64) (major, minor uint16, err error) {
@@ -554,14 +549,8 @@ func decodeABIVersion(encoded uint64) (major, minor uint16, err error) {
 	if err != nil {
 		return 0, 0, err
 	}
-	major, err = runtimememory.Uint16FromUint32(versionPacked >> 16)
-	if err != nil {
-		return 0, 0, err
-	}
-	minor, err = runtimememory.Uint16FromUint32(versionPacked & 0xFFFF)
-	if err != nil {
-		return 0, 0, err
-	}
+	major = uint16(byte(versionPacked>>24))<<8 | uint16(byte(versionPacked>>16))
+	minor = uint16(byte(versionPacked>>8))<<8 | uint16(byte(versionPacked))
 	return major, minor, nil
 }
 
@@ -577,14 +566,7 @@ func (e *Runtime) loadPluginMethods(fn api.Function) (map[uint32]struct{}, error
 	if len(results) == 0 {
 		return nil, fmt.Errorf("plugin %s returned no results", fnMethods)
 	}
-	ptr, dataLen, err := unpackPtrLenU64(results[0])
-	if err != nil {
-		return nil, fmt.Errorf(
-			"plugin %s returned invalid pointer/length encoding: %w",
-			fnMethods,
-			err,
-		)
-	}
+	ptr, dataLen := unpackPtrLenU64(results[0])
 	if dataLen == 0 {
 		return map[uint32]struct{}{}, nil
 	}

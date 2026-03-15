@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
+	"github.com/tetratelabs/wazero/imports/assemblyscript"
 )
 
 const (
@@ -292,6 +293,49 @@ func TestHookrCompileTwice(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestCompileRequiresConfiguredFile(t *testing.T) {
+	ctx := context.Background()
+	rt := &Runtime{
+		ctx:        ctx,
+		newRuntime: DefaultRuntime,
+		stderr:     os.Stderr,
+		stdout:     os.Stdout,
+		rand:       rand.Reader,
+		logger:     logger.Default,
+	}
+	require.NoError(t, rt.Init())
+	defer func() {
+		require.NoError(t, rt.Close(ctx))
+	}()
+
+	err := rt.Compile()
+	require.EqualError(t, err, "plugin file not configured")
+}
+
+func TestCompilePropagatesCompileError(t *testing.T) {
+	ctx := context.Background()
+	file, err := NewFile(INVALID_WASM, WithAllowUnsigned())
+	require.NoError(t, err)
+
+	rt := &Runtime{
+		ctx:        ctx,
+		file:       file,
+		newRuntime: DefaultRuntime,
+		stderr:     os.Stderr,
+		stdout:     os.Stdout,
+		rand:       rand.Reader,
+		logger:     logger.Default,
+	}
+	require.NoError(t, rt.Init())
+	defer func() {
+		require.NoError(t, rt.Close(ctx))
+	}()
+
+	err = rt.Compile()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to compile module")
+}
+
 func TestUninitializedHookr(t *testing.T) {
 	e := Runtime{}
 	require.Equal(t, uint32(0), e.MemorySize())
@@ -387,6 +431,32 @@ func TestInitRuntimePropagatesError(t *testing.T) {
 	require.Nil(t, rt.r)
 }
 
+func TestInitHookrPropagatesModuleError(t *testing.T) {
+	rt := &Runtime{
+		ctx: context.Background(),
+		r: hostBuilderRuntime{
+			builder: hostBuilderStub{instantiateErr: errors.New("planned hookr failure")},
+		},
+	}
+	err := rt.InitHookr()
+	require.EqualError(t, err, "planned hookr failure")
+	require.Nil(t, rt.hookr)
+}
+
+func TestInitPropagatesHookrError(t *testing.T) {
+	rt := &Runtime{
+		ctx: context.Background(),
+		newRuntime: func(context.Context) (wazero.Runtime, error) {
+			return hostBuilderRuntime{
+				builder: hostBuilderStub{instantiateErr: errors.New("planned hookr failure")},
+			}, nil
+		},
+	}
+	err := rt.Init()
+	require.EqualError(t, err, "planned hookr failure")
+	require.Nil(t, rt.hookr)
+}
+
 func TestValidateContractHandshakeNonStrictWithoutPluginCall(t *testing.T) {
 	rt := &Runtime{}
 	require.NoError(t, rt.validateContractHandshake())
@@ -398,6 +468,37 @@ func TestValidateContractHandshakeNonStrictWithoutPluginCall(t *testing.T) {
 		err,
 		"contract handshake requested, but plugin does not export __plugin_call",
 	)
+}
+
+func TestValidateContractHandshakeNonStrictMalformedFixtures(t *testing.T) {
+	ctx := context.Background()
+	paths := []string{
+		HANDSHAKE_NOHANDSHAKE,
+		HANDSHAKE_NOABI,
+		HANDSHAKE_NOHASH,
+		HANDSHAKE_BADHASHLEN,
+		HANDSHAKE_BADHASHPTR,
+		HANDSHAKE_CAPS_NORESULTS,
+		HANDSHAKE_CAPS_TRAP,
+	}
+
+	for _, wasmPath := range paths {
+		t.Run(wasmPath, func(t *testing.T) {
+			p, err := New(ctx, WithFile(wasmPath, WithAllowUnsigned()))
+			require.NoError(t, err)
+			defer func() {
+				require.NoError(t, p.Close(ctx))
+			}()
+
+			_, ok := p.PluginHandshake()
+			if wasmPath == HANDSHAKE_CAPS_NORESULTS || wasmPath == HANDSHAKE_CAPS_TRAP {
+				require.True(t, ok)
+			} else {
+				require.False(t, ok)
+			}
+			require.Empty(t, p.PluginMethodIDs())
+		})
+	}
 }
 
 func TestValidateContractHandshakeFixtures(t *testing.T) {
@@ -540,6 +641,61 @@ func TestDefaultRuntime(t *testing.T) {
 	require.NoError(t, rt.Close(context.Background()))
 }
 
+func TestDefaultRuntimeClosesOnWASIInstantiateError(t *testing.T) {
+	prevNewRuntime := newWazeroRuntime
+	prevInstantiateWASI := instantiateWASI
+	prevExporter := newAssemblyscriptExporter
+	t.Cleanup(func() {
+		newWazeroRuntime = prevNewRuntime
+		instantiateWASI = prevInstantiateWASI
+		newAssemblyscriptExporter = prevExporter
+	})
+
+	closed := false
+	fake := hostBuilderRuntime{builder: hostBuilderStub{}, closed: &closed}
+	newWazeroRuntime = func(context.Context) wazero.Runtime { return fake }
+	instantiateWASI = func(context.Context, wazero.Runtime) (api.Closer, error) {
+		return nil, errors.New("planned wasi failure")
+	}
+	newAssemblyscriptExporter = func() assemblyscript.FunctionExporter {
+		return assemblyscriptExporterStub{}
+	}
+
+	rt, err := DefaultRuntime(context.Background())
+	require.Nil(t, rt)
+	require.EqualError(t, err, "planned wasi failure")
+	require.True(t, closed)
+}
+
+func TestDefaultRuntimeClosesOnEnvInstantiateError(t *testing.T) {
+	prevNewRuntime := newWazeroRuntime
+	prevInstantiateWASI := instantiateWASI
+	prevExporter := newAssemblyscriptExporter
+	t.Cleanup(func() {
+		newWazeroRuntime = prevNewRuntime
+		instantiateWASI = prevInstantiateWASI
+		newAssemblyscriptExporter = prevExporter
+	})
+
+	closed := false
+	fake := hostBuilderRuntime{
+		builder: hostBuilderStub{instantiateErr: errors.New("planned env failure")},
+		closed:  &closed,
+	}
+	newWazeroRuntime = func(context.Context) wazero.Runtime { return fake }
+	instantiateWASI = func(context.Context, wazero.Runtime) (api.Closer, error) {
+		return nil, nil
+	}
+	newAssemblyscriptExporter = func() assemblyscript.FunctionExporter {
+		return assemblyscriptExporterStub{}
+	}
+
+	rt, err := DefaultRuntime(context.Background())
+	require.Nil(t, rt)
+	require.EqualError(t, err, "planned env failure")
+	require.True(t, closed)
+}
+
 func TestRuntimeHandshakeRequiresAllRequiredMethods(t *testing.T) {
 	ctx := context.Background()
 	schema := runtimecontract.Schema{
@@ -664,8 +820,7 @@ func TestLoadPluginMethodsErrorPaths(t *testing.T) {
 }
 
 func TestRuntimePackedValueHelpers(t *testing.T) {
-	ptr, dataLen, err := unpackPtrLenU64((uint64(17) << 32) | 99)
-	require.NoError(t, err)
+	ptr, dataLen := unpackPtrLenU64((uint64(17) << 32) | 99)
 	require.Equal(t, uint32(17), ptr)
 	require.Equal(t, uint32(99), dataLen)
 
@@ -676,6 +831,15 @@ func TestRuntimePackedValueHelpers(t *testing.T) {
 
 	_, _, err = decodeABIVersion(uint64(math.MaxUint32) + 1)
 	require.Error(t, err)
+}
+
+func TestCurrentInvoke(t *testing.T) {
+	rt := &Runtime{}
+	require.Nil(t, rt.currentInvoke())
+
+	ic := &invoke.Context{Operation: "ping"}
+	rt.invokeCtx = ic
+	require.Same(t, ic, rt.currentInvoke())
 }
 
 func TestInstantiateRequiresCompiledModule(t *testing.T) {
@@ -716,6 +880,33 @@ func TestCallWithInvokeContext2(t *testing.T) {
 	require.Nil(t, r.currentInvoke())
 }
 
+func TestCallWithInvokeContext0(t *testing.T) {
+	ctx := context.Background()
+	r, err := New(
+		ctx,
+		WithFile(SIMPLE_METHOD_WASM, WithAllowUnsigned()),
+		WithHostMethodFns(HostFnMethod(1, HelloByte)),
+	)
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, r.Close(ctx))
+	}()
+
+	ic := &invoke.Context{Operation: fnABIVersion}
+	abiFn := r.plugin.ExportedFunction(fnABIVersion)
+	require.NotNil(t, abiFn)
+
+	results, err := r.callWithInvokeContext0(ctx, ic, abiFn)
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+	require.Nil(t, r.currentInvoke())
+
+	major, minor, err := decodeABIVersion(results[0])
+	require.NoError(t, err)
+	require.Equal(t, uint16(runtimecontract.ABIVersionMajor), major)
+	require.Equal(t, uint16(runtimecontract.ABIVersionMinor), minor)
+}
+
 func TestInvokeMethodWithResponsePropagatesCallbackError(t *testing.T) {
 	ctx := context.Background()
 	p, err := New(
@@ -734,12 +925,60 @@ func TestInvokeMethodWithResponsePropagatesCallbackError(t *testing.T) {
 	require.EqualError(t, err, "callback failed")
 }
 
+func TestInvokeMethodWithResponseNilCallback(t *testing.T) {
+	ctx := context.Background()
+	p, err := New(
+		ctx,
+		WithFile(SIMPLE_METHOD_WASM, WithAllowUnsigned()),
+		WithHostMethodFns(HostFnMethod(1, HelloByte)),
+	)
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, p.Close(ctx))
+	}()
+
+	require.NoError(t, p.InvokeMethodWithResponse(ctx, 2, []byte("Steve"), nil))
+}
+
+func TestInvokeMethodWithResponseUnsuccessful(t *testing.T) {
+	ctx := context.Background()
+	p, err := New(
+		ctx,
+		WithFile(SIMPLE_METHOD_WASM, WithAllowUnsigned()),
+		WithHostMethodFns(HostFnMethod(1, HelloByte)),
+	)
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, p.Close(ctx))
+	}()
+
+	err = p.InvokeMethodWithResponse(ctx, 999, []byte("Steve"), nil)
+	require.EqualError(t, err, "unknown method id 999")
+}
+
+func TestNewPropagatesOptionError(t *testing.T) {
+	rt, err := New(context.Background(), func(*Runtime) error {
+		return errors.New("planned option failure")
+	})
+	require.Nil(t, rt)
+	require.EqualError(t, err, "planned option failure")
+}
+
 func TestCloseReturnsRuntimeCloseError(t *testing.T) {
 	rt := &Runtime{
 		r: closeErrRuntime{err: errors.New("planned close failure")},
 	}
 	err := rt.Close(context.Background())
 	require.EqualError(t, err, "error closing runtime: planned close failure")
+}
+
+func TestCloseNamed(t *testing.T) {
+	require.NoError(t, closeNamed(context.Background(), "plugin", nil))
+
+	err := closeNamed(context.Background(), "plugin", closeErrCloser{err: errors.New("boom")})
+	require.EqualError(t, err, "error closing plugin: boom")
+
+	require.NoError(t, closeNamed(context.Background(), "plugin", closeErrCloser{}))
 }
 
 func mustNewStrictHandshakeRuntime(t *testing.T, ctx context.Context, wasmPath string) *Runtime {
@@ -808,3 +1047,129 @@ func (c closeErrRuntime) Module(string) api.Module {
 func (c closeErrRuntime) Close(context.Context) error {
 	return c.err
 }
+
+type closeErrCloser struct {
+	err error
+}
+
+func (c closeErrCloser) Close(context.Context) error { return c.err }
+
+type hostBuilderRuntime struct {
+	builder wazero.HostModuleBuilder
+	closed  *bool
+}
+
+func (r hostBuilderRuntime) Instantiate(context.Context, []byte) (api.Module, error) {
+	panic("unused")
+}
+
+func (r hostBuilderRuntime) InstantiateWithConfig(
+	context.Context,
+	[]byte,
+	wazero.ModuleConfig,
+) (api.Module, error) {
+	panic("unused")
+}
+
+func (r hostBuilderRuntime) NewHostModuleBuilder(string) wazero.HostModuleBuilder {
+	return r.builder
+}
+
+func (r hostBuilderRuntime) CompileModule(context.Context, []byte) (wazero.CompiledModule, error) {
+	panic("unused")
+}
+
+func (r hostBuilderRuntime) InstantiateModule(
+	context.Context,
+	wazero.CompiledModule,
+	wazero.ModuleConfig,
+) (api.Module, error) {
+	panic("unused")
+}
+
+func (r hostBuilderRuntime) CloseWithExitCode(context.Context, uint32) error {
+	return nil
+}
+
+func (r hostBuilderRuntime) Module(string) api.Module {
+	return nil
+}
+
+func (r hostBuilderRuntime) Close(context.Context) error {
+	if r.closed != nil {
+		*r.closed = true
+	}
+	return nil
+}
+
+type hostBuilderStub struct {
+	instantiateErr error
+}
+
+func (b hostBuilderStub) NewFunctionBuilder() wazero.HostFunctionBuilder {
+	return hostFunctionBuilderStub{parent: b}
+}
+
+func (b hostBuilderStub) Compile(context.Context) (wazero.CompiledModule, error) {
+	panic("unused")
+}
+
+func (b hostBuilderStub) Instantiate(context.Context) (api.Module, error) {
+	return nil, b.instantiateErr
+}
+
+type hostFunctionBuilderStub struct {
+	parent hostBuilderStub
+}
+
+func (b hostFunctionBuilderStub) WithGoFunction(
+	api.GoFunction,
+	[]api.ValueType,
+	[]api.ValueType,
+) wazero.HostFunctionBuilder {
+	return b
+}
+
+func (b hostFunctionBuilderStub) WithGoModuleFunction(
+	api.GoModuleFunction,
+	[]api.ValueType,
+	[]api.ValueType,
+) wazero.HostFunctionBuilder {
+	return b
+}
+
+func (b hostFunctionBuilderStub) WithFunc(interface{}) wazero.HostFunctionBuilder {
+	return b
+}
+
+func (b hostFunctionBuilderStub) WithName(string) wazero.HostFunctionBuilder {
+	return b
+}
+
+func (b hostFunctionBuilderStub) WithParameterNames(...string) wazero.HostFunctionBuilder {
+	return b
+}
+
+func (b hostFunctionBuilderStub) WithResultNames(...string) wazero.HostFunctionBuilder {
+	return b
+}
+
+func (b hostFunctionBuilderStub) Export(string) wazero.HostModuleBuilder {
+	return b.parent
+}
+
+type assemblyscriptExporterStub struct{}
+
+func (assemblyscriptExporterStub) WithAbortMessageDisabled() assemblyscript.FunctionExporter {
+	return assemblyscriptExporterStub{}
+}
+
+func (assemblyscriptExporterStub) WithTraceToStdout() assemblyscript.FunctionExporter {
+	return assemblyscriptExporterStub{}
+}
+
+func (assemblyscriptExporterStub) WithTraceToStderr() assemblyscript.FunctionExporter {
+	return assemblyscriptExporterStub{}
+}
+
+func (assemblyscriptExporterStub) ExportFunctions(wazero.HostModuleBuilder) {}
