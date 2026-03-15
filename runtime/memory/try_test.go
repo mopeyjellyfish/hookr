@@ -1,6 +1,7 @@
 package memory
 
 import (
+	"math"
 	"strings"
 	"testing"
 )
@@ -39,5 +40,20 @@ func TestTryReadAndTryWriteErrors(t *testing.T) {
 	if err := TryWrite(mem, "field", 0, []byte("abc")); err == nil ||
 		!strings.Contains(err.Error(), "field") {
 		t.Fatalf("expected write error, got %v", err)
+	}
+}
+
+func TestCheckedConversions(t *testing.T) {
+	if got, err := Uint32FromUint64(42); err != nil || got != 42 {
+		t.Fatalf("Uint32FromUint64(42) = %d, %v", got, err)
+	}
+	if _, err := Uint32FromUint64(math.MaxUint32 + 1); err == nil {
+		t.Fatal("expected uint64 to uint32 overflow error")
+	}
+	if got, err := Uint16FromUint32(7); err != nil || got != 7 {
+		t.Fatalf("Uint16FromUint32(7) = %d, %v", got, err)
+	}
+	if _, err := Uint16FromUint32(math.MaxUint16 + 1); err == nil {
+		t.Fatal("expected uint32 to uint16 overflow error")
 	}
 }

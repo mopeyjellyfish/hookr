@@ -190,6 +190,9 @@ func (e *Runtime) Instantiate() error {
 	if e.r == nil {
 		return errors.New("runtime not initialized")
 	}
+	if e.compiled == nil {
+		return errors.New("plugin not compiled")
+	}
 	pluginModule, err := e.r.InstantiateModule(e.ctx, e.compiled, e.config.WithName(e.moduleName))
 	if err != nil {
 		return fmt.Errorf("failed to instantiate module: %w", err)

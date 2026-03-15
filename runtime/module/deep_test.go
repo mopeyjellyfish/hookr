@@ -3,9 +3,13 @@ package module
 import (
 	"context"
 	"errors"
+	"math"
 	"os"
 	"path/filepath"
+	"reflect"
+	goruntime "runtime"
 	"testing"
+	"unsafe"
 
 	"github.com/mopeyjellyfish/hookr/runtime/invoke"
 	runtimememory "github.com/mopeyjellyfish/hookr/runtime/memory"
@@ -249,4 +253,158 @@ func TestHookrModuleErrorPaths(t *testing.T) {
 	if len(messages) != 1 || messages[0] == "" {
 		t.Fatalf("expected logger to receive read failure, got %#v", messages)
 	}
+}
+
+func TestHookrModuleLengthAndDispatchBranches(t *testing.T) {
+	ctx, rt, guest := instantiateGuestModule(t)
+	cleanupClose(t, ctx, "runtime", rt.Close)
+	cleanupClose(t, ctx, "guest", guest.Close)
+
+	t.Run("hostCall returns zero without invoke context", func(t *testing.T) {
+		h := &hookrModule{
+			methodCallHandler: func(_ context.Context, _ uint32, _ []byte) ([]byte, error) {
+				t.Fatal("methodCallHandler should not be invoked")
+				return nil, nil
+			},
+		}
+		stack := []uint64{1, 0, 0}
+		h.hostCall(ctx, guest, stack)
+		if stack[0] != 0 {
+			t.Fatalf("expected failed host call, got %d", stack[0])
+		}
+	})
+
+	t.Run("hostCall returns zero without handler", func(t *testing.T) {
+		h := &hookrModule{
+			currentInvoke: func() *invoke.Context { return &invoke.Context{} },
+		}
+		stack := []uint64{1, 0, 0}
+		h.hostCall(ctx, guest, stack)
+		if stack[0] != 0 {
+			t.Fatalf("expected failed host call, got %d", stack[0])
+		}
+	})
+
+	t.Run("hostCall rejects oversized host response", func(t *testing.T) {
+		ic := &invoke.Context{}
+		h := &hookrModule{
+			currentInvoke: func() *invoke.Context { return ic },
+			methodCallHandler: func(_ context.Context, _ uint32, _ []byte) ([]byte, error) {
+				return hugeBytes(t, uint64(math.MaxUint32)+1), nil
+			},
+		}
+		stack := []uint64{1, 0, 0}
+		h.hostCall(ctx, guest, stack)
+		if stack[0] != 0 {
+			t.Fatalf("expected failed host call, got %d", stack[0])
+		}
+		if ic.HostErr == nil || ic.HostResp != nil {
+			t.Fatalf("expected oversized host response error, got err=%v resp=%v", ic.HostErr, ic.HostResp)
+		}
+	})
+
+	t.Run("hostCall normalizes oversized host error message", func(t *testing.T) {
+		ic := &invoke.Context{}
+		h := &hookrModule{
+			currentInvoke: func() *invoke.Context { return ic },
+			methodCallHandler: func(_ context.Context, _ uint32, _ []byte) ([]byte, error) {
+				return nil, hugeError{msg: hugeString(t, uint64(math.MaxUint32)+1)}
+			},
+		}
+		stack := []uint64{1, 0, 0}
+		h.hostCall(ctx, guest, stack)
+		if stack[0] != 0 {
+			t.Fatalf("expected failed host call, got %d", stack[0])
+		}
+		if ic.HostErr == nil || ic.HostErr.Error() != "host error message too large" {
+			t.Fatalf("unexpected host error: %v", ic.HostErr)
+		}
+	})
+
+	t.Run("hostResponseLen handles nil invoke and nil response", func(t *testing.T) {
+		h := &hookrModule{}
+		results := []uint64{99}
+		h.hostResponseLen(ctx, results)
+		if results[0] != 0 {
+			t.Fatalf("expected zero result for nil invoke context, got %d", results[0])
+		}
+
+		h.currentInvoke = func() *invoke.Context { return &invoke.Context{} }
+		results[0] = 99
+		h.hostResponseLen(ctx, results)
+		if results[0] != 0 {
+			t.Fatalf("expected zero result without host response, got %d", results[0])
+		}
+	})
+
+	t.Run("hostResponseLen rejects oversized response", func(t *testing.T) {
+		ic := &invoke.Context{HostResp: hugeBytes(t, uint64(math.MaxUint32)+1)}
+		h := &hookrModule{currentInvoke: func() *invoke.Context { return ic }}
+		results := []uint64{99}
+		h.hostResponseLen(ctx, results)
+		if results[0] != 0 {
+			t.Fatalf("expected zero result, got %d", results[0])
+		}
+		if ic.HostErr == nil || ic.HostResp != nil {
+			t.Fatalf("expected oversized response error, got err=%v resp=%v", ic.HostErr, ic.HostResp)
+		}
+	})
+
+	t.Run("hostErrorLen handles nil invoke and nil error", func(t *testing.T) {
+		h := &hookrModule{}
+		results := []uint64{99}
+		h.hostErrorLen(ctx, results)
+		if results[0] != 0 {
+			t.Fatalf("expected zero result for nil invoke context, got %d", results[0])
+		}
+
+		h.currentInvoke = func() *invoke.Context { return &invoke.Context{} }
+		results[0] = 99
+		h.hostErrorLen(ctx, results)
+		if results[0] != 0 {
+			t.Fatalf("expected zero result without host error, got %d", results[0])
+		}
+	})
+
+	t.Run("hostErrorLen rejects oversized error message", func(t *testing.T) {
+		ic := &invoke.Context{HostErr: hugeError{msg: hugeString(t, uint64(math.MaxUint32)+1)}}
+		h := &hookrModule{currentInvoke: func() *invoke.Context { return ic }}
+		results := []uint64{99}
+		h.hostErrorLen(ctx, results)
+		if results[0] != 0 {
+			t.Fatalf("expected zero result, got %d", results[0])
+		}
+	})
+}
+
+type hugeError struct {
+	msg string
+}
+
+func (e hugeError) Error() string {
+	return e.msg
+}
+
+func hugeBytes(t *testing.T, n uint64) []byte {
+	t.Helper()
+	backing := []byte{0}
+	var payload []byte
+	header := (*reflect.SliceHeader)(unsafe.Pointer(&payload))
+	header.Data = uintptr(unsafe.Pointer(&backing[0]))
+	header.Len = int(n)
+	header.Cap = int(n)
+	goruntime.KeepAlive(backing)
+	return payload
+}
+
+func hugeString(t *testing.T, n uint64) string {
+	t.Helper()
+	backing := []byte{'x'}
+	header := reflect.StringHeader{
+		Data: uintptr(unsafe.Pointer(&backing[0])),
+		Len:  int(n),
+	}
+	value := *(*string)(unsafe.Pointer(&header))
+	goruntime.KeepAlive(backing)
+	return value
 }

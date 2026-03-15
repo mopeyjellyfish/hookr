@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"errors"
+	"math"
 	"os"
 	"testing"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/mopeyjellyfish/hookr/runtime/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/tetratelabs/wazero"
 )
 
 const (
@@ -361,6 +363,18 @@ func TestWithContractSchemaRejectsInvalidSchema(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestInitRuntimePropagatesError(t *testing.T) {
+	rt := &Runtime{
+		ctx: context.Background(),
+		newRuntime: func(context.Context) (wazero.Runtime, error) {
+			return nil, errors.New("planned runtime failure")
+		},
+	}
+	err := rt.InitRuntime()
+	require.EqualError(t, err, "planned runtime failure")
+	require.Nil(t, rt.r)
+}
+
 func TestValidateContractHandshakeNonStrictWithoutPluginCall(t *testing.T) {
 	rt := &Runtime{}
 	require.NoError(t, rt.validateContractHandshake())
@@ -379,6 +393,104 @@ func TestDefaultRuntime(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, rt)
 	require.NoError(t, rt.Close(context.Background()))
+}
+
+func TestRuntimeHandshakeRequiresAllRequiredMethods(t *testing.T) {
+	ctx := context.Background()
+	schema := runtimecontract.Schema{
+		Name:       "simple-method",
+		SchemaHash: SIMPLE_METHOD_SCHEMA_HASH,
+		Methods: []runtimecontract.Method{
+			{ID: 2, Name: "Echo", RequestType: "bytes", ResponseType: "bytes"},
+			{ID: 99, Name: "Missing", RequestType: "bytes", ResponseType: "bytes"},
+		},
+	}
+
+	p, err := New(
+		ctx,
+		WithFile(SIMPLE_METHOD_WASM, WithAllowUnsigned()),
+		WithHostMethodFns(HostFnMethod(1, HelloByte)),
+		WithContractSchema(schema),
+	)
+	require.Error(t, err)
+	require.Nil(t, p)
+	require.Contains(t, err.Error(), "plugin does not implement required method Missing (99)")
+}
+
+func TestRuntimeHandshakeAllowsMissingOptionalMethods(t *testing.T) {
+	ctx := context.Background()
+	schema := runtimecontract.Schema{
+		Name:       "simple-method",
+		SchemaHash: SIMPLE_METHOD_SCHEMA_HASH,
+		Methods: []runtimecontract.Method{
+			{ID: 2, Name: "Echo", RequestType: "bytes", ResponseType: "bytes"},
+			{ID: 99, Name: "OptionalMissing", RequestType: "bytes", ResponseType: "bytes", Optional: true},
+		},
+	}
+
+	p, err := New(
+		ctx,
+		WithFile(SIMPLE_METHOD_WASM, WithAllowUnsigned()),
+		WithHostMethodFns(HostFnMethod(1, HelloByte)),
+		WithContractSchema(schema),
+	)
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, p.Close(ctx))
+	}()
+	require.False(t, p.HasPluginMethodID(99))
+}
+
+func TestLoadPluginMethods(t *testing.T) {
+	ctx := context.Background()
+	p, err := New(
+		ctx,
+		WithFile(SIMPLE_METHOD_WASM, WithAllowUnsigned()),
+		WithHostMethodFns(HostFnMethod(1, HelloByte)),
+	)
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, p.Close(ctx))
+	}()
+
+	methods, err := p.loadPluginMethods(p.plugin.ExportedFunction(fnMethods))
+	require.NoError(t, err)
+	require.Contains(t, methods, uint32(2))
+	require.Contains(t, methods, uint32(3))
+}
+
+func TestRuntimePackedValueHelpers(t *testing.T) {
+	ptr, dataLen, err := unpackPtrLenU64((uint64(17) << 32) | 99)
+	require.NoError(t, err)
+	require.Equal(t, uint32(17), ptr)
+	require.Equal(t, uint32(99), dataLen)
+
+	major, minor, err := decodeABIVersion((uint64(2) << 16) | 7)
+	require.NoError(t, err)
+	require.Equal(t, uint16(2), major)
+	require.Equal(t, uint16(7), minor)
+
+	_, _, err = decodeABIVersion(uint64(math.MaxUint32) + 1)
+	require.Error(t, err)
+}
+
+func TestInstantiateRequiresCompiledModule(t *testing.T) {
+	ctx := context.Background()
+	rt := &Runtime{
+		ctx:        ctx,
+		newRuntime: DefaultRuntime,
+		stderr:     os.Stderr,
+		stdout:     os.Stdout,
+		rand:       rand.Reader,
+		logger:     logger.Default,
+	}
+	require.NoError(t, rt.Init())
+	defer func() {
+		require.NoError(t, rt.Close(ctx))
+	}()
+
+	err := rt.Instantiate()
+	require.EqualError(t, err, "plugin not compiled")
 }
 
 func TestCallWithInvokeContext2(t *testing.T) {
