@@ -1,3 +1,10 @@
+# [2.1.0](https://github.com/mopeyjellyfish/hookr/compare/v2.0.0...v2.1.0) (2026-03-15)
+
+
+### Features
+
+* rename WasmPath to PluginPath ([867254b](https://github.com/mopeyjellyfish/hookr/commit/867254b98376f56e93c168390820c4ec84704631))
+
 # [2.0.0](https://github.com/mopeyjellyfish/hookr/compare/v1.2.8...v2.0.0) (2026-03-15)
 
 
