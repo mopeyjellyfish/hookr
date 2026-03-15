@@ -1,3 +1,24 @@
+# [2.0.0](https://github.com/mopeyjellyfish/hookr/compare/v1.2.8...v2.0.0) (2026-03-15)
+
+
+* feat!: replace legacy Hookr runtime with FlatBuffers plugin contracts ([7e89de9](https://github.com/mopeyjellyfish/hookr/commit/7e89de9bca853a9d9ede59f4b9bf1dfa8786c2af))
+
+
+### Bug Fixes
+
+* harden plugin tooling and generated flatbuffer paths ([8f4540f](https://github.com/mopeyjellyfish/hookr/commit/8f4540fbe08a29dc57b77be4a244f6867a94857e))
+* harden runtime paths and expand coverage ([c08608c](https://github.com/mopeyjellyfish/hookr/commit/c08608cb2552e8e30ae760f7b96140ed90c9c0c0))
+
+
+### Features
+
+* **abi-v2:** add schema-driven contracts with capability handshake ([0760e79](https://github.com/mopeyjellyfish/hookr/commit/0760e79e62afdecb5ba28ec507cbbc46724b4ff8))
+
+
+### BREAKING CHANGES
+
+* removes the legacy string/msgpack-style Hookr API surface and standalone hookr-gen entrypoint in favor of the generated FlatBuffers contract workflow exposed through the hookr CLI.
+
 ## [1.2.8](https://github.com/mopeyjellyfish/hookr/compare/v1.2.7...v1.2.8) (2025-05-10)
 
 
