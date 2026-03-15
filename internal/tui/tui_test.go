@@ -28,7 +28,7 @@ func TestNewModelView(t *testing.T) {
 			"textfilter",
 			"textfilter.fbs",
 		),
-		WasmPath: "plugin.wasm",
+		PluginPath: "plugin.wasm",
 	}, session)
 	if m.selected.Name != "Filter" {
 		t.Fatalf("selected method = %q, want Filter", m.selected.Name)
@@ -37,7 +37,7 @@ func TestNewModelView(t *testing.T) {
 	for _, want := range []string{
 		"Hookr TUI",
 		"schema: textfilter.fbs",
-		"wasm: textfilter.wasm",
+		"plugin: textfilter.wasm",
 		"focus: methods",
 		"Ready",
 		"Textfilter",
@@ -170,7 +170,7 @@ func buildTextFilterSession(t *testing.T) *call.Session {
 			"textfilter",
 			"textfilter.fbs",
 		),
-		WasmPath:      wasmPath,
+		PluginPath:    wasmPath,
 		AllowUnsigned: true,
 	})
 	if err != nil {

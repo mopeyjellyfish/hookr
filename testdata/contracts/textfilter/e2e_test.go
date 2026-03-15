@@ -23,7 +23,7 @@ func TestTextFilterE2E(t *testing.T) {
 
 	ctx := context.Background()
 	rt, err := textfilterhookr.Open(ctx, textfilterhookr.Config{
-		WasmPath:    wasmPath,
+		PluginPath:  wasmPath,
 		FileOptions: []runtime.FileOption{runtime.WithAllowUnsigned()},
 	})
 	if err != nil {

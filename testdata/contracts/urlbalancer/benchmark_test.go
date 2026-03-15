@@ -51,7 +51,7 @@ func buildURLBalancerBenchmarkPlugin(b *testing.B) string {
 func openURLBalancerBenchmarkRuntime(b *testing.B, wasmPath string) *urlbalancerhookr.Runtime {
 	b.Helper()
 	rt, err := urlbalancerhookr.Open(context.Background(), urlbalancerhookr.Config{
-		WasmPath:    wasmPath,
+		PluginPath:  wasmPath,
 		FileOptions: []hookrruntime.FileOption{hookrruntime.WithAllowUnsigned()},
 		Host:        testHost{},
 	})

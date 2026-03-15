@@ -9,7 +9,7 @@ Validate and invoke a plugin without writing a Go host first.
 ```bash
 hookr inspect \
   --schema ./testdata/contracts/textfilter/textfilter.fbs \
-  --wasm ./testdata/contracts/textfilter/bin/textfilter.wasm \
+  --plugin ./testdata/contracts/textfilter/bin/textfilter.wasm \
   --allow-unsigned
 ```
 
@@ -40,7 +40,7 @@ Call the plugin:
 ```bash
 hookr call \
   --schema ./testdata/contracts/textfilter/textfilter.fbs \
-  --wasm ./testdata/contracts/textfilter/bin/textfilter.wasm \
+  --plugin ./testdata/contracts/textfilter/bin/textfilter.wasm \
   --allow-unsigned \
   --method Filter \
   --input ./request.json
@@ -80,7 +80,7 @@ Example call:
 ```bash
 hookr call \
   --schema ./testdata/contracts/urlbalancer/urlbalancer.fbs \
-  --wasm ./testdata/contracts/urlbalancer/bin/urlbalancer.wasm \
+  --plugin ./testdata/contracts/urlbalancer/bin/urlbalancer.wasm \
   --allow-unsigned \
   --method Balance \
   --input ./balance.json \
@@ -94,7 +94,7 @@ For exploratory work, use the Bubble Tea terminal UI:
 ```bash
 hookr tui \
   --schema ./testdata/contracts/textfilter/textfilter.fbs \
-  --wasm ./testdata/contracts/textfilter/bin/textfilter.wasm \
+  --plugin ./testdata/contracts/textfilter/bin/textfilter.wasm \
   --allow-unsigned
 ```
 
@@ -102,10 +102,10 @@ The TUI lets you:
 
 - browse plugin methods with single-key shortcuts
 - start from a schema-derived JSON request template
-- see the active schema, Wasm, method, and loop timings in a top bar
+- see the active schema, plugin, method, and loop timings in a top bar
 - edit requests in your default editor instead of typing directly into the UI
 - run one call or a tight call loop
-- automatically reload the plugin when the Wasm file changes on disk
+- automatically reload the plugin when the plugin file changes on disk
 - watch loop timing stats and runtime debug metadata
 - keep the shortcut legend visible at the bottom of the screen
 

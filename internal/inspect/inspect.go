@@ -16,7 +16,7 @@ import (
 
 type Config struct {
 	SchemaPath        string
-	WasmPath          string
+	PluginPath        string
 	HostFixturePath   string
 	Hash              string
 	AllowUnsigned     bool
@@ -91,10 +91,10 @@ func Run(cfg Config) error {
 		}
 	}
 
-	if cfg.WasmPath == "" {
+	if cfg.PluginPath == "" {
 		return nil
 	}
-	_, _ = fmt.Fprintf(errOut, "hookr: loading plugin %s\n", cfg.WasmPath)
+	_, _ = fmt.Fprintf(errOut, "hookr: loading plugin %s\n", cfg.PluginPath)
 
 	fileOptions, err := trustopts.Build(cfg.Hash, cfg.AllowUnsigned)
 	if err != nil {
@@ -105,7 +105,7 @@ func Run(cfg Config) error {
 		return err
 	}
 	opts := []hookrruntime.Option{
-		hookrruntime.WithFile(cfg.WasmPath, fileOptions...),
+		hookrruntime.WithFile(cfg.PluginPath, fileOptions...),
 	}
 	hostMethods := devhost.BindHostMethods(
 		model,
@@ -125,7 +125,7 @@ func Run(cfg Config) error {
 		_ = rt.Close(context.Background())
 	}()
 
-	_, _ = fmt.Fprintf(out, "Plugin Wasm: %s\n", cfg.WasmPath)
+	_, _ = fmt.Fprintf(out, "Plugin Artifact: %s\n", cfg.PluginPath)
 	_, _ = fmt.Fprintf(out, "Method ABI: %t\n", rt.SupportsMethodABI())
 	if hs, ok := rt.PluginHandshake(); ok {
 		_, _ = fmt.Fprintf(out, "Plugin ABI: %d.%d\n", hs.ABIMajor, hs.ABIMinor)
@@ -166,6 +166,6 @@ func Run(cfg Config) error {
 		}
 		_, _ = fmt.Fprintf(out, "  - %s id=%d %s %s\n", method.Name, method.ID, required, state)
 	}
-	_, _ = fmt.Fprintf(errOut, "hookr: inspected plugin %s\n", cfg.WasmPath)
+	_, _ = fmt.Fprintf(errOut, "hookr: inspected plugin %s\n", cfg.PluginPath)
 	return nil
 }

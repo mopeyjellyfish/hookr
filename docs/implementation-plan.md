@@ -157,7 +157,7 @@ The intended host-side Go feel:
 
 ```go
 plugin, err := examplehookr.Open(ctx, examplehookr.Config{
-	WasmPath: "./plugin.wasm",
+	PluginPath: "./plugin.wasm",
 	Host:     host{},
 })
 if err != nil {

@@ -30,8 +30,8 @@ type Host interface {
 2. Open runtime through generated package:
 
 ```go
-plugin, err := mycontracthookr.Open(ctx, mycontracthookr.Config{
-	WasmPath: "./bin/plugin.wasm",
+	plugin, err := mycontracthookr.Open(ctx, mycontracthookr.Config{
+		PluginPath: "./bin/plugin.wasm",
 	Host:     host{},
 	FileOptions: []hookr.FileOption{
 		hookr.WithAllowUnsigned(),
@@ -46,7 +46,7 @@ defer plugin.Close(ctx)
 For production plugins, replace `WithAllowUnsigned()` with a pinned hash or
 custom verification policy.
 
-`WasmPath` is the plugin artifact path for this contract. You can point it at
+`PluginPath` is the plugin artifact path for this contract. You can point it at
 any `.wasm` built against the same generated schema package.
 
 3. Call generated plugin methods:

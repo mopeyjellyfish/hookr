@@ -161,7 +161,7 @@ func newInspectCommand() *cobra.Command {
 
 	flags := cmd.Flags()
 	flags.StringVar(&cfg.SchemaPath, "schema", cfg.SchemaPath, "path to the FlatBuffers schema")
-	flags.StringVar(&cfg.WasmPath, "wasm", cfg.WasmPath, "path to the plugin wasm file")
+	flags.StringVar(&cfg.PluginPath, "plugin", cfg.PluginPath, "path to the plugin artifact (.wasm)")
 	flags.StringVar(
 		&cfg.HostFixturePath,
 		"host-fixture",
@@ -224,7 +224,7 @@ func newCallCommand() *cobra.Command {
 
 	flags := cmd.Flags()
 	flags.StringVar(&cfg.SchemaPath, "schema", cfg.SchemaPath, "path to the FlatBuffers schema")
-	flags.StringVar(&cfg.WasmPath, "wasm", cfg.WasmPath, "path to the plugin wasm file")
+	flags.StringVar(&cfg.PluginPath, "plugin", cfg.PluginPath, "path to the plugin artifact (.wasm)")
 	flags.StringVar(&cfg.Method, "method", cfg.Method, "plugin method name to invoke")
 	flags.StringVar(
 		&cfg.InputPath,
@@ -274,7 +274,7 @@ func newCallCommand() *cobra.Command {
 	)
 
 	_ = cmd.MarkFlagRequired("schema")
-	_ = cmd.MarkFlagRequired("wasm")
+	_ = cmd.MarkFlagRequired("plugin")
 	_ = cmd.MarkFlagRequired("method")
 
 	return cmd
@@ -295,7 +295,7 @@ func newTUICommand() *cobra.Command {
 
 	flags := cmd.Flags()
 	flags.StringVar(&cfg.SchemaPath, "schema", cfg.SchemaPath, "path to the FlatBuffers schema")
-	flags.StringVar(&cfg.WasmPath, "wasm", cfg.WasmPath, "path to the plugin wasm file")
+	flags.StringVar(&cfg.PluginPath, "plugin", cfg.PluginPath, "path to the plugin artifact (.wasm)")
 	flags.StringVar(
 		&cfg.HostFixturePath,
 		"host-fixture",
@@ -338,7 +338,7 @@ func newTUICommand() *cobra.Command {
 	)
 
 	_ = cmd.MarkFlagRequired("schema")
-	_ = cmd.MarkFlagRequired("wasm")
+	_ = cmd.MarkFlagRequired("plugin")
 
 	return cmd
 }

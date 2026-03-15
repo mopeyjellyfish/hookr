@@ -94,7 +94,7 @@ hookr build \
 
 hookr inspect \
   --schema ./testdata/contracts/textfilter/textfilter.fbs \
-  --wasm ./testdata/contracts/textfilter/bin/textfilter.wasm \
+  --plugin ./testdata/contracts/textfilter/bin/textfilter.wasm \
   --allow-unsigned
 ```
 
@@ -119,7 +119,7 @@ func main() {
 	ctx := context.Background()
 
 	plugin, err := textfilter.Open(ctx, textfilter.Config{
-		WasmPath: "./testdata/contracts/textfilter/bin/textfilter.wasm",
+		PluginPath: "./testdata/contracts/textfilter/bin/textfilter.wasm",
 		FileOptions: []hookr.FileOption{
 			hookr.WithAllowUnsigned(),
 		},
@@ -146,7 +146,7 @@ func main() {
 }
 ```
 
-`WasmPath` is the plugin artifact path for the generated contract. Hosts can
+`PluginPath` is the plugin artifact path for the generated contract. Hosts can
 swap in different `.wasm` files there as long as they were built against the
 same schema and generated package.
 
@@ -185,7 +185,7 @@ func main() {
 	ctx := context.Background()
 
 	plugin, err := urlbalancer.Open(ctx, urlbalancer.Config{
-		WasmPath: "./plugin.wasm",
+		PluginPath: "./plugin.wasm",
 		Host:     host{},
 		FileOptions: []hookr.FileOption{
 			hookr.WithAllowUnsigned(),
@@ -239,7 +239,7 @@ func (host) RngInt(ctx context.Context, req *urlbalancer.RngIntRequestT) (*urlba
 }
 
 plugin, err := urlbalancer.Open(ctx, urlbalancer.Config{
-	WasmPath: "./plugin.wasm",
+	PluginPath: "./plugin.wasm",
 	Host:     host{},
 	FileOptions: []hookr.FileOption{
 		hookr.WithAllowUnsigned(),
@@ -267,7 +267,7 @@ fixture instead of a handwritten host app:
 ```bash
 hookr call \
   --schema ./testdata/contracts/urlbalancer/urlbalancer.fbs \
-  --wasm ./testdata/contracts/urlbalancer/bin/urlbalancer.wasm \
+  --plugin ./testdata/contracts/urlbalancer/bin/urlbalancer.wasm \
   --allow-unsigned \
   --method Balance \
   --input ./testdata/contracts/urlbalancer/requests/balance.json \
@@ -279,7 +279,7 @@ And for interactive exploration:
 ```bash
 hookr tui \
   --schema ./testdata/contracts/textfilter/textfilter.fbs \
-  --wasm ./testdata/contracts/textfilter/bin/textfilter.wasm \
+  --plugin ./testdata/contracts/textfilter/bin/textfilter.wasm \
   --allow-unsigned
 ```
 

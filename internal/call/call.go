@@ -10,7 +10,7 @@ import (
 
 type Config struct {
 	SchemaPath        string
-	WasmPath          string
+	PluginPath        string
 	Method            string
 	InputPath         string
 	HostFixturePath   string
@@ -31,8 +31,8 @@ func Run(cfg Config) error {
 	if cfg.SchemaPath == "" {
 		return errors.New("schema path is required")
 	}
-	if cfg.WasmPath == "" {
-		return errors.New("wasm path is required")
+	if cfg.PluginPath == "" {
+		return errors.New("plugin path is required")
 	}
 	if cfg.Method == "" {
 		return errors.New("method is required")
@@ -52,7 +52,7 @@ func Run(cfg Config) error {
 	if !ok {
 		return fmt.Errorf("plugin method %q not found in contract", cfg.Method)
 	}
-	_, _ = fmt.Fprintf(errOut, "hookr: invoking %s on %s\n", method.Name, cfg.WasmPath)
+	_, _ = fmt.Fprintf(errOut, "hookr: invoking %s on %s\n", method.Name, cfg.PluginPath)
 	if cfg.HostFixturePath != "" {
 		_, _ = fmt.Fprintf(errOut, "hookr: loaded host fixture %s\n", cfg.HostFixturePath)
 	}

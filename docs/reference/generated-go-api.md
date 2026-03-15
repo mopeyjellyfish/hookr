@@ -14,7 +14,7 @@ Typical host API:
 
 `Config` includes:
 
-- `WasmPath` for the plugin artifact path; swap in any `.wasm` built for the same contract
+- `PluginPath` for the plugin artifact path; swap in any `.wasm` built for the same contract
 - `FileOptions` for trust policy, such as `WithHash(...)` or `WithAllowUnsigned()`
 - `Host` (generated host callback interface)
 - `RuntimeOptions` (forwarded to runtime)
@@ -52,7 +52,7 @@ func (host) RngInt(ctx context.Context, req *mycontracthookr.RngIntRequestT) (*m
 }
 
 plugin, err := mycontracthookr.Open(ctx, mycontracthookr.Config{
-	WasmPath: "./plugin.wasm",
+	PluginPath: "./plugin.wasm",
 	Host:     host{},
 })
 ```

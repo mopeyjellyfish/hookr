@@ -48,7 +48,7 @@ type Runtime struct {
 }
 
 type Config struct {
-	WasmPath       string
+	PluginPath     string
 	FileOptions    []hookrruntime.FileOption
 	Host           Host
 	RuntimeOptions []hookrruntime.Option
@@ -59,11 +59,11 @@ type Host interface {
 }
 
 func Open(ctx context.Context, cfg Config) (*Runtime, error) {
-	if cfg.WasmPath == "" {
-		return nil, errors.New("wasm path is required")
+	if cfg.PluginPath == "" {
+		return nil, errors.New("plugin path is required")
 	}
 	opts := []hookrruntime.Option{
-		hookrruntime.WithFile(cfg.WasmPath, cfg.FileOptions...),
+		hookrruntime.WithFile(cfg.PluginPath, cfg.FileOptions...),
 		hookrruntime.WithContractSchema(PluginSchema),
 	}
 	if cfg.Host == nil {

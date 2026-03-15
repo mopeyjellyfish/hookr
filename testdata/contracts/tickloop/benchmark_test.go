@@ -99,7 +99,7 @@ func buildPluginBenchmark(b *testing.B, pluginDir string) string {
 func openRuntimeBenchmark(b *testing.B, wasmPath string) *tickloophookr.Runtime {
 	b.Helper()
 	rt, err := tickloophookr.Open(context.Background(), tickloophookr.Config{
-		WasmPath:    wasmPath,
+		PluginPath:  wasmPath,
 		FileOptions: []hookrruntime.FileOption{hookrruntime.WithAllowUnsigned()},
 		Host:        testHost{},
 	})

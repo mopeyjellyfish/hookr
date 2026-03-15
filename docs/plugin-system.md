@@ -108,7 +108,7 @@ Host side:
 
 ```go
 plugin, err := urlbalancerhookr.Open(ctx, urlbalancerhookr.Config{
-	WasmPath: "./plugin.wasm",
+	PluginPath: "./plugin.wasm",
 	Host:     host{},
 })
 if err != nil {
@@ -118,7 +118,7 @@ if err != nil {
 resp, err := plugin.Balance(ctx, req)
 ```
 
-`WasmPath` is the plugin artifact path. A host can swap different `.wasm`
+`PluginPath` is the plugin artifact path. A host can swap different `.wasm`
 plugins there as long as they implement the same generated contract.
 
 Plugin side:

@@ -166,7 +166,7 @@ func buildPlugin(t *testing.T, pluginDir string) string {
 func openRuntime(t *testing.T, wasmPath string) *tickloophookr.Runtime {
 	t.Helper()
 	rt, err := tickloophookr.Open(context.Background(), tickloophookr.Config{
-		WasmPath:    wasmPath,
+		PluginPath:  wasmPath,
 		FileOptions: []hookrruntime.FileOption{hookrruntime.WithAllowUnsigned()},
 		Host:        testHost{},
 	})

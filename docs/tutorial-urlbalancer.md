@@ -196,7 +196,7 @@ the important parts are:
 
 ```go
 type Config struct {
-	WasmPath       string
+	PluginPath     string
 	FileOptions    []hookr.FileOption
 	Host           Host
 	RuntimeOptions []hookr.Option
@@ -217,7 +217,7 @@ func (r *Runtime) Balance(ctx context.Context, req *BalanceRequestT) (*BalanceRe
 
 `Config`
 
-- `WasmPath` is the plugin artifact path for this contract. You can point it at
+- `PluginPath` is the plugin artifact path for this contract. You can point it at
   any compatible `urlbalancer.wasm` build.
 - `FileOptions` controls trust policy for the Wasm artifact.
 - `Host` is your implementation of the host callback service.
@@ -435,7 +435,7 @@ func main() {
 	wasmPath := filepath.Join("testdata", "contracts", "urlbalancer", "bin", "urlbalancer.wasm")
 
 	plugin, err := urlbalancer.Open(ctx, urlbalancer.Config{
-		WasmPath: wasmPath,
+		PluginPath: wasmPath,
 		FileOptions: []hookr.FileOption{
 			hookr.WithAllowUnsigned(),
 		},

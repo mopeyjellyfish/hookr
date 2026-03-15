@@ -24,7 +24,7 @@ import (
 
 type Config struct {
 	SchemaPath        string
-	WasmPath          string
+	PluginPath        string
 	HostFixturePath   string
 	Hash              string
 	AllowUnsigned     bool
@@ -222,8 +222,8 @@ func Run(cfg Config) error {
 	if cfg.SchemaPath == "" {
 		return errors.New("schema path is required")
 	}
-	if cfg.WasmPath == "" {
-		return errors.New("wasm path is required")
+	if cfg.PluginPath == "" {
+		return errors.New("plugin path is required")
 	}
 	session, err := newSession(cfg)
 	if err != nil {
@@ -302,7 +302,7 @@ func newModel(cfg Config, session *call.Session) model {
 		requests:    requests,
 		focus:       focusMethods,
 		status:      "Ready",
-		wasmModTime: readFileModTime(cfg.WasmPath),
+		wasmModTime: readFileModTime(cfg.PluginPath),
 	}
 	m.syncSelectedMethod()
 	m.renderRequest()
@@ -311,7 +311,7 @@ func newModel(cfg Config, session *call.Session) model {
 }
 
 func (m model) Init() tea.Cmd {
-	return watchWasmCmd(m.cfg.WasmPath)
+	return watchWasmCmd(m.cfg.PluginPath)
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -326,7 +326,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.lastError = msg.err
 			m.status = "Wasm watch failed"
 			m.refreshDebug()
-			return m, watchWasmCmd(m.cfg.WasmPath)
+			return m, watchWasmCmd(m.cfg.PluginPath)
 		}
 		if !msg.modTime.IsZero() && msg.modTime.After(m.wasmModTime) && !m.reloading && !m.loading {
 			if m.loop != nil {
@@ -335,9 +335,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.reloading = true
 			m.status = "Detected Wasm change, reloading..."
-			return m, tea.Batch(reloadSessionCmd(m.cfg), watchWasmCmd(m.cfg.WasmPath))
+			return m, tea.Batch(reloadSessionCmd(m.cfg), watchWasmCmd(m.cfg.PluginPath))
 		}
-		return m, watchWasmCmd(m.cfg.WasmPath)
+		return m, watchWasmCmd(m.cfg.PluginPath)
 	case reloadResultMsg:
 		m.reloading = false
 		if msg.err != nil {
@@ -535,7 +535,7 @@ func (m *model) renderTopBar() string {
 	parts := []string{
 		topChipAccent.Render("Hookr TUI"),
 		topChipStyle.Render("schema: " + filepath.Base(m.debugInfo.SchemaPath)),
-		topChipStyle.Render("wasm: " + filepath.Base(m.debugInfo.WasmPath)),
+		topChipStyle.Render("plugin: " + filepath.Base(m.debugInfo.PluginPath)),
 		topChipStyle.Render("method: " + zeroOrValue(m.selected.Name)),
 	}
 	if m.lastResult != nil {
@@ -714,7 +714,7 @@ func (m *model) refreshDebug() {
 		"",
 		subtleStyle.Render("RUNTIME"),
 		debugRow("schema", m.debugInfo.SchemaPath),
-		debugRow("wasm", m.debugInfo.WasmPath),
+		debugRow("plugin", m.debugInfo.PluginPath),
 		debugRow("abi", zeroOrValue(m.debugInfo.ABIVersion)),
 		debugRow("caps", fmt.Sprintf("0x%x", m.debugInfo.Capabilities)),
 		debugRow("expected hash", m.debugInfo.SchemaHash),
@@ -1007,7 +1007,7 @@ func reloadSessionCmd(cfg Config) tea.Cmd {
 		if err != nil {
 			return reloadResultMsg{err: err}
 		}
-		return reloadResultMsg{session: session, modTime: readFileModTime(cfg.WasmPath)}
+		return reloadResultMsg{session: session, modTime: readFileModTime(cfg.PluginPath)}
 	}
 }
 
@@ -1091,7 +1091,7 @@ func (p paneFocus) label() string {
 func newSession(cfg Config) (*call.Session, error) {
 	return call.NewSession(call.Config{
 		SchemaPath:        cfg.SchemaPath,
-		WasmPath:          cfg.WasmPath,
+		PluginPath:        cfg.PluginPath,
 		HostFixturePath:   cfg.HostFixturePath,
 		Hash:              cfg.Hash,
 		AllowUnsigned:     cfg.AllowUnsigned,

@@ -33,7 +33,7 @@ func TestURLBalancerE2E(t *testing.T) {
 
 	ctx := context.Background()
 	rt, err := urlbalancerhookr.Open(ctx, urlbalancerhookr.Config{
-		WasmPath:    outFile,
+		PluginPath:  outFile,
 		FileOptions: []hookrruntime.FileOption{hookrruntime.WithAllowUnsigned()},
 		Host:        testHost{},
 	})

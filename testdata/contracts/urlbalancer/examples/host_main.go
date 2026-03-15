@@ -31,7 +31,7 @@ func main() {
 	wasmPath := filepath.Join("testdata", "contracts", "urlbalancer", "bin", "urlbalancer.wasm")
 
 	rt, err := urlbalancerhookr.Open(ctx, urlbalancerhookr.Config{
-		WasmPath:    wasmPath,
+		PluginPath:  wasmPath,
 		FileOptions: []hookrruntime.FileOption{hookrruntime.WithAllowUnsigned()},
 		Host:        host{},
 	})
