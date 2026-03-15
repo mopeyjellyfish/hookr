@@ -1,113 +1,95 @@
 package pdk
 
 import (
+	"encoding/binary"
 	"fmt"
-	"reflect"
+	"slices"
 	"unsafe"
 )
 
-type Marshaler interface {
-	MarshalMsg([]byte) ([]byte, error)
-}
-type Unmarshaler interface {
-	UnmarshalMsg([]byte) ([]byte, error)
+type HostError struct {
+	message string
 }
 
-type (
-	// PluginFunction is a function that takes an input of type In and returns an output of type Out.
-	// These are the concrete functions that are callable by the host.
-	PluginFunction[In Unmarshaler, Out Marshaler] func(input In) (Out, error)
+var methodDispatcher func(methodID uint32, payload []byte) ([]byte, error)
 
-	// Function is a function that takes a byte slice as input and returns a byte slice as output.
-	// This is the function that is called by the host.
-	// It is a wrapper around the PluginFunction to allow for byte-based communication.
-	Function func(input []byte) ([]byte, error)
-
-	// Functions is a map of function names to their corresponding Function implementations.
-	// This is the registry of functions that are callable by the host.
-	// The key is the function name and the value is the Function implementation.
-	Functions map[string]Function
-
-	HostError struct {
-		message string
-	}
+const (
+	abiMajor         uint16 = 2
+	abiMinor         uint16 = 0
+	abiSchemaHashLen        = 32
 )
 
-var allFns = Functions{}
+var (
+	abiSchemaHash    [abiSchemaHashLen]byte
+	abiSchemaHashSet bool
+	abiCapabilities  uint64
+	abiMethods       []uint32
+	abiMethodsRaw    []byte
 
-func pluginFunction[In Unmarshaler, Out Marshaler](fn PluginFunction[In, Out]) Function {
-	return func(input []byte) ([]byte, error) {
-		var zero In
-		t := reflect.TypeOf(zero)
+	pluginPayloadScratch []byte
+	hostRespScratch      []byte
+	hostErrScratch       []byte
+)
 
-		var pluginInput In
+// SetMethodDispatcher installs a fast path dispatcher for method-ID plugin calls.
+// Generated code can provide a switch-based dispatcher to avoid map lookups.
+func SetMethodDispatcher(dispatcher func(methodID uint32, payload []byte) ([]byte, error)) {
+	methodDispatcher = dispatcher
+}
 
-		// If it's a pointer type, create a new instance
-		if t != nil && t.Kind() == reflect.Ptr {
-			// Create a new instance of the element type
-			elemType := t.Elem()
-			newElem := reflect.New(elemType)
-			pluginInput = newElem.Interface().(In)
-		} else {
-			// For non-pointer types, use the zero value
-			pluginInput = zero
-		}
-		_, err := pluginInput.UnmarshalMsg(input) // unmarshal the input
-		if err != nil {
-			return nil, err
-		}
-		output, err := fn(pluginInput)
-		if err != nil {
-			return nil, err
-		}
+// SetABISchemaHash enables schema-handshake exports for this plugin.
+func SetABISchemaHash(hash [abiSchemaHashLen]byte) {
+	abiSchemaHash = hash
+	abiSchemaHashSet = true
+}
 
-		return output.MarshalMsg(nil) // marshal the output
+// SetABICapabilities sets the plugin capability bitmask exposed during handshake.
+func SetABICapabilities(capabilities uint64) {
+	abiCapabilities = capabilities
+}
+
+// SetABIMethods publishes the plugin's implemented method IDs.
+func SetABIMethods(methodIDs []uint32) {
+	if len(methodIDs) == 0 {
+		abiMethods = nil
+		abiMethodsRaw = nil
+		return
 	}
-}
-
-// FnSerial adds a single function by name to the registry.
-// This will invoke the Marshal and Unmarshal functions on the input and output types.
-// This should be invoked in your initialize func to expose any functions you wish the host to use.
-func FnSerial[In Unmarshaler, Out Marshaler](name string, fn PluginFunction[In, Out]) {
-	allFns[name] = pluginFunction(fn)
-}
-
-// FnByte adds a single function by name to the registry.
-// This should be invoked in your initialize func to expose any functions you wish the host to use.
-func FnByte(name string, fn Function) {
-	allFns[name] = fn
+	abiMethods = append(abiMethods[:0], methodIDs...)
+	slices.Sort(abiMethods)
+	abiMethods = slices.Compact(abiMethods)
+	abiMethodsRaw = make([]byte, len(abiMethods)*4)
+	for i, methodID := range abiMethods {
+		binary.LittleEndian.PutUint32(abiMethodsRaw[i*4:], methodID)
+	}
 }
 
 //go:export __plugin_call
-func pluginCall(operationSize uint32, payloadSize uint32) bool {
-	operation := make([]byte, operationSize) // alloc
-	payload := make([]byte, payloadSize)     // alloc
-	pluginRequest(bytesToPointer(operation), bytesToPointer(payload))
+func pluginCall(methodID uint32, payloadSize uint32) bool {
+	payload := ensureScratch(&pluginPayloadScratch, payloadSize)
+	if ok := pluginRequest(bytesToPointer(payload)); !ok {
+		message := "failed to load request payload from host"
+		pluginError(stringToPointer(message), uint32(len(message)))
+		return false
+	}
 
-	if f, ok := allFns[string(operation)]; ok {
-		response, err := f(payload)
+	if dispatch := methodDispatcher; dispatch != nil {
+		response, err := dispatch(methodID, payload)
 		if err != nil {
 			message := err.Error()
 			pluginError(stringToPointer(message), uint32(len(message)))
-
 			return false
 		}
-
 		pluginResponse(bytesToPointer(response), uint32(len(response)))
-
 		return true
 	}
 
-	message := `Could not find function "` + string(operation) + `"`
+	message := fmt.Sprintf("could not find method id %d", methodID)
 	pluginError(stringToPointer(message), uint32(len(message)))
-
 	return false
 }
 
 // Log is a convenience function to log messages to the console.
-// It is a wrapper around the `__log` function.
-// The message is passed as a string pointer and length to the host.
-// If the message is empty, it will not log anything.
 func Log(message string) {
 	if len(message) == 0 {
 		return
@@ -115,94 +97,65 @@ func Log(message string) {
 	consoleLog(stringToPointer(message), uint32(len(message)))
 }
 
-type HostFunctionSerial[In Marshaler, Out Unmarshaler] struct {
-	name string
-}
-
-func (h *HostFunctionSerial[In, Out]) Call(input In) (Out, error) {
-	return Call[In, Out](h.name, input)
-}
-
-func HostFnSerial[In Marshaler, Out Unmarshaler](name string) *HostFunctionSerial[In, Out] {
-	return &HostFunctionSerial[In, Out]{name: name}
-}
-
-func Call[In Marshaler, Out Unmarshaler](operation string, input In) (Out, error) {
-	var zero Out
-
-	if reflect.ValueOf(input).Kind() == reflect.Ptr && reflect.ValueOf(input).IsNil() {
-		return zero, fmt.Errorf("input cannot be nil")
-	}
-
-	data, err := input.MarshalMsg(nil)
-	if err != nil {
-		return zero, err
-	}
-
-	response, err := HostCall(operation, data)
-	if err != nil {
-		return zero, err
-	}
-
-	t := reflect.TypeOf(zero)
-
-	var output Out
-
-	// If it's a pointer type, create a new instance
-	if t != nil && t.Kind() == reflect.Ptr {
-		// Create a new instance of the element type
-		elemType := t.Elem()
-		newElem := reflect.New(elemType)
-		output = newElem.Interface().(Out)
-	} else {
-		// For non-pointer types, use the zero value
-		output = zero
-	}
-
-	output.UnmarshalMsg(response)
-	if err != nil {
-		return zero, err
-	}
-	return output, nil
-}
-
-type HostFunctionByte struct {
-	name string
-}
-
-func (h *HostFunctionByte) Call(input []byte) ([]byte, error) {
-	response, err := HostCall(h.name, input)
+// HostCallMethod invokes a host callback by numeric method ID.
+func HostCallMethod(methodID uint32, payload []byte) ([]byte, error) {
+	var out []byte
+	err := HostCallMethodWithResponse(methodID, payload, func(response []byte) error {
+		out = append([]byte(nil), response...)
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
-	return response, nil
+	return out, nil
 }
 
-func HostFnByte(name string) *HostFunctionByte {
-	return &HostFunctionByte{name: name}
-}
-
-// HostCall invokes an operation on the host.  The host uses `operation`
-// to route to the `payload` to the appropriate operation.  The host will return
-// a response payload if successful.
-func HostCall(operation string, payload []byte) ([]byte, error) {
-	result := hostCall(
-		stringToPointer(operation), uint32(len(operation)),
-		bytesToPointer(payload), uint32(len(payload)),
-	)
+// HostCallMethodWithResponse invokes a host callback by method ID and passes
+// the response bytes to handle without allocating a result slice when the
+// caller can decode immediately.
+func HostCallMethodWithResponse(methodID uint32, payload []byte, handle func([]byte) error) error {
+	result := hostCall(methodID, bytesToPointer(payload), uint32(len(payload)))
 	if !result {
 		errorLen := hostErrorLen()
-		message := make([]byte, errorLen) // alloc
+		message := ensureScratch(&hostErrScratch, errorLen)
 		hostError(bytesToPointer(message))
 
-		return nil, &HostError{message: string(message)} // alloc
+		return &HostError{message: string(message)}
 	}
 
 	responseLen := hostResponseLen()
-	response := make([]byte, responseLen) // alloc
+	response := ensureScratch(&hostRespScratch, responseLen)
 	hostResponse(bytesToPointer(response))
+	if handle != nil {
+		return handle(response)
+	}
+	return nil
+}
 
-	return response, nil
+//go:export __hookr_abi_version
+func hookrABIVersion() uint32 {
+	return uint32(abiMajor)<<16 | uint32(abiMinor)
+}
+
+//go:export __hookr_schema_hash
+func hookrSchemaHash() uint64 {
+	if !abiSchemaHashSet {
+		return 0
+	}
+	return packPtrLenU64(uint32(bytesToPointer(abiSchemaHash[:])), abiSchemaHashLen)
+}
+
+//go:export __hookr_capabilities
+func hookrCapabilities() uint64 {
+	return abiCapabilities
+}
+
+//go:export __hookr_methods
+func hookrMethods() uint64 {
+	if len(abiMethodsRaw) == 0 {
+		return 0
+	}
+	return packPtrLenU64(uint32(bytesToPointer(abiMethodsRaw)), uint32(len(abiMethodsRaw)))
 }
 
 //go:inline
@@ -219,6 +172,18 @@ func stringToPointer(s string) uintptr {
 	return bytesToPointer(b)
 }
 
+//go:inline
+func packPtrLenU64(ptr uint32, dataLen uint32) uint64 {
+	return uint64(ptr)<<32 | uint64(dataLen)
+}
+
+func ensureScratch(dst *[]byte, size uint32) []byte {
+	if int(size) > cap(*dst) {
+		*dst = make([]byte, int(size))
+	}
+	return (*dst)[:int(size)]
+}
+
 func (e *HostError) Error() string {
-	return "Host error: " + e.message // alloc
+	return "Host error: " + e.message
 }

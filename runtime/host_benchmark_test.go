@@ -4,90 +4,58 @@ import (
 	"context"
 	"testing"
 
-	"github.com/mopeyjellyfish/hookr/testdata/api"
 	"github.com/stretchr/testify/require"
 )
 
-func BenchmarkInvokeBytesVowel(b *testing.B) {
+const (
+	methodHello = 1
+	methodEcho  = 2
+	methodVowel = 3
+)
+
+func BenchmarkInvokeMethodBytesVowel(b *testing.B) {
 	ctx := context.Background()
-	hostFn := HostFnByte("helloByte", HelloByte)
-	p, err := New(ctx, WithFile(SIMPLE_WASM), WithHostFns(hostFn))
-	require.NoError(b, err, "failed to create module")
-	require.NotNil(b, p, "plugin should not be nil")
+	p, err := New(ctx, WithFile(SIMPLE_METHOD_WASM, WithAllowUnsigned()))
+	require.NoError(b, err)
+	require.NotNil(b, p)
 	defer func() {
-		err := p.Close(ctx)
-		require.NoError(b, err, "failed to close module")
+		require.NoError(b, p.Close(ctx))
 	}()
 
 	payload := []byte(
 		"Who controls the past controls the future; who controls the present controls the past.",
 	)
-	fn, err := PluginFnByte(p, "vowel")
-	require.NotNil(b, fn, "plugin function should not be nil")
-	require.NoError(b, err, "failed to create plugin function")
-	d, err := fn.Call(context.Background(), payload) // confirm the call works
-	require.NoError(b, err, "failed to call plugin function")
-	require.NotNil(b, d, "plugin function should return a value")
-	b.ResetTimer() // Reset timer to exclude setup time
+	d, err := p.InvokeMethod(context.Background(), methodVowel, payload)
+	require.NoError(b, err)
+	require.NotNil(b, d)
+	b.ResetTimer()
 	b.Run("Vowel", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			_, _ = fn.Call(context.Background(), payload)
+			_, _ = p.InvokeMethod(context.Background(), methodVowel, payload)
 		}
 	})
 }
 
-func BenchmarkInvokeMsgP(b *testing.B) {
+func BenchmarkInvokeMethodBytesEcho(b *testing.B) {
 	ctx := context.Background()
-	hostFn := HostFnSerial("hello", Hello)
-	p, err := New(ctx, WithFile(SIMPLE_WASM), WithHostFns(hostFn))
-	require.NoError(b, err, "failed to create module")
-	require.NotNil(b, p, "plugin should not be nil")
+	hostFn := HostFnMethod(methodHello, HelloByte)
+	p, err := New(ctx, WithFile(SIMPLE_METHOD_WASM, WithAllowUnsigned()), WithHostMethodFns(hostFn))
+	require.NoError(b, err)
+	require.NotNil(b, p)
 	defer func() {
-		err := p.Close(ctx)
-		require.NoError(b, err, "failed to close module")
-	}()
-
-	payload := &api.EchoRequest{
-		Data: "Who controls the past controls the future; who controls the present controls the past.",
-	}
-	fn, err := PluginFnSerial[*api.EchoRequest, *api.EchoResponse](p, "echo")
-	require.NotNil(b, fn, "plugin function should not be nil")
-	require.NoError(b, err, "failed to create plugin function")
-	d, err := fn.Call(context.Background(), payload) // confirm the call works
-	require.NoError(b, err, "failed to call plugin function")
-	require.NotNil(b, d, "plugin function should return a value")
-	b.ResetTimer() // Reset timer to exclude setup time
-	b.Run("Echo", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			_, _ = fn.Call(context.Background(), payload)
-		}
-	})
-}
-
-func BenchmarkInvokeBytes(b *testing.B) {
-	ctx := context.Background()
-	hostFn := HostFnByte("helloByte", HelloByte)
-	p, err := New(ctx, WithFile(SIMPLE_WASM), WithHostFns(hostFn))
-	require.NoError(b, err, "failed to create module")
-	require.NotNil(b, p, "plugin should not be nil")
-	defer func() {
-		err := p.Close(ctx)
-		require.NoError(b, err, "failed to close module")
+		require.NoError(b, p.Close(ctx))
 	}()
 
 	payload := []byte(
 		"Who controls the past controls the future; who controls the present controls the past.",
 	)
-	fn, err := PluginFnByte(p, "echoByte")
-	require.NotNil(b, fn, "plugin function should not be nil")
-	require.NoError(b, err, "failed to create plugin function")
-	d, err := fn.Call(context.Background(), payload) // confirm the call works
-	require.NoError(b, err, "failed to call plugin function")
-	require.NotNil(b, d, "plugin function should return a value")
-	b.ResetTimer() // Reset timer to exclude setup time
+	d, err := p.InvokeMethod(context.Background(), methodEcho, payload)
+	require.NoError(b, err)
+	require.NotNil(b, d)
+	b.ResetTimer()
 	b.Run("Echo", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			_, _ = fn.Call(context.Background(), payload)
+			_, _ = p.InvokeMethod(context.Background(), methodEcho, payload)
 		}
 	})
 }

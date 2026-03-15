@@ -1,0 +1,32 @@
+namespace Hookr.Test.TextFilter;
+
+file_identifier "TXTF";
+
+table Empty {}
+
+table PluginInfo {
+  name:string;
+  version:string;
+  description:string;
+}
+
+table FilterRequest {
+  input:string;
+  blocked_terms:[string];
+  replacement:string;
+  case_sensitive:bool;
+  max_replacements:uint32;
+}
+
+table FilterResponse {
+  output:string;
+  changed:bool;
+  replacements:uint32;
+  blocked:bool;
+  reason:string;
+}
+
+rpc_service Plugin {
+  GetInfo(Empty):PluginInfo;
+  Filter(FilterRequest):FilterResponse;
+}

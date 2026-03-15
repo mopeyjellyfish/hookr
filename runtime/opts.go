@@ -3,8 +3,8 @@ package runtime
 import (
 	"io"
 
+	runtimecontract "github.com/mopeyjellyfish/hookr/runtime/contract"
 	"github.com/mopeyjellyfish/hookr/runtime/logger"
-	"github.com/mopeyjellyfish/hookr/runtime/module"
 )
 
 type Option func(*Runtime) error
@@ -22,9 +22,9 @@ func WithFile(file string, opts ...FileOption) Option {
 }
 
 // WithLogger sets the logger for the engine.
-func WithLogger(logger logger.Logger) Option {
+func WithLogger(logFn logger.Logger) Option {
 	return func(e *Runtime) error {
-		e.logger = logger
+		e.logger = logFn
 		return nil
 	}
 }
@@ -53,21 +53,29 @@ func WithRandSource(rand io.Reader) Option {
 	}
 }
 
-// WithCallHandler sets the call handler for the engine.
-func WithCallHandler(callHandler module.CallHandler) Option {
+// WithHostMethodFns sets method-ID based host callbacks callable from method-ID plugins.
+func WithHostMethodFns(fns ...HostMethod) Option {
 	return func(e *Runtime) error {
-		e.callHandler = callHandler
+		for _, fn := range fns {
+			id, caller := fn.FnMethod()
+			e.RegisterMethod(id, caller)
+		}
 		return nil
 	}
 }
 
-// WithHostFns sets the host functions which are callable from the plugin.
-func WithHostFns(fns ...HostFunc) Option {
+// WithContractSchema validates and configures expected schema + handshake requirements.
+//
+//nolint:gocritic // Keep the public API value-based to avoid forcing pointer ownership on callers.
+func WithContractSchema(schema runtimecontract.Schema) Option {
 	return func(e *Runtime) error {
-		for _, fn := range fns {
-			name, caller := fn.Fn()
-			e.RegisterFunction(name, caller)
+		if err := schema.Validate(); err != nil {
+			return err
 		}
+		e.expectedSchema = &schema
+		handshake := runtimecontract.NewHandshake(schema.SchemaHash)
+		handshake.Capabilities = schema.Capabilities
+		e.expectedHandshake = &handshake
 		return nil
 	}
 }

@@ -65,23 +65,8 @@ func (h Sha256Hasher) IsValid(hash string, data []byte) bool {
 
 var _ Hasher = Sha256Hasher{} // ensure Sha256Hasher implements the Hasher interface
 
-// DefaultHasher is a default implementation of the Hasher interface.
-// It does not actually hash anything, but is a placeholder for future implementations.
-// It is used when no specific hashing algorithm is provided and no verification is needed.
-//
-// The Hash method always returns an empty string, and IsValid only returns true
-// when the hash is empty.
-//
-// Example:
-//
-//	hasher := DefaultHasher{}
-//
-//	// Always returns empty string
-//	hash, _ := hasher.Hash([]byte("data"))
-//
-//	// Returns true only when hash is empty
-//	isValid := hasher.IsValid("", []byte("data")) // true
-//	isValid = hasher.IsValid("some-hash", []byte("data")) // false
+// DefaultHasher is an explicit no-op hasher for trusted local development flows.
+// It should not be used when loading untrusted plugins.
 type DefaultHasher struct{}
 
 func (h DefaultHasher) Hash(raw []byte) (string, error) {
@@ -98,11 +83,12 @@ var _ Hasher = DefaultHasher{} // ensure DefaultHasher implements the Hasher int
 // File is a struct that represents a WebAssembly module that is stored in a file.
 // We can possibly add more types of Wasm modules in the future, which have different sources.
 type File struct {
-	Path   string
-	Hash   string
-	Name   string
-	hasher Hasher
-	data   []byte
+	Path          string
+	Hash          string
+	Name          string
+	AllowUnsigned bool
+	hasher        Hasher
+	data          []byte
 }
 
 // GetData returns the WasmData for WasmData if the data has already been loaded into memory somewhere else
@@ -138,7 +124,21 @@ func (f *File) Verify() (*File, error) {
 		return nil, err
 	}
 
-	if !f.hasher.IsValid(f.Hash, data) { // optionally check the hash
+	if f.Hash == "" {
+		if !f.AllowUnsigned {
+			return nil, fmt.Errorf(
+				"unsigned plugin is not allowed for %s; provide WithHash(...) or WithAllowUnsigned()",
+				f.Path,
+			)
+		}
+		f.data = data
+		return f, nil
+	}
+
+	if f.hasher == nil {
+		f.hasher = Sha256Hasher{}
+	}
+	if !f.hasher.IsValid(f.Hash, data) {
 		return nil, fmt.Errorf("hash does not match for %s", f.Path)
 	}
 
@@ -162,15 +162,23 @@ func WithHasher(hasher Hasher) FileOption {
 	}
 }
 
+// WithAllowUnsigned explicitly allows loading a plugin without a configured hash.
+func WithAllowUnsigned() FileOption {
+	return func(f *File) {
+		f.AllowUnsigned = true
+	}
+}
+
 // NewFile creates a new File instance and verifies it.
 // If the file or name is invalid, an error is returned.
 // Otherwise the *File is returned.
 func NewFile(path string, opts ...FileOption) (*File, error) {
 	newFile := File{
-		Path:   path,
-		Name:   "",
-		Hash:   "",
-		hasher: DefaultHasher{},
+		Path:          path,
+		Name:          "",
+		Hash:          "",
+		AllowUnsigned: false,
+		hasher:        Sha256Hasher{},
 	}
 	for _, opt := range opts {
 		opt(&newFile)

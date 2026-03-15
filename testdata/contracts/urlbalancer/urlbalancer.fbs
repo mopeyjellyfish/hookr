@@ -1,0 +1,53 @@
+namespace Hookr.Test.UrlBalancer;
+
+file_identifier "URLB";
+
+table Empty {}
+
+table PluginInfo {
+  name:string;
+  version:string;
+  description:string;
+}
+
+table BalanceRequest {
+  url:string;
+  nodes:[string];
+}
+
+table BalanceResponse {
+  valid:bool;
+  normalized_url:string;
+  scheme:string;
+  host:string;
+  selected_node:string;
+  selected_index:uint32;
+  rng_int:int32;
+  rng_float:float32;
+  error:string;
+}
+
+table RngIntRequest {
+  min:int32;
+  max:int32;
+}
+
+table RngIntResponse {
+  value:int32;
+}
+
+table RngFloatRequest {}
+
+table RngFloatResponse {
+  value:float32;
+}
+
+rpc_service Plugin {
+  GetInfo(Empty):PluginInfo;
+  Balance(BalanceRequest):BalanceResponse;
+}
+
+rpc_service Host {
+  RngInt(RngIntRequest):RngIntResponse;
+  RngFloat(RngFloatRequest):RngFloatResponse;
+}

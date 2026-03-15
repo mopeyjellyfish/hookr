@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -184,4 +185,58 @@ func TestDefaultHasher_IsValid(t *testing.T) {
 func TestHasher_Interface(t *testing.T) {
 	var _ Hasher = Sha256Hasher{}
 	var _ Hasher = DefaultHasher{}
+}
+
+func TestFileVerifyRequiresExplicitTrust(t *testing.T) {
+	tmp := t.TempDir() + "/plugin.wasm"
+	require.NoError(t, os.WriteFile(tmp, []byte("wasm"), 0o600))
+
+	_, err := NewFile(tmp)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unsigned plugin is not allowed")
+
+	f, err := NewFile(tmp, WithAllowUnsigned())
+	require.NoError(t, err)
+	require.NotNil(t, f)
+}
+
+func TestWithHasherOption(t *testing.T) {
+	tmp := t.TempDir() + "/plugin.wasm"
+	require.NoError(t, os.WriteFile(tmp, []byte("wasm"), 0o600))
+
+	f, err := NewFile(tmp, WithAllowUnsigned(), WithHasher(DefaultHasher{}))
+	require.NoError(t, err)
+	require.IsType(t, DefaultHasher{}, f.hasher)
+}
+
+func TestFileVerifyBranches(t *testing.T) {
+	t.Run("path required", func(t *testing.T) {
+		_, err := (&File{}).Verify()
+		require.EqualError(t, err, "path is required")
+	})
+
+	t.Run("hash mismatch", func(t *testing.T) {
+		tmp := t.TempDir() + "/plugin.wasm"
+		require.NoError(t, os.WriteFile(tmp, []byte("wasm"), 0o600))
+
+		_, err := NewFile(tmp, WithHash("bad-hash"))
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "hash does not match")
+	})
+
+	t.Run("verify falls back to sha256 when hasher missing", func(t *testing.T) {
+		tmp := t.TempDir() + "/plugin.wasm"
+		payload := []byte("wasm")
+		require.NoError(t, os.WriteFile(tmp, payload, 0o600))
+
+		hash, err := Sha256Hasher{}.Hash(payload)
+		require.NoError(t, err)
+
+		f := &File{Path: tmp, Hash: hash}
+		verified, err := f.Verify()
+		require.NoError(t, err)
+		require.NotNil(t, verified)
+		require.IsType(t, Sha256Hasher{}, verified.hasher)
+		require.Equal(t, payload, verified.data)
+	})
 }

@@ -1,0 +1,7 @@
+{
+  "input": "Bad inputs and bad habits",
+  "blocked_terms": ["bad", "habits"],
+  "replacement": "[filtered]",
+  "case_sensitive": false,
+  "max_replacements": 2
+}

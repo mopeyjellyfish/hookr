@@ -21,412 +21,244 @@
 
 ## Features
 
-- **Type-safe plugin interface**: Strongly typed function calls between the host and plugins
-- **Security**: Integrity verification of WASM modules through cryptographic hashing
-- **Bi-directional communication**: Plugins can call back into the host
-- **TinyGo compatibility**: Optimized for TinyGo WASM modules
-- **Comprehensive logging**: Debug and trace plugin execution
-- **Simple API**: All functionality exposed through a single import path
+- **Schema-defined contracts**: Host applications define `Plugin` and optional `Host` services in FlatBuffers
+- **Generated Go SDK/PDK glue**: `hookr gen` produces typed host and plugin bindings
+- **Method-ID Wasm ABI**: Fast numeric dispatch suitable for tight plugin loops
+- **Integrity checks by default**: Plugin files are hash-verified unless the host explicitly allows unsigned artifacts
+- **TinyGo-first builds**: `hookr build` produces Wasm plugins for local development and CI
+- **Bidirectional calls**: Plugins can call host-defined callbacks through the generated `PluginContext`
+- **Developer tooling**: `hookr inspect`, `hookr call`, and a Bubble Tea-based `hookr tui` help validate and debug plugins without a full host app
 
 ## Table of Contents
 
 - [Installation](#installation)
+- [What Hookr Is For](#what-hookr-is-for)
 - [Quick Start](#quick-start)
-- [API Overview](#api-overview)
-- [Plugin Development](#plugin-development)
-- [Advanced Usage](#advanced-usage)
+- [Plugin Trust Model](#plugin-trust-model)
 - [Project Structure](#project-structure)
-- [PDK](#pdk-support)
+- [Language Roadmap](#language-roadmap)
 
 ## Installation
 
+Install the CLI:
+
 ```bash
-go get github.com/mopeyjellyfish/hookr
+go install github.com/mopeyjellyfish/hookr/cmd/hookr@latest
 ```
+
+Your host application will usually import the generated contract package, which
+pulls in Hookr as a normal Go module dependency.
 
 ### Prerequisites
 
 - Go 1.24 or higher
 - TinyGo 0.30.0 or higher (for building plugins)
 
+## What Hookr Is For
+
+Hookr is for applications that want plugins with:
+
+- typed request and response contracts
+- host-to-plugin and plugin-to-host calls
+- good performance for both infrequent calls and tight loops
+- a small integration surface for host and plugin authors
+
+Typical fits:
+
+- game logic or simulation plugins
+- text, validation, or routing plugins
+- application-defined extension points where the host owns the contract
+
+Hookr ships comprehensive Diataxis documentation under [`docs/`](./docs/):
+
+- tutorials: [`docs/tutorials/`](./docs/tutorials/)
+- how-to guides: [`docs/how-to/`](./docs/how-to/)
+- reference: [`docs/reference/`](./docs/reference/)
+- explanation: [`docs/explanation/`](./docs/explanation/)
+
+If you want one place to start, use [`docs/index.md`](./docs/index.md).
+
 ## Quick Start
 
-### Host Application
+The smallest Hookr flow is:
+
+```bash
+hookr gen \
+  --schema ./testdata/contracts/textfilter/textfilter.fbs \
+  --out ./testdata/contracts/textfilter/gen \
+  --package textfilterhookr
+
+hookr build \
+  --plugin ./testdata/contracts/textfilter/plugin \
+  --out ./testdata/contracts/textfilter/bin/textfilter.wasm
+
+hookr inspect \
+  --schema ./testdata/contracts/textfilter/textfilter.fbs \
+  --wasm ./testdata/contracts/textfilter/bin/textfilter.wasm \
+  --allow-unsigned
+```
+
+The consuming application owns the contract. Hookr owns the ABI, transport,
+validation, code generation, and host/plugin glue.
+
+Minimal host usage in Go:
 
 ```go
 package main
 
 import (
- "context"
- "fmt"
- "log"
+	"context"
+	"fmt"
+	"log"
 
- "github.com/mopeyjellyfish/hookr"
+	hookrruntime "github.com/mopeyjellyfish/hookr/runtime"
+	textfilterhookr "github.com/mopeyjellyfish/hookr/testdata/contracts/textfilter/gen/textfilterhookr"
 )
-
-// Define request/response types
-type EchoRequest struct {
- Message string `json:"message"`
-}
-
-type EchoResponse struct {
- Message string `json:"message"`
-}
 
 func main() {
- // Create a new plugin
- ctx := context.Background()
- plugin, err := hookr.NewPlugin(ctx, hookr.WithFile("./plugin.wasm"))
- if err != nil {
-  log.Fatalf("Failed to create plugin: %v", err)
- }
- defer plugin.Close(ctx)
+	ctx := context.Background()
 
- // Create type-safe function wrapper
- echoFn, err := hookr.PluginFn[*EchoRequest, *EchoResponse](plugin, "echo")
- if err != nil {
-  log.Fatalf("Failed to create function: %v", err)
- }
+	rt, err := textfilterhookr.Open(ctx, textfilterhookr.Config{
+		WasmPath: "./testdata/contracts/textfilter/bin/textfilter.wasm",
+		FileOptions: []hookrruntime.FileOption{
+			hookrruntime.WithAllowUnsigned(),
+		},
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer rt.Close(ctx)
 
- // Call the function
- resp, err := echoFn.Call(&EchoRequest{Message: "Hello from host!"})
- if err != nil {
-  log.Fatalf("Function call failed: %v", err)
- }
+	info, err := rt.GetInfo(ctx, &textfilterhookr.EmptyT{})
+	if err != nil {
+		log.Fatal(err)
+	}
+	resp, err := rt.Filter(ctx, &textfilterhookr.FilterRequestT{
+		Input:        "this platform has bad words",
+		BlockedTerms: []string{"bad"},
+		Replacement:  "[filtered]",
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
 
- fmt.Printf("Plugin responded: %s\n", resp.Message)
+	fmt.Printf("%s %s => %s\n", info.Name, info.Version, resp.Output)
 }
 ```
 
-### Plugin Code
+If your contract defines host callbacks, the generated SDK makes that explicit:
 
 ```go
-package main
-
-import (
- "github.com/mopeyjellyfish/hookr/pdk"
-)
-
-// Define request/response types
-type EchoRequest struct {
- Message string `json:"message"`
+rt, err := urlbalancerhookr.Open(ctx, urlbalancerhookr.Config{
+	WasmPath: "./plugin.wasm",
+	Host:     hostImpl,
+	FileOptions: []hookrruntime.FileOption{
+		hookrruntime.WithAllowUnsigned(),
+	},
+})
+if err != nil {
+	return err
 }
 
-type EchoResponse struct {
- Message string `json:"message"`
-}
-
-//go:wasmexport hookr_init
-func Initialize() {
- // Register the echo function
- pdk.RegisterFunction("echo", Echo)
-}
-
-// Echo implements a simple echo service
-func Echo(input *EchoRequest) (*EchoResponse, error) {
- // Log received message
- pdk.Log("Received message: " + input.Message)
-
- // Return the same message back
- return &EchoResponse{
-  Message: input.Message,
- }, nil
-}
-```
-
-### Building the Plugin
-
-Use TinyGo to compile the plugin:
-
-```bash
-tinygo build -o plugin.wasm -scheduler=none --no-debug -target=wasip1 -buildmode=c-shared main.go
-```
-
-## API Overview
-
-Hookr provides a streamlined API for communication between the host application and WASM plugins.
-
-### Core Components
-
-- **Plugin**: Interface representing a loaded WASM plugin
-- **HostFn**: For registering callback functions that plugins can call
-- **PluginFn**: For creating type-safe wrappers around plugin functions
-
-### Data Exchange
-
-Hosts send data to WASM plugins, and plugins send data back to the host. Hookr uses serialization to convert Go types to a format that can be safely passed across the WebAssembly boundary.
-
-### Serialization Options
-
-Anything which implements the Marshal or Unmarshal interfaces can be used to serialize and deserialize in both WASM and the host application. Currently all the examples are for MessagePack, see the following section.
-
-#### MessagePack
-
-Hookr primarily uses [MessagePack](https://github.com/tinylib/msgp) for efficient binary serialization between host and plugins. The framework provides type-safe functions with generics support:
-
-```go
-// In the host application:
-// Create a strongly-typed function wrapper
-msgpFn, err := hookr.PluginFnSerial[*api.Request, *api.Response](plugin, "function_name")
-
-// Register a host function for plugin callbacks
-hostFn := hookr.HostFnSerial("operation_name", MyHostFunction)
-```
-
-```go
-// In your plugin:
-// Register a function to handle host calls
-pdk.Fn("function_name", MyPluginFunction)
-
-// Create a wrapper to call host functions
-var hostOp = pdk.HostFn[*api.Request, *api.Response]("operation_name")
-```
-
-For this to work, your types must implement `Marshaler` and `Unmarshaler` interfaces, typically generated with:
-
-```go
-//go:generate msgp
-type Request struct {
-    Input string `msg:"input"`
-}
-```
-
-#### Raw Bytes
-
-For custom serialization needs or direct binary data handling, Hookr provides byte-based functions:
-
-```go
-// In the host
-byteFn, err := hookr.PluginFnByte(plugin, "raw_operation")
-result, err := byteFn.Call([]byte("raw data"))
-
-// Register a byte-based host function
-byteFn := hookr.HostFnByte("byte_operation", func(ctx context.Context, data []byte) ([]byte, error) {
-    // Process raw bytes
-    return processedData, nil
+resp, err := rt.Balance(ctx, &urlbalancerhookr.BalanceRequestT{
+	Url:   "https://example.com/api",
+	Nodes: []string{"node-a", "node-b", "node-c"},
 })
 ```
 
-```go
-// In the plugin
-pdk.FnByte("raw_operation", func(data []byte) ([]byte, error) {
-    // Process incoming byte slice
-    return processedBytes, nil
-})
-
-// Call a byte-based host function
-var hostByteOp = pdk.HostFnByte("byte_operation")
-result, err := hostByteOp.Call(myData)
-```
-
-This approach gives you complete control over serialization while still leveraging Hookr's WebAssembly integration.
-
-## Plugin Development
-
-Developing plugins for Hookr involves the following steps:
-
-1. **Define Types**: Create Go structs for the request and response types
-
-```go
-// api/types.go
-package api
-
-//go:generate msgp
-
-// HelloRequest is sent to the plugin
-type HelloRequest struct {
-    Name string `msg:"name" json:"name"`
-}
-
-// HelloResponse is returned from the plugin
-type HelloResponse struct {
-    Message string `msg:"message" json:"message"`
-}
-```
-
-1. **Generate Serialization Code**: Use the `msgp` tool to generate serialization code
+For plugin development, Hookr can validate and call plugins directly from the
+CLI. For example, this calls the `urlbalancer` plugin with a host callback
+fixture instead of a handwritten host app:
 
 ```bash
-# First, install the msgp generator tool
-go install github.com/tinylib/msgp@latest
-
-# Then generate the code (run from the root of your project)
-go generate ./api/...
+hookr call \
+  --schema ./testdata/contracts/urlbalancer/urlbalancer.fbs \
+  --wasm ./testdata/contracts/urlbalancer/bin/urlbalancer.wasm \
+  --allow-unsigned \
+  --method Balance \
+  --input ./testdata/contracts/urlbalancer/requests/balance.json \
+  --host-fixture ./testdata/contracts/urlbalancer/fixtures/host.json
 ```
 
-1. **Write Plugin Functions**: Implement functions that process the requests
-
-```go
-package main
-
-import (
-    "fmt"
-    
-    "github.com/mopeyjellyfish/hookr/pdk"
-    "yourproject/api"
-)
-
-// Hello function handles HelloRequest and returns HelloResponse
-func Hello(input *api.HelloRequest) (*api.HelloResponse, error) {
-    pdk.Log(fmt.Sprintf("Hello called with name: %s", input.Name))
-    
-    return &api.HelloResponse{
-        Message: fmt.Sprintf("Hello, %s!", input.Name),
-    }, nil
-}
-```
-
-1. **Register Functions**: Export your functions in the initialization function
-
-```go
-//go:wasmexport hookr_init
-func Initialize() {
-    pdk.RegisterFunction("hello", Hello)
-    // Register more functions as needed
-}
-```
-
-1. **Build the Plugin**: Compile your plugin using TinyGo
+And for interactive exploration:
 
 ```bash
-tinygo build -o plugin.wasm -scheduler=none --no-debug -target=wasip1 -buildmode=c-shared main.go
+hookr tui \
+  --schema ./testdata/contracts/textfilter/textfilter.fbs \
+  --wasm ./testdata/contracts/textfilter/bin/textfilter.wasm \
+  --allow-unsigned
 ```
 
-### Host-Plugin Communication Pattern
+The TUI now:
 
-Hookr uses a well-defined pattern for communication:
+- pre-fills requests from the schema
+- shows the active schema, Wasm, method, and loop timings in a top bar
+- reloads the plugin when the Wasm file changes on disk
+- supports single-key actions for call, loop, reset, and editor workflows
+- keeps the request read-only in the UI and opens your default editor for edits
+- shows loop timing stats and runtime debug metadata while you work
+- keeps the key shortcuts visible at the bottom of the screen
 
-1. **Host sends request**: The host serializes a request struct and sends it to the plugin
-2. **Plugin processes request**: The plugin deserializes the request, processes it, and serializes a response
-3. **Plugin returns response**: The response is sent back to the host and deserialized
+What this gives you:
 
-### Shared API Package
+- typed host calls into Wasm plugins
+- optional typed callbacks from plugin back to host
+- schema validation before first call
+- a fast path suitable for high-frequency calls like game ticks
 
-For best results, create a shared API package that defines all the request and response types used by both the host and plugins:
+The host application decides what the contract is. Hookr only owns the Wasm ABI, handshake, transport, code generation, and host/plugin glue.
 
-```sh
-yourproject/
-├── api/
-│   ├── types.go           # Request/response type definitions
-│   └── types_gen.go       # Generated serialization code
-├── host/
-│   └── main.go            # Host application
-└── plugin/
-    └── main.go            # Plugin implementation
-```
+For architecture details, see:
+- [`docs/plugin-system.md`](./docs/plugin-system.md)
+- [`docs/abi.md`](./docs/abi.md)
+- [`docs/explanation/architecture.md`](./docs/explanation/architecture.md)
 
-This approach ensures type consistency between the host and plugins.
+For runnable examples, see:
+- [`testdata/contracts/urlbalancer`](./testdata/contracts/urlbalancer)
+- [`testdata/contracts/textfilter`](./testdata/contracts/textfilter)
+- [`testdata/contracts/tickloop`](./testdata/contracts/tickloop)
 
-## Advanced Usage
+Recommended reading order:
 
-### Host Functions
+1. [`docs/tutorials/textfilter.md`](./docs/tutorials/textfilter.md)
+2. [`docs/tutorials/urlbalancer.md`](./docs/tutorials/urlbalancer.md)
+3. [`docs/reference/cli.md`](./docs/reference/cli.md)
 
-Register host functions that can be called by the plugin, in the host application:
+## Plugin Trust Model
+
+Hookr now requires explicit trust for local unsigned Wasm artifacts. Production
+hosts should load signed or hash-pinned plugins; local fixtures and tutorials
+can opt in to unsigned development artifacts when needed.
+
+Hash-pinned example:
 
 ```go
-// Define a host function, use a shared API package between host and plugin.
-func Greet(ctx context.Context, input *api.GreetRequest) (*api.GreetResponse, error) {
- return &api.GreetResponse{
-  Message: fmt.Sprintf("Hello, %s from host!", input.Name),
- }, nil
-}
-
-// Create a host function
-greetFn := hookr.HostFn("greet", Greet)
-
-// Create plugin with the host function
-plugin, err := hookr.NewPlugin(ctx, 
-    hookr.WithFile("./plugin.wasm"),
-    hookr.WithHostFns(greetFn),
-)
-```
-
-In the plugin, call the host function:
-
-```go
-//go:wasmexport hookr_init
-func Initialize() {
- // Register the hello function for calling from the host
- pdk.Fn("hello", Hello)
-}
-
-// Create a type-safe function wrapper for the host function
-var Greet = pdk.HostFn[*api.GreetRequest, *api.GreetResponse]("greet")
-
-func Hello(input *api.HelloRequest) (*api.HelloResponse, error) {
- // Call the host
- resp, err := Greet.Call(&api.GreetRequest{
-  Name: input.Name,
- })
- if err != nil {
-  return nil, err
- }
- 
- return &api.HelloResponse{
-  Message: resp.Message,
- }, nil
-}
-```
-
-### Raw Byte Functions
-
-For functions that don't need structured data or when you want to handle serialization yourself:
-
-```go
-// In the host application
-byteFn, err := hookr.PluginFnByte(plugin, "countVowels")
-if err != nil {
-  log.Fatalf("Failed to create function: %v", err)
-}
-
-result, err := byteFn.Call([]byte("hello world"))
-if err != nil {
-  log.Fatalf("Failed to call function: %v", err)
-}
-
-fmt.Printf("Vowel count: %s\n", result)
-```
-
-```go
-// In the plugin
-//go:wasmexport hookr_init
-func Initialize() {
-  // Register a byte function
-  pdk.FnByte("countVowels", CountVowels)
-}
-
-func CountVowels(input []byte) ([]byte, error) {
-  text := string(input)
-  count := 0
-  for _, c := range text {
-    switch c {
-    case 'a', 'e', 'i', 'o', 'u', 'A', 'E', 'I', 'O', 'U':
-      count++
-    }
-  }
-  return []byte(fmt.Sprintf("%d", count)), nil
-}
-```
-
-### Verifying Plugin Integrity
-
-WASM plugins can be hash verified before loading:
-
-```go
-plugin, err := hookr.NewPlugin(ctx,
-    hookr.WithFile("./plugin.wasm",
-        hookr.WithHash("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"),
-        hookr.WithHasher(hookr.Sha256Hasher{}),
+plugin, err := runtime.New(ctx,
+    runtime.WithFile("./plugin.wasm",
+        runtime.WithHash("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"),
+        runtime.WithHasher(runtime.Sha256Hasher{}),
     ),
+)
+```
+
+Local development artifact example:
+
+```go
+plugin, err := runtime.New(ctx,
+	runtime.WithFile("./plugin.wasm", runtime.WithAllowUnsigned()),
 )
 ```
 
 ## Project Structure
 
-- `hookr/`: Main package for host applications loading and executing WASM plugins
-- `hookr/pdk/`: Plugin Development Kit for building WASM plugins in Go
+- `cmd/hookr/`: installable CLI
+- `runtime/`: host-side Wasm runtime
+- `pdk/`: low-level plugin runtime support used by generated bindings
+- `internal/codegen/`: `hookr gen` orchestration and generated glue templates
+- `testdata/contracts/`: end-to-end fixture contracts and examples
+- `docs/`: Diataxis documentation site source
 
-## PDK Support
+## Language Roadmap
 
 Hookr currently supports the following languages for plugin development:
 

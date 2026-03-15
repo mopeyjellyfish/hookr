@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+cd "$repo_root"
+
+echo "hookr pre-commit: lint"
+make lint
+
+echo "hookr pre-commit: test"
+make test
+
+echo "hookr pre-commit: docs"
+make docs/build
