@@ -150,6 +150,28 @@ func main() {
 swap in different `.wasm` files there as long as they were built against the
 same schema and generated package.
 
+For local development, the generated SDK can also watch that plugin artifact
+and reload it automatically:
+
+```go
+plugin, err := textfilter.Open(ctx, textfilter.Config{
+	PluginPath: "./testdata/contracts/textfilter/bin/textfilter.wasm",
+	FileOptions: []hookr.FileOption{
+		hookr.WithAllowUnsigned(),
+	},
+	Reload: &textfilter.ReloadConfig{
+		OnReload: func(ctx context.Context, next *textfilter.Runtime, event hookr.ReloadEvent) error {
+			_, err := next.GetInfo(ctx, &textfilter.EmptyT{})
+			return err
+		},
+	},
+})
+```
+
+While Hookr reloads, it pauses new calls, loads and validates the replacement
+plugin, runs `OnReload`, and only then swaps the runtime. If reload fails, the
+existing runtime stays active.
+
 The generated package name is also your choice. In examples, aliasing the
 generated import to the contract name usually reads better than repeating the
 `...hookr` suffix in every type.
@@ -263,6 +285,32 @@ func (plugin) Balance(ctx *urlbalancer.PluginContext, req *urlbalancer.BalanceRe
 
 That is the whole registration story: the schema declares the callbacks, the
 host implements the generated module interfaces, and Hookr wires the rest.
+
+### Live Reload
+
+Generated host SDKs also expose a `Reload` field in `Config` for local
+development:
+
+```go
+plugin, err := urlbalancer.Open(ctx, urlbalancer.Config{
+	PluginPath: "./plugin.wasm",
+	Host: urlbalancer.Host{
+		Rng: host{},
+	},
+	FileOptions: []hookr.FileOption{
+		hookr.WithAllowUnsigned(),
+	},
+	Reload: &urlbalancer.ReloadConfig{
+		OnReload: func(ctx context.Context, next *urlbalancer.Runtime, event hookr.ReloadEvent) error {
+			_, err := next.GetInfo(ctx, &urlbalancer.EmptyT{})
+			return err
+		},
+	},
+})
+```
+
+Use `OnReload` to warm caches, rehydrate host-side state, or run a typed sanity
+check against the replacement plugin before Hookr resumes traffic.
 
 For plugin development, Hookr can validate and call plugins directly from the
 CLI. For example, this calls the `urlbalancer` plugin with a host callback

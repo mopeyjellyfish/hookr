@@ -41,6 +41,7 @@ export default defineConfig({
 					{ text: "Generate Glue", link: "/how-to/generate-glue" },
 					{ text: "Build Plugin", link: "/how-to/build-plugin" },
 					{ text: "Open And Call Plugin", link: "/how-to/open-and-call-plugin" },
+					{ text: "Enable Live Reload", link: "/how-to/enable-live-reload" },
 					{ text: "Inspect Contract", link: "/how-to/inspect-contract" },
 					{ text: "Debug Plugin From CLI", link: "/how-to/debug-plugin-from-cli" },
 					{ text: "Run Benchmarks", link: "/how-to/run-benchmarks" }
@@ -62,6 +63,7 @@ export default defineConfig({
 				items: [
 					{ text: "Overview", link: "/explanation/" },
 					{ text: "Architecture", link: "/explanation/architecture" },
+					{ text: "Live Reload Lifecycle", link: "/explanation/live-reload-lifecycle" },
 					{ text: "Performance Model", link: "/explanation/performance-model" },
 					{
 						text: "Plugin Debugging And Development Tooling",

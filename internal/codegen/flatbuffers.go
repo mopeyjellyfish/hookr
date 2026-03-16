@@ -360,6 +360,7 @@ import (
 	{{- if .HasHostModules }}
 	"reflect"
 	{{- end }}
+	"time"
 
 	flatbuffers "github.com/google/flatbuffers/go"
 	hookrruntime "github.com/mopeyjellyfish/hookr/runtime"
@@ -384,7 +385,7 @@ var PluginSchema = runtimecontract.Schema{
 	}
 
 type Runtime struct {
-	rt *hookrruntime.Runtime
+	rt runtimeInvoker
 }
 
 type Config struct {
@@ -393,7 +394,22 @@ type Config struct {
 	{{- if .HasHostModules }}
 	Host           Host
 	{{- end }}
+	Reload         *ReloadConfig
 	RuntimeOptions []hookrruntime.Option
+}
+
+type ReloadConfig struct {
+	Debounce      time.Duration
+	OnReload      func(ctx context.Context, next *Runtime, event hookrruntime.ReloadEvent) error
+	OnReloadError func(ctx context.Context, err error)
+}
+
+type runtimeInvoker interface {
+	InvokeMethod(ctx context.Context, methodID uint32, payload []byte) ([]byte, error)
+	InvokeMethodWithResponse(ctx context.Context, methodID uint32, payload []byte, fn func([]byte) error) error
+	HasPluginMethodID(methodID uint32) bool
+	PluginHandshake() (runtimecontract.Handshake, bool)
+	Close(ctx context.Context) error
 }
 
 {{ if .HasHostModules -}}
@@ -429,6 +445,26 @@ func Open(ctx context.Context, cfg Config) (*Runtime, error) {
 	opts = append(opts, hookrruntime.WithHostMethodFns(bindHostMethods(cfg.Host)...))
 	{{- end }}
 	opts = append(opts, cfg.RuntimeOptions...)
+	if cfg.Reload != nil {
+		reload := hookrruntime.ReloadConfig{
+			Debounce:      cfg.Reload.Debounce,
+			OnReloadError: cfg.Reload.OnReloadError,
+		}
+		if cfg.Reload.OnReload != nil {
+			reload.OnReload = func(
+				ctx context.Context,
+				next hookrruntime.Invoker,
+				event hookrruntime.ReloadEvent,
+			) error {
+				return cfg.Reload.OnReload(ctx, &Runtime{rt: next}, event)
+			}
+		}
+		rt, err := hookrruntime.NewLive(ctx, reload, opts...)
+		if err != nil {
+			return nil, err
+		}
+		return &Runtime{rt: rt}, nil
+	}
 	rt, err := hookrruntime.New(ctx, opts...)
 	if err != nil {
 		return nil, err

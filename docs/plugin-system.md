@@ -59,6 +59,20 @@ Hookr auto-discovers host modules from the schema. The host side gets a
 generated aggregate `Host` struct with one field per module, and the plugin
 side gets namespaced clients such as `ctx.Rng.Int(...)`.
 
+```mermaid
+flowchart LR
+    A[FlatBuffers schema] --> B[Plugin service]
+    A --> C[Host callback modules]
+    B --> D[Generated host SDK]
+    B --> E[Generated plugin PDK]
+    C --> D
+    C --> E
+    D --> F[Go host app]
+    E --> G[Wasm plugin]
+    F <--> H[Hookr runtime ABI]
+    G <--> H
+```
+
 Plugin methods are required by default. Optional methods should be expressed in
 the schema via Hookr-recognized FlatBuffers attributes.
 
