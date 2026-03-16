@@ -20,6 +20,7 @@ import (
 
 const (
 	SIMPLE_METHOD_WASM          = "../testdata/simplemethod/bin/simplemethod.wasm"
+	UNSUCCESSFUL_CALL_WASM      = "../testdata/unsuccessful_call/bin/unsuccessful_call.wasm"
 	INVALID_WASM                = "../testdata/invalid/invalidformat.wasm"
 	EMPTY_WASM                  = "../testdata/empty/bin/empty.wasm"
 	HANDSHAKE_NOABI             = "../testdata/handshake_noabi/bin/handshake_noabi.wasm"
@@ -956,8 +957,7 @@ func TestInvokeMethodWithResponseUnsuccessful(t *testing.T) {
 	ctx := context.Background()
 	p, err := New(
 		ctx,
-		WithFile(SIMPLE_METHOD_WASM, WithAllowUnsigned()),
-		WithHostMethodFns(HostFnMethod(1, HelloByte)),
+		WithFile(UNSUCCESSFUL_CALL_WASM, WithAllowUnsigned()),
 	)
 	require.NoError(t, err)
 	defer func() {
@@ -965,7 +965,7 @@ func TestInvokeMethodWithResponseUnsuccessful(t *testing.T) {
 	}()
 
 	err = p.InvokeMethodWithResponse(ctx, 999, []byte("Steve"), nil)
-	require.EqualError(t, err, "unknown method id 999")
+	require.EqualError(t, err, "call to method 999 was unsuccessful")
 }
 
 func TestNewPropagatesOptionError(t *testing.T) {

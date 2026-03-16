@@ -8,6 +8,10 @@ BIN_FOLDER_MACOS=${BIN_FOLDER}/amd64/darwin
 BIN_FOLDER_WINDOWS=${BIN_FOLDER}/amd64/windows
 BIN_FOLDER_LINUX=${BIN_FOLDER}/amd64/linux
 BIN_NAME=${PROJECTNAME}
+GOTESTSUM ?= gotestsum
+TEST_PKGS=./runtime/...
+TEST_COVERFLAGS=-timeout 10s -race -coverprofile=coverage.txt -coverpkg=./runtime/...
+TEST_FAILFAST_FLAGS=-timeout 60s -race -failfast
 
 # Make is verbose in Linux. Make it silent.
 MAKEFLAGS += --silent
@@ -28,7 +32,7 @@ setup/tools:
 # setup/go: install go tooling
 setup/go:
 	@echo "  >  Installing go tools"
-	go install github.com/kyoh86/richgo@latest
+	go install gotest.tools/gotestsum@latest
 
 ## compile: compiles project in current system
 compile: clean fmt vet lint test build
@@ -139,11 +143,7 @@ lint:
 ## test: run all unit tests
 test:
 	@echo "  >  Executing unit tests"
-	@if ! type "richgo" > /dev/null 2>&1; then \
-		go test -v -timeout 10s -race -coverprofile=coverage.txt -coverpkg=./runtime/... ./runtime/...; \
-	else \
-		richgo test -v -timeout 10s -race -coverprofile=coverage.txt -coverpkg=./runtime/... ./runtime/...; \
-	fi
+	@$(GOTESTSUM) --format pkgname -- $(TEST_COVERFLAGS) $(TEST_PKGS)
 
 ## test/cover: run all unit tests with coverage
 test/cover: build/testdata test
@@ -152,11 +152,7 @@ test/cover: build/testdata test
 ## test/ff: run all tests fail on first failure
 test/ff:
 	@echo "  >  Executing unit tests - fail fast"
-	@if ! type "richgo" > /dev/null 2>&1; then \
-		go test -v -timeout 60s -race -failfast ./runtime/...; \
-	else \
-		richgo test -v -timeout 60s -race -failfast ./runtime/...; \
-	fi
+	@$(GOTESTSUM) --format pkgname -- $(TEST_FAILFAST_FLAGS) $(TEST_PKGS)
 
 ## build/runtime: build the runtime for hookr to be injected into the WASM runtime
 build/runtime:
