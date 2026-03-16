@@ -52,6 +52,9 @@ var (
 	newWazeroRuntime          = wazero.NewRuntime
 	instantiateWASI           = wasi_snapshot_preview1.Instantiate
 	newAssemblyscriptExporter = assemblyscript.NewFunctionExporter
+	callFunction              = func(ctx context.Context, fn api.Function) ([]uint64, error) {
+		return fn.Call(ctx)
+	}
 )
 
 type Runtime struct {
@@ -563,7 +566,7 @@ func (e *Runtime) currentInvoke() *invoke.Context {
 }
 
 func (e *Runtime) loadPluginMethods(fn api.Function) (map[uint32]struct{}, error) {
-	results, err := fn.Call(e.ctx)
+	results, err := callFunction(e.ctx, fn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to call %s: %w", fnMethods, err)
 	}

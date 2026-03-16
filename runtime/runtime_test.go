@@ -776,20 +776,16 @@ func TestLoadPluginMethodsErrorPaths(t *testing.T) {
 	})
 
 	t.Run("call failure on closed module", func(t *testing.T) {
-		p, err := New(
-			ctx,
-			WithFile(SIMPLE_METHOD_WASM, WithAllowUnsigned()),
-			WithHostMethodFns(HostFnMethod(1, HelloByte)),
-		)
-		require.NoError(t, err)
-		methodsFn := p.plugin.ExportedFunction(fnMethods)
-		require.NotNil(t, methodsFn)
-		require.NoError(t, p.plugin.Close(ctx))
+		prev := callFunction
+		callFunction = func(context.Context, api.Function) ([]uint64, error) {
+			return nil, errors.New("boom")
+		}
 		t.Cleanup(func() {
-			require.NoError(t, p.Close(ctx))
+			callFunction = prev
 		})
 
-		_, err = p.loadPluginMethods(methodsFn)
+		p := &Runtime{ctx: ctx}
+		_, err := p.loadPluginMethods(nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to call __hookr_methods")
 	})
