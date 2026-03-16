@@ -1,3 +1,15 @@
+# [2.4.0](https://github.com/mopeyjellyfish/hookr/compare/v2.3.0...v2.4.0) (2026-03-16)
+
+
+### Bug Fixes
+
+* harden reload runtime and clean generic docs ([ffcbb02](https://github.com/mopeyjellyfish/hookr/commit/ffcbb02e9a9d133d14015b0fa1ec16e7eebededa))
+
+
+### Features
+
+* add live reloading for plugin runtimes ([41a798f](https://github.com/mopeyjellyfish/hookr/commit/41a798f76de6df000ebedc2e930c147331d7ff87))
+
 # [2.3.0](https://github.com/mopeyjellyfish/hookr/compare/v2.2.0...v2.3.0) (2026-03-16)
 
 
