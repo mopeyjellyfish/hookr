@@ -1,3 +1,10 @@
+# [2.3.0](https://github.com/mopeyjellyfish/hookr/compare/v2.2.0...v2.3.0) (2026-03-16)
+
+
+### Features
+
+* add version command to hookr cli ([279d2f1](https://github.com/mopeyjellyfish/hookr/commit/279d2f19c1acb0f01b4b8e4d6f906a310e2722bc))
+
 # [2.2.0](https://github.com/mopeyjellyfish/hookr/compare/v2.1.0...v2.2.0) (2026-03-15)
 
 
