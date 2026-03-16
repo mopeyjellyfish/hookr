@@ -11,6 +11,7 @@ import (
 	"github.com/mopeyjellyfish/hookr/internal/codegen"
 	"github.com/mopeyjellyfish/hookr/internal/inspect"
 	"github.com/mopeyjellyfish/hookr/internal/tui"
+	"github.com/mopeyjellyfish/hookr/internal/version"
 	"github.com/spf13/cobra"
 )
 
@@ -24,6 +25,7 @@ func NewRootCommand() *cobra.Command {
 		Short:         "Hookr CLI",
 		SilenceUsage:  true,
 		SilenceErrors: true,
+		Version:       version.Current(),
 	}
 
 	cmd.AddCommand(
@@ -33,9 +35,21 @@ func NewRootCommand() *cobra.Command {
 		newInspectCommand(),
 		newCallCommand(),
 		newTUICommand(),
+		newVersionCommand(),
 	)
 
 	return cmd
+}
+
+func newVersionCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "version",
+		Short: "Print the Hookr version",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			_, err := fmt.Fprintln(cmd.OutOrStdout(), version.Current())
+			return err
+		},
+	}
 }
 
 func newGenCommand() *cobra.Command {

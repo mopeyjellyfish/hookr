@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/mopeyjellyfish/hookr/internal/version"
 )
 
 func TestGenCommandGeneratesFiles(t *testing.T) {
@@ -97,5 +99,27 @@ func TestInspectCommandIncludeFlag(t *testing.T) {
 	}
 	if err := cmd.ParseFlags([]string{"-I", "shared"}); err != nil {
 		t.Fatalf("parse shorthand include flag: %v", err)
+	}
+}
+
+func TestVersionCommandPrintsVersion(t *testing.T) {
+	prev := version.Value
+	version.Value = "v1.2.3-test"
+	t.Cleanup(func() {
+		version.Value = prev
+	})
+
+	cmd := NewRootCommand()
+	cmd.SetArgs([]string{"version"})
+	out := new(bytes.Buffer)
+	cmd.SetOut(out)
+	cmd.SetErr(new(bytes.Buffer))
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("execute version command: %v", err)
+	}
+
+	if got := out.String(); got != "v1.2.3-test\n" {
+		t.Fatalf("version output = %q, want %q", got, "v1.2.3-test\n")
 	}
 }
