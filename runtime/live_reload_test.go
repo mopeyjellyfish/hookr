@@ -154,7 +154,12 @@ func TestLiveRuntimeCloseIsSafeConcurrently(t *testing.T) {
 	ctx := context.Background()
 	tempPlugin := copyWASMFixture(t, SIMPLE_METHOD_WASM)
 
-	rt, err := NewLive(ctx, ReloadConfig{}, WithFile(tempPlugin, WithAllowUnsigned()), WithContractSchema(simpleMethodSchema()))
+	rt, err := NewLive(
+		ctx,
+		ReloadConfig{},
+		WithFile(tempPlugin, WithAllowUnsigned()),
+		WithContractSchema(simpleMethodSchema()),
+	)
 	require.NoError(t, err)
 
 	var wg sync.WaitGroup
