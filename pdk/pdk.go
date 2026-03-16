@@ -117,6 +117,9 @@ func HostCallMethodWithResponse(methodID uint32, payload []byte, handle func([]b
 	result := hostCall(methodID, bytesToPointer(payload), uint32(len(payload)))
 	if !result {
 		errorLen := hostErrorLen()
+		if errorLen == 0 {
+			return &HostError{message: "host call failed without an error message"}
+		}
 		message := ensureScratch(&hostErrScratch, errorLen)
 		hostError(bytesToPointer(message))
 

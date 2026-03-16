@@ -72,7 +72,7 @@ func TestHostCallMethodErrorPath(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected host call error")
 	}
-	if !strings.Contains(err.Error(), "Host error") {
+	if !strings.Contains(err.Error(), "host call failed without an error message") {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }

@@ -17,15 +17,48 @@ Typical host API:
 - `PluginPath` for the plugin artifact path; swap in any `.wasm` built for the same contract
 - `FileOptions` for trust policy, such as `WithHash(...)` or `WithAllowUnsigned()`
 - `Host` (generated aggregate struct containing host modules)
+- `Reload` (optional live reload config)
 - `RuntimeOptions` (forwarded to runtime)
 
 If the contract defines no host callbacks, the generated `Config` will omit
 `Host`.
 
+### Live Reload
+
+Every generated host SDK also exposes:
+
+```go
+type ReloadConfig struct {
+	Debounce      time.Duration
+	OnReload      func(ctx context.Context, next *Runtime, event hookr.ReloadEvent) error
+	OnReloadError func(ctx context.Context, err error)
+}
+```
+
+Set `Config.Reload` when you want Hookr to watch `PluginPath` and reload the
+plugin automatically during development.
+
+`OnReload` receives the typed replacement runtime for the generated contract, so
+host code can call normal generated methods before traffic resumes. If
+`OnReload` returns an error, Hookr aborts the swap and keeps the previous
+runtime active.
+
+While a reload is in progress:
+
+- Hookr blocks new plugin calls
+- loads and validates the replacement plugin
+- runs `OnReload`
+- swaps the runtime only after all of that succeeds
+
+If the replacement plugin fails to load or the hook returns an error,
+`OnReloadError` is invoked and the current runtime stays active.
+
 ### Host Callback Story
 
-Host callbacks come from every non-`Plugin` `rpc_service` in the schema. Hookr
-auto-discovers those services as host modules.
+Host callbacks come from every `rpc_service` in the schema other than the
+configured plugin service. By default that means every non-`Plugin`
+`rpc_service`, but `hookr gen --plugin-service ...` can change which service is
+treated as the plugin entrypoint.
 
 For a contract like:
 
@@ -88,7 +121,7 @@ func (plugin) Balance(ctx *mycontracthookr.PluginContext, req *mycontracthookr.B
 
 So the callback path is:
 
-1. schema defines host modules as non-`Plugin` `rpc_service`s
+1. schema defines host modules as every `rpc_service` other than the configured plugin service
 2. host implements generated module interfaces
 3. `Open(...)` binds that implementation
 4. plugin calls generated module clients on `PluginContext`

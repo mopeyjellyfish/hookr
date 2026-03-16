@@ -135,6 +135,13 @@ func validateFlatBuffersGoIdentifiers(model contract.Contract) error {
 	idOwners := map[string]string{}
 	typeQualified := map[string]string{}
 	typeOwners := map[string]string{}
+	reserveIdentifier := func(identifier string, owner string) {
+		idOwners[identifier] = owner
+	}
+	reserveType := func(typeName string, owner string) {
+		typeQualified[typeName] = owner
+		typeOwners[typeName] = owner
+	}
 	registerIdentifier := func(kind string, identifier string, owner string) error {
 		if prior, ok := idOwners[identifier]; ok && prior != owner {
 			return fmt.Errorf(
@@ -163,10 +170,39 @@ func validateFlatBuffersGoIdentifiers(model contract.Contract) error {
 		typeOwners[typeName] = owner
 		return nil
 	}
+	for identifier, owner := range map[string]string{
+		"PluginSchema":         "generated package value",
+		"SchemaHash":           "generated package value",
+		"ContractCapabilities": "generated package value",
+		"Runtime":              "generated runtime type",
+		"Config":               "generated config type",
+		"ReloadConfig":         "generated reload config type",
+		"Host":                 "generated host aggregate type",
+		"PluginContext":        "generated plugin context type",
+		"Plugin":               "generated plugin interface",
+		"Open":                 "generated package function",
+		"RegisterPlugin":       "generated package function",
+		"MustRegisterPlugin":   "generated package function",
+	} {
+		reserveIdentifier(identifier, owner)
+	}
+	for typeName, owner := range map[string]string{
+		"Runtime":       "generated.Runtime",
+		"Config":        "generated.Config",
+		"ReloadConfig":  "generated.ReloadConfig",
+		"Host":          "generated.Host",
+		"Plugin":        "generated.Plugin",
+		"PluginContext": "generated.PluginContext",
+	} {
+		reserveType(typeName, owner)
+	}
 	checkPluginMethods := func(methods []contract.Method) error {
 		for _, method := range methods {
 			owner := method.ServiceName + "." + method.Name
 			goName := toExportedIdentifier(method.Name)
+			if goName == "Close" {
+				return fmt.Errorf("generated Go method identifier collision for %q between generated Runtime.Close and %s", goName, owner)
+			}
 			if err := registerIdentifier("method", goName, owner); err != nil {
 				return err
 			}
@@ -360,6 +396,7 @@ import (
 	{{- if .HasHostModules }}
 	"reflect"
 	{{- end }}
+	"time"
 
 	flatbuffers "github.com/google/flatbuffers/go"
 	hookrruntime "github.com/mopeyjellyfish/hookr/runtime"
@@ -384,7 +421,7 @@ var PluginSchema = runtimecontract.Schema{
 	}
 
 type Runtime struct {
-	rt *hookrruntime.Runtime
+	rt runtimeInvoker
 }
 
 type Config struct {
@@ -393,7 +430,22 @@ type Config struct {
 	{{- if .HasHostModules }}
 	Host           Host
 	{{- end }}
+	Reload         *ReloadConfig
 	RuntimeOptions []hookrruntime.Option
+}
+
+type ReloadConfig struct {
+	Debounce      time.Duration
+	OnReload      func(ctx context.Context, next *Runtime, event hookrruntime.ReloadEvent) error
+	OnReloadError func(ctx context.Context, err error)
+}
+
+type runtimeInvoker interface {
+	InvokeMethod(ctx context.Context, methodID uint32, payload []byte) ([]byte, error)
+	InvokeMethodWithResponse(ctx context.Context, methodID uint32, payload []byte, fn func([]byte) error) error
+	HasPluginMethodID(methodID uint32) bool
+	PluginHandshake() (runtimecontract.Handshake, bool)
+	Close(ctx context.Context) error
 }
 
 {{ if .HasHostModules -}}
@@ -429,6 +481,26 @@ func Open(ctx context.Context, cfg Config) (*Runtime, error) {
 	opts = append(opts, hookrruntime.WithHostMethodFns(bindHostMethods(cfg.Host)...))
 	{{- end }}
 	opts = append(opts, cfg.RuntimeOptions...)
+	if cfg.Reload != nil {
+		reload := hookrruntime.ReloadConfig{
+			Debounce:      cfg.Reload.Debounce,
+			OnReloadError: cfg.Reload.OnReloadError,
+		}
+		if cfg.Reload.OnReload != nil {
+			reload.OnReload = func(
+				ctx context.Context,
+				next hookrruntime.Invoker,
+				event hookrruntime.ReloadEvent,
+			) error {
+				return cfg.Reload.OnReload(ctx, &Runtime{rt: next}, event)
+			}
+		}
+		rt, err := hookrruntime.NewLive(ctx, reload, opts...)
+		if err != nil {
+			return nil, err
+		}
+		return &Runtime{rt: rt}, nil
+	}
 	rt, err := hookrruntime.New(ctx, opts...)
 	if err != nil {
 		return nil, err

@@ -5,6 +5,7 @@ on: [push]
 jobs:
   test:
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -17,6 +18,8 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: ${{ matrix.go }}
+      - name: Install gotestsum
+        run: go install gotest.tools/gotestsum@latest
       - run: make test
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5

@@ -45,12 +45,16 @@ const (
 	fnSchemaHash   = "__hookr_schema_hash"
 	fnCapabilities = "__hookr_capabilities"
 	fnMethods      = "__hookr_methods"
+	maxMethodsLen  = 64 * 1024
 )
 
 var (
 	newWazeroRuntime          = wazero.NewRuntime
 	instantiateWASI           = wasi_snapshot_preview1.Instantiate
 	newAssemblyscriptExporter = assemblyscript.NewFunctionExporter
+	callFunction              = func(ctx context.Context, fn api.Function) ([]uint64, error) {
+		return fn.Call(ctx)
+	}
 )
 
 type Runtime struct {
@@ -562,7 +566,7 @@ func (e *Runtime) currentInvoke() *invoke.Context {
 }
 
 func (e *Runtime) loadPluginMethods(fn api.Function) (map[uint32]struct{}, error) {
-	results, err := fn.Call(e.ctx)
+	results, err := callFunction(e.ctx, fn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to call %s: %w", fnMethods, err)
 	}
@@ -576,9 +580,25 @@ func (e *Runtime) loadPluginMethods(fn api.Function) (map[uint32]struct{}, error
 	if dataLen%4 != 0 {
 		return nil, fmt.Errorf("plugin methods payload has invalid length: got %d", dataLen)
 	}
+	if dataLen > maxMethodsLen {
+		return nil, fmt.Errorf("plugin methods payload too large: got %d", dataLen)
+	}
 	raw, err := runtimememory.TryRead(e.plugin.Memory(), "methods", ptr, dataLen)
 	if err != nil {
 		return nil, err
+	}
+	return decodePluginMethodSet(raw)
+}
+
+func decodePluginMethodSet(raw []byte) (map[uint32]struct{}, error) {
+	if len(raw) == 0 {
+		return map[uint32]struct{}{}, nil
+	}
+	if len(raw)%4 != 0 {
+		return nil, fmt.Errorf("plugin methods payload has invalid length: got %d", len(raw))
+	}
+	if len(raw) > maxMethodsLen {
+		return nil, fmt.Errorf("plugin methods payload too large: got %d", len(raw))
 	}
 	methods := make(map[uint32]struct{}, len(raw)/4)
 	for i := 0; i < len(raw); i += 4 {

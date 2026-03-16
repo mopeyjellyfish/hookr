@@ -47,6 +47,10 @@ Optional flags:
 - `--scheduler`
 - `--no-debug`
 
+### `hookr version`
+
+Print the Hookr CLI version embedded in the binary.
+
 ### `hookr inspect`
 
 Inspect Hookr contract metadata derived from a FlatBuffers schema, optionally
@@ -112,7 +116,8 @@ Key optional flags:
 
 Behavior notes:
 
-- `inspect`, `call`, and `tui` require explicit trust for the plugin artifact: pass `--hash` for pinned plugins or `--allow-unsigned` for local dev builds
+- `inspect` requires explicit trust only when `--plugin` is provided
+- `call` and `tui` always require explicit trust for the plugin artifact: pass `--hash` for pinned plugins or `--allow-unsigned` for local dev builds
 - requests are pre-filled from the FlatBuffers schema
 - the top bar shows the active schema, plugin, method, and live timing stats
 - request text is read-only inside the UI; editing uses `$VISUAL`, then `$EDITOR`
@@ -135,7 +140,7 @@ Optional flags:
 ## Notes
 
 - `hookr gen` expects FlatBuffers schemas and an available `flatc` binary.
-- Hookr auto-discovers host callback modules from every non-`Plugin` `rpc_service` in the schema.
+- Hookr auto-discovers host callback modules from every `rpc_service` other than the configured plugin service.
 - `hookr build` is TinyGo-first today; the CLI is structured so more build backends can be added later.
 - `hookr inspect` is useful for confirming schema hash, method IDs, required versus optional methods, and handshake-visible metadata before you wire a host.
 - `hookr call` is the fastest path for reproducing a request/response bug against a real plugin.

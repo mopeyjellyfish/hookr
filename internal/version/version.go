@@ -5,10 +5,8 @@ import (
 	"strings"
 )
 
-var (
-	// Value is optionally overridden at build time via -ldflags for packaged builds.
-	Value = ""
-)
+// Value is optionally overridden at build time via -ldflags for packaged builds.
+var Value = ""
 
 type Info struct {
 	Version  string

@@ -36,7 +36,8 @@ hookr gen \
   --plugin-service EnginePlugin
 ```
 
-Every non-`Plugin` `rpc_service` is auto-discovered as a host callback module.
+Every `rpc_service` other than the configured plugin service is
+auto-discovered as a host callback module.
 
 ## Output
 

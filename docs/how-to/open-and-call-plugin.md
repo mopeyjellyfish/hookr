@@ -67,6 +67,29 @@ if err != nil {
 _ = resp
 ```
 
+Optional: enable live reload during development:
+
+```go
+plugin, err := mycontracthookr.Open(ctx, mycontracthookr.Config{
+	PluginPath: "./bin/plugin.wasm",
+	Host: mycontracthookr.Host{
+		Rng: host{},
+	},
+	FileOptions: []hookr.FileOption{
+		hookr.WithAllowUnsigned(),
+	},
+	Reload: &mycontracthookr.ReloadConfig{
+		OnReload: func(ctx context.Context, next *mycontracthookr.Runtime, event hookr.ReloadEvent) error {
+			_, err := next.SomeMethod(ctx, &mycontracthookr.SomeRequestT{})
+			return err
+		},
+	},
+})
+```
+
+Hookr watches `PluginPath`, pauses new calls while the replacement plugin is
+loading, and swaps the runtime only if reload succeeds.
+
 For contracts with host callbacks, `host{}` must implement the generated module
 interface. A minimal example looks like this:
 

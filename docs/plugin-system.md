@@ -59,6 +59,20 @@ Hookr auto-discovers host modules from the schema. The host side gets a
 generated aggregate `Host` struct with one field per module, and the plugin
 side gets namespaced clients such as `ctx.Rng.Int(...)`.
 
+```mermaid
+flowchart LR
+    A[FlatBuffers schema] --> B[Plugin service]
+    A --> C[Host callback modules]
+    B --> D[Generated host SDK]
+    B --> E[Generated plugin PDK]
+    C --> D
+    C --> E
+    D --> F[Go host app]
+    E --> G[Wasm plugin]
+    F <--> H[Hookr runtime ABI]
+    G <--> H
+```
+
 Plugin methods are required by default. Optional methods should be expressed in
 the schema via Hookr-recognized FlatBuffers attributes.
 
@@ -202,5 +216,5 @@ The Go-first delivery plan described above is implemented:
 The next phases are no longer about proving the core model. They are about:
 
 1. expanding the benchmark matrix,
-2. piloting the system in DICE,
+2. piloting the system in a real consumer application,
 3. preparing future Rust and Zig backends without changing the Go-first API.

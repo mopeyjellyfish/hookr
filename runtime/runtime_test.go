@@ -20,6 +20,7 @@ import (
 
 const (
 	SIMPLE_METHOD_WASM          = "../testdata/simplemethod/bin/simplemethod.wasm"
+	UNSUCCESSFUL_CALL_WASM      = "../testdata/unsuccessful_call/bin/unsuccessful_call.wasm"
 	INVALID_WASM                = "../testdata/invalid/invalidformat.wasm"
 	EMPTY_WASM                  = "../testdata/empty/bin/empty.wasm"
 	HANDSHAKE_NOABI             = "../testdata/handshake_noabi/bin/handshake_noabi.wasm"
@@ -749,18 +750,10 @@ func TestRuntimeHandshakeAllowsMissingOptionalMethods(t *testing.T) {
 }
 
 func TestLoadPluginMethods(t *testing.T) {
-	ctx := context.Background()
-	p, err := New(
-		ctx,
-		WithFile(SIMPLE_METHOD_WASM, WithAllowUnsigned()),
-		WithHostMethodFns(HostFnMethod(1, HelloByte)),
-	)
-	require.NoError(t, err)
-	defer func() {
-		require.NoError(t, p.Close(ctx))
-	}()
-
-	methods, err := p.loadPluginMethods(p.plugin.ExportedFunction(fnMethods))
+	methods, err := decodePluginMethodSet([]byte{
+		0x02, 0x00, 0x00, 0x00,
+		0x03, 0x00, 0x00, 0x00,
+	})
 	require.NoError(t, err)
 	require.Contains(t, methods, uint32(2))
 	require.Contains(t, methods, uint32(3))
@@ -769,21 +762,30 @@ func TestLoadPluginMethods(t *testing.T) {
 func TestLoadPluginMethodsErrorPaths(t *testing.T) {
 	ctx := context.Background()
 
+	t.Run("decode malformed payload", func(t *testing.T) {
+		_, err := decodePluginMethodSet([]byte{0x01, 0x02, 0x03})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid length")
+	})
+
+	t.Run("decode oversized payload", func(t *testing.T) {
+		raw := make([]byte, maxMethodsLen+4)
+		_, err := decodePluginMethodSet(raw)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "too large")
+	})
+
 	t.Run("call failure on closed module", func(t *testing.T) {
-		p, err := New(
-			ctx,
-			WithFile(SIMPLE_METHOD_WASM, WithAllowUnsigned()),
-			WithHostMethodFns(HostFnMethod(1, HelloByte)),
-		)
-		require.NoError(t, err)
-		methodsFn := p.plugin.ExportedFunction(fnMethods)
-		require.NotNil(t, methodsFn)
-		require.NoError(t, p.plugin.Close(ctx))
+		prev := callFunction
+		callFunction = func(context.Context, api.Function) ([]uint64, error) {
+			return nil, errors.New("boom")
+		}
 		t.Cleanup(func() {
-			require.NoError(t, p.Close(ctx))
+			callFunction = prev
 		})
 
-		_, err = p.loadPluginMethods(methodsFn)
+		p := &Runtime{ctx: ctx}
+		_, err := p.loadPluginMethods(nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to call __hookr_methods")
 	})
@@ -956,8 +958,7 @@ func TestInvokeMethodWithResponseUnsuccessful(t *testing.T) {
 	ctx := context.Background()
 	p, err := New(
 		ctx,
-		WithFile(SIMPLE_METHOD_WASM, WithAllowUnsigned()),
-		WithHostMethodFns(HostFnMethod(1, HelloByte)),
+		WithFile(UNSUCCESSFUL_CALL_WASM, WithAllowUnsigned()),
 	)
 	require.NoError(t, err)
 	defer func() {
@@ -965,7 +966,7 @@ func TestInvokeMethodWithResponseUnsuccessful(t *testing.T) {
 	}()
 
 	err = p.InvokeMethodWithResponse(ctx, 999, []byte("Steve"), nil)
-	require.EqualError(t, err, "unknown method id 999")
+	require.EqualError(t, err, "call to method 999 was unsuccessful")
 }
 
 func TestNewPropagatesOptionError(t *testing.T) {

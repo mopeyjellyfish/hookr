@@ -42,8 +42,8 @@ The plugin is expected to:
 ## Why This Fixture Exists
 
 This example proves the Hookr shape without baking application semantics into
-Hookr itself. DICE will later define its own FlatBuffers contract in the same
-way.
+Hookr itself. A consuming application can later define its own FlatBuffers
+contract in the same way.
 
 ## Working Flow
 
