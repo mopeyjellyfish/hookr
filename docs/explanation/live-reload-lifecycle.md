@@ -81,8 +81,8 @@ Poor fit:
 - critical state only exists in Wasm globals or heap memory
 - the host has no way to reconstruct it
 
-For systems like DICE, this means state should be host-owned or at least
-serializable through the engine contract.
+For stateful plugin systems, this means state should be host-owned or at least
+serializable through the plugin contract.
 
 ## What `OnReload` Is For
 
@@ -110,7 +110,7 @@ Development flow:
 Production flow:
 
 - usually no live reload
-- pinned hashes or signed artifacts
+- pinned hashes or a custom file verifier via `WithHasher(...)`
 
 If the host pins a hash and the file changes, Hookr should reject the
 replacement artifact.

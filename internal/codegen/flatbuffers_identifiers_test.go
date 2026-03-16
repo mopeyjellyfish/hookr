@@ -161,3 +161,55 @@ func TestValidateFlatBuffersGoIdentifiers_AllowsSameMethodNameAcrossHostModules(
 		t.Fatalf("unexpected collision error: %v", err)
 	}
 }
+
+func TestValidateFlatBuffersGoIdentifiers_RejectsReservedPluginMethodName(t *testing.T) {
+	model := contract.Contract{
+		PluginService: contract.Service{
+			Name: "Plugin",
+			Methods: []contract.Method{
+				{
+					ServiceName:       "Plugin",
+					Name:              "Close",
+					RequestType:       "CloseRequest",
+					RequestQualified:  "Hookr.CloseRequest",
+					ResponseType:      "CloseResponse",
+					ResponseQualified: "Hookr.CloseResponse",
+				},
+			},
+		},
+	}
+
+	err := validateFlatBuffersGoIdentifiers(model)
+	if err == nil {
+		t.Fatal("expected reserved identifier error")
+	}
+	if !strings.Contains(err.Error(), "Runtime.Close") {
+		t.Fatalf("expected Runtime.Close collision, got %v", err)
+	}
+}
+
+func TestValidateFlatBuffersGoIdentifiers_RejectsReservedTypeName(t *testing.T) {
+	model := contract.Contract{
+		PluginService: contract.Service{
+			Name: "Plugin",
+			Methods: []contract.Method{
+				{
+					ServiceName:       "Plugin",
+					Name:              "GetInfo",
+					RequestType:       "Runtime",
+					RequestQualified:  "Hookr.Runtime",
+					ResponseType:      "Info",
+					ResponseQualified: "Hookr.Info",
+				},
+			},
+		},
+	}
+
+	err := validateFlatBuffersGoIdentifiers(model)
+	if err == nil {
+		t.Fatal("expected reserved type collision")
+	}
+	if !strings.Contains(err.Error(), "type helper collision") {
+		t.Fatalf("expected type helper collision, got %v", err)
+	}
+}

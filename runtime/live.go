@@ -15,6 +15,10 @@ import (
 
 const defaultReloadDebounce = 250 * time.Millisecond
 
+var closeReloadRuntime = func(ctx context.Context, rt *Runtime) error {
+	return rt.Close(ctx)
+}
+
 // Invoker is the minimal runtime surface used by generated host SDKs and
 // reload hooks.
 type Invoker interface {
@@ -60,9 +64,10 @@ type LiveRuntime struct {
 	current *Runtime
 	closed  bool
 
-	watcher *fsnotify.Watcher
-	stopCh  chan struct{}
-	doneCh  chan struct{}
+	watcher  *fsnotify.Watcher
+	stopCh   chan struct{}
+	doneCh   chan struct{}
+	stopOnce sync.Once
 }
 
 // NewLive creates a plugin runtime that watches the plugin file and reloads it
@@ -166,7 +171,9 @@ func (l *LiveRuntime) Close(ctx context.Context) error {
 	select {
 	case <-l.doneCh:
 	default:
-		close(l.stopCh)
+		l.stopOnce.Do(func() {
+			close(l.stopCh)
+		})
 		<-l.doneCh
 	}
 
@@ -245,7 +252,7 @@ func (l *LiveRuntime) watch() {
 			l.reportReloadError(fmt.Errorf("watch plugin: %w", err))
 		case <-timerC:
 			timerC = nil
-			if err := l.reloadNow(); err != nil {
+			if err := l.safeReloadNow(); err != nil {
 				l.reportReloadError(err)
 			}
 		}
@@ -283,18 +290,37 @@ func (l *LiveRuntime) reloadNow() error {
 		Previous:   runtimeInfo(current),
 		Current:    runtimeInfo(next),
 	}
-	if l.reload.OnReload != nil {
-		if err := l.reload.OnReload(l.ctx, next, event); err != nil {
-			_ = next.Close(l.ctx)
-			return fmt.Errorf("reload hook failed: %w", err)
-		}
+	if err := l.callOnReload(next, &event); err != nil {
+		_ = next.Close(l.ctx)
+		return fmt.Errorf("reload hook failed: %w", err)
 	}
 
 	l.current = next
-	if err := current.Close(l.ctx); err != nil {
-		return fmt.Errorf("close previous runtime after reload: %w", err)
+	if err := closeReloadRuntime(l.ctx, current); err != nil {
+		l.reportReloadError(fmt.Errorf("close previous runtime after reload: %w", err))
 	}
 	return nil
+}
+
+func (l *LiveRuntime) safeReloadNow() (err error) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			err = fmt.Errorf("reload panic: %v", recovered)
+		}
+	}()
+	return l.reloadNow()
+}
+
+func (l *LiveRuntime) callOnReload(next Invoker, event *ReloadEvent) (err error) {
+	if l.reload.OnReload == nil {
+		return nil
+	}
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			err = fmt.Errorf("reload hook panicked: %v", recovered)
+		}
+	}()
+	return l.reload.OnReload(l.ctx, next, *event)
 }
 
 func (l *LiveRuntime) currentLocked() (*Runtime, error) {
@@ -308,6 +334,9 @@ func (l *LiveRuntime) reportReloadError(err error) {
 	if err == nil || l.reload.OnReloadError == nil {
 		return
 	}
+	defer func() {
+		_ = recover()
+	}()
 	l.reload.OnReloadError(l.ctx, err)
 }
 

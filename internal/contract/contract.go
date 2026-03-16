@@ -20,6 +20,7 @@ const (
 var (
 	ErrPluginServiceMissing = errors.New("plugin service not found in contract")
 	ErrMethodIDCollision    = errors.New("derived method id collision")
+	ErrServiceNameCollision = errors.New("service short-name collision")
 )
 
 type LoadOptions struct {
@@ -110,12 +111,20 @@ func Load(opts LoadOptions) (Contract, error) {
 	}
 	schema := reflection.GetRootAsSchema(data, 0)
 
-	plugin, err := loadService(schema, pluginServiceName, optionalAttribute)
+	pluginFullName, err := resolveServiceName(schema, pluginServiceName)
 	if err != nil {
 		return Contract{}, err
 	}
-	hostServices, err := loadHostServices(schema, pluginServiceName, optionalAttribute)
+
+	plugin, err := loadService(schema, pluginFullName, optionalAttribute)
 	if err != nil {
+		return Contract{}, err
+	}
+	hostServices, err := loadHostServices(schema, pluginFullName, optionalAttribute)
+	if err != nil {
+		return Contract{}, err
+	}
+	if err := ensureUniqueServiceNames(plugin, hostServices); err != nil {
 		return Contract{}, err
 	}
 	if err := ensureUniqueMethodIDs(plugin, hostServices); err != nil {
@@ -145,11 +154,11 @@ func loadHostServices(
 		if !schema.Services(&svc, i) {
 			continue
 		}
-		name := shortName(bytesToString(svc.Name()))
-		if name == pluginServiceName {
+		fullName := bytesToString(svc.Name())
+		if fullName == pluginServiceName {
 			continue
 		}
-		service, err := loadService(schema, name, optionalAttr)
+		service, err := loadService(schema, fullName, optionalAttr)
 		if err != nil {
 			return nil, err
 		}
@@ -165,10 +174,11 @@ func loadService(schema *reflection.Schema, wanted string, optionalAttr string) 
 		if !schema.Services(&svc, i) {
 			continue
 		}
-		name := shortName(bytesToString(svc.Name()))
-		if name != wanted {
+		fullName := bytesToString(svc.Name())
+		if fullName != wanted {
 			continue
 		}
+		name := shortName(fullName)
 		methods := make([]Method, 0, svc.CallsLength())
 		var call reflection.RPCCall
 		for j := 0; j < svc.CallsLength(); j++ {
@@ -205,6 +215,44 @@ func loadService(schema *reflection.Schema, wanted string, optionalAttr string) 
 		return Service{Name: name, Methods: methods}, nil
 	}
 	return Service{}, fmt.Errorf("%w: %s", ErrPluginServiceMissing, wanted)
+}
+
+func resolveServiceName(schema *reflection.Schema, wanted string) (string, error) {
+	var svc reflection.Service
+	shortMatches := make([]string, 0, 1)
+	for i := 0; i < schema.ServicesLength(); i++ {
+		if !schema.Services(&svc, i) {
+			continue
+		}
+		fullName := bytesToString(svc.Name())
+		if fullName == wanted {
+			return fullName, nil
+		}
+		if shortName(fullName) == wanted {
+			shortMatches = append(shortMatches, fullName)
+		}
+	}
+	switch len(shortMatches) {
+	case 0:
+		return "", fmt.Errorf("%w: %s", ErrPluginServiceMissing, wanted)
+	case 1:
+		return shortMatches[0], nil
+	default:
+		return "", fmt.Errorf("plugin service %q is ambiguous: %s", wanted, strings.Join(shortMatches, ", "))
+	}
+}
+
+func ensureUniqueServiceNames(plugin Service, hostServices []Service) error {
+	seen := map[string]string{
+		plugin.Name: plugin.Name,
+	}
+	for _, service := range hostServices {
+		if prior, ok := seen[service.Name]; ok {
+			return fmt.Errorf("%w: %s and %s", ErrServiceNameCollision, prior, service.Name)
+		}
+		seen[service.Name] = service.Name
+	}
+	return nil
 }
 
 func ensureUniqueMethodIDs(plugin Service, hostServices []Service) error {

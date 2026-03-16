@@ -107,7 +107,10 @@ func (r *responder) Call(_ context.Context, _ []byte) ([]byte, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if len(r.responses) == 0 {
-		return nil, fmt.Errorf("no fixture response configured for host method %s", hostFixtureKey(r.method))
+		return nil, fmt.Errorf(
+			"no fixture response configured for host method %s",
+			hostFixtureKey(r.method),
+		)
 	}
 	response := r.responses[0]
 	if len(r.responses) > 1 {
@@ -120,7 +123,11 @@ func (r *responder) Call(_ context.Context, _ []byte) ([]byte, error) {
 		response,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("encode fixture response for host method %s: %w", hostFixtureKey(r.method), err)
+		return nil, fmt.Errorf(
+			"encode fixture response for host method %s: %w",
+			hostFixtureKey(r.method),
+			err,
+		)
 	}
 	return data, nil
 }

@@ -21,7 +21,7 @@ Hookr should be:
 
 Hookr should not be:
 
-- an application-specific API like DICE's engine model,
+- an application-specific engine or workflow model,
 - a reimplementation of FlatBuffers tooling,
 - a string-dispatch plugin system,
 - a framework that makes host/plugin authors manually wire transport details.
@@ -57,7 +57,7 @@ Implemented in the repository now:
 
 Still future work:
 
-- [ ] DICE pilot integration and migration
+- [ ] reference consumer integration and migration
 - [ ] explicit method inventory in handshake metadata
 - [ ] richer benchmark matrix and published result snapshots
 - [ ] Rust backend / PDK
@@ -119,8 +119,8 @@ Hookr is successful when:
   function,
 - the hot path benchmarks stay comfortably within the current runtime targets,
 - the `urlbalancer` example proves the generic system end to end,
-- DICE can later define its own contract and use the same system without
-  Hookr learning DICE semantics.
+- a consuming application can later define its own contract and use the same
+  system without Hookr learning application-specific semantics.
 
 ## Constraints
 
@@ -364,7 +364,8 @@ Internal implementation areas:
 - [x] `internal/call/`, `internal/devhost/`, and `internal/tui/` for developer
       workflows
 
-What remains is not package-shape work. It is product-depth work on DICE,
+What remains is not package-shape work. It is product-depth work on a real
+consumer integration,
 benchmarks, and future language backends.
 
 ## Contract Conventions
@@ -402,7 +403,7 @@ delivery track.
       documented feature
 - [ ] richer benchmark matrix and published snapshots for more payload shapes
       and parallel scenarios
-- [ ] DICE pilot contract and migration
+- [ ] reference consumer contract and migration
 - [ ] multi-language backend design work
 
 ## Remaining Work
@@ -427,26 +428,27 @@ Exit criteria:
 - benchmark docs clearly show steady-state invoke cost, callback cost, and
   scaling characteristics
 
-## Phase B: DICE Pilot
+## Phase B: Reference Consumer Pilot
 
 Goal:
 
-- validate Hookr as the runtime substrate for DICE without adding DICE
-  semantics to Hookr itself.
+- validate Hookr as the runtime substrate for a real consuming application
+  without adding application semantics to Hookr itself.
 
 Work:
 
-- [ ] design a DICE-specific `.fbs` contract
-- [ ] model DICE plugin lifecycle methods in that contract
-- [ ] model DICE host callback modules in that contract
+- [ ] design a consumer-specific `.fbs` contract
+- [ ] model plugin lifecycle methods in that contract
+- [ ] model consumer host callback modules in that contract
 - [ ] decide which payloads stay opaque versus strongly modeled FlatBuffers
-- [ ] generate DICE-specific Hookr glue
-- [ ] integrate one DICE runtime path against generated Hookr APIs
-- [ ] measure DICE-relevant critical paths
+- [ ] generate consumer-specific Hookr glue
+- [ ] integrate one real runtime path against generated Hookr APIs
+- [ ] measure consumer-relevant critical paths
 
 Exit criteria:
 
-- DICE can use Hookr through generated contracts and a thin adapter layer
+- a real consuming application can use Hookr through generated contracts and a
+  thin adapter layer
 
 ## Phase C: Multi-Language Foundations
 
@@ -473,11 +475,11 @@ Exit criteria:
 - [ ] published result snapshots cover hot loop, callbacks, and startup
 - [ ] benchmark commands are copy-pasteable from the docs
 
-### Milestone 2: DICE proof
+### Milestone 2: Consumer proof
 
-- [ ] DICE contract drafted
-- [ ] one DICE runtime path implemented on Hookr
-- [ ] DICE-specific benchmark numbers captured
+- [ ] consumer contract drafted
+- [ ] one real runtime path implemented on Hookr
+- [ ] consumer-relevant benchmark numbers captured
 
 ### Milestone 3: Backend proof
 
@@ -490,7 +492,7 @@ Exit criteria:
 - Letting the generator depend on unstable assumptions about FlatBuffers output.
 - Building too much convenience on top of generated types and losing the
   performance story.
-- Designing around DICE too early and accidentally making Hookr app-specific.
+- Designing around one consumer too early and accidentally making Hookr app-specific.
 - Promising Rust/Zig too early before the Go path is fully benchmarked.
 
 ## What We Should Not Do
@@ -500,13 +502,13 @@ Exit criteria:
 - Do not make the public API depend on string method names.
 - Do not make users manually register or hash methods.
 - Do not let benchmarking wait until after feature completion.
-- Do not let DICE-specific helper APIs leak into Hookr core.
+- Do not let consumer-specific helper APIs leak into Hookr core.
 
 ## Recommended Next Execution Slice
 
 The next useful slice is:
 
-1. cleanly define the DICE contract shape
+1. cleanly define the consumer contract shape
 2. expand the benchmark matrix around current fixtures
 3. keep the docs and benchmark snapshots in sync with measured reality
 
@@ -517,9 +519,9 @@ reopening foundational design work.
 
 These are the main questions that still affect the next phase of work.
 
-1. How much of DICE state should stay opaque bytes versus explicit
+1. How much plugin state should stay opaque bytes versus explicit
    FlatBuffers tables?
-2. Which DICE lifecycle methods should be required versus optional in the
+2. Which lifecycle methods should be required versus optional in the
    first contract?
 3. Do we want Rust as the first non-Go plugin backend, or should backend work
-   wait until after the DICE pilot?
+   wait until after the reference consumer pilot?

@@ -45,6 +45,7 @@ const (
 	fnSchemaHash   = "__hookr_schema_hash"
 	fnCapabilities = "__hookr_capabilities"
 	fnMethods      = "__hookr_methods"
+	maxMethodsLen  = 64 * 1024
 )
 
 var (
@@ -575,6 +576,9 @@ func (e *Runtime) loadPluginMethods(fn api.Function) (map[uint32]struct{}, error
 	}
 	if dataLen%4 != 0 {
 		return nil, fmt.Errorf("plugin methods payload has invalid length: got %d", dataLen)
+	}
+	if dataLen > maxMethodsLen {
+		return nil, fmt.Errorf("plugin methods payload too large: got %d", dataLen)
 	}
 	raw, err := runtimememory.TryRead(e.plugin.Memory(), "methods", ptr, dataLen)
 	if err != nil {

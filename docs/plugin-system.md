@@ -216,5 +216,5 @@ The Go-first delivery plan described above is implemented:
 The next phases are no longer about proving the core model. They are about:
 
 1. expanding the benchmark matrix,
-2. piloting the system in DICE,
+2. piloting the system in a real consumer application,
 3. preparing future Rust and Zig backends without changing the Go-first API.

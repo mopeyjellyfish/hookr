@@ -82,7 +82,12 @@ func (w *hookrModule) hostCall(ctx context.Context, m api.Module, stack []uint64
 	payloadPtr := api.DecodeU32(stack[1])
 	payloadLen := api.DecodeU32(stack[2])
 	ic := w.invokeContext(ctx)
-	if ic == nil || w.methodCallHandler == nil {
+	if ic == nil {
+		stack[0] = 0
+		return
+	}
+	if w.methodCallHandler == nil {
+		ic.HostErr = errors.New("no host callback handler registered")
 		stack[0] = 0
 		return
 	}

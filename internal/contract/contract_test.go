@@ -129,11 +129,11 @@ table IntRequest { min:int32; max:int32; }
 table IntResponse { value:int32; }
 table FloatRequest {}
 table FloatResponse { value:float32; }
-table PresenceRequest { key:string; }
-table PresenceResponse { online:bool; }
+table LookupRequest { key:string; }
+table LookupResponse { ok:bool; }
 
-rpc_service Presence {
-  Get(PresenceRequest):PresenceResponse;
+rpc_service Lookup {
+  Get(LookupRequest):LookupResponse;
 }
 
 rpc_service Plugin {
@@ -150,14 +150,14 @@ rpc_service Rng {
 	if got := len(model.HostServices); got != 2 {
 		t.Fatalf("host services = %d, want 2", got)
 	}
-	if model.HostServices[0].Name != "Presence" || model.HostServices[1].Name != "Rng" {
-		t.Fatalf("host services = %#v, want Presence,Rng", model.HostServices)
+	if model.HostServices[0].Name != "Lookup" || model.HostServices[1].Name != "Rng" {
+		t.Fatalf("host services = %#v, want Lookup,Rng", model.HostServices)
 	}
 	if _, ok := model.HostMethod("Rng", "Int"); !ok {
 		t.Fatal("expected Rng.Int host method")
 	}
-	if _, ok := model.HostMethod("Presence", "Get"); !ok {
-		t.Fatal("expected Presence.Get host method")
+	if _, ok := model.HostMethod("Lookup", "Get"); !ok {
+		t.Fatal("expected Lookup.Get host method")
 	}
 	if _, ok := model.HostMethod("Missing", "Get"); ok {
 		t.Fatal("unexpected host method for missing service")
@@ -182,16 +182,16 @@ table UpdateRequest {}
 table UpdateResponse { ok:bool; }
 table IntRequest { min:int32; max:int32; }
 table IntResponse { value:int32; }
-table PresenceRequest { key:string; }
-table PresenceResponse { online:bool; }
+table LookupRequest { key:string; }
+table LookupResponse { ok:bool; }
 `
 	writeFile(t, schemaA, common+`
 rpc_service Plugin {
   Update(UpdateRequest):UpdateResponse;
 }
 
-rpc_service Presence {
-  Get(PresenceRequest):PresenceResponse;
+rpc_service Lookup {
+  Get(LookupRequest):LookupResponse;
 }
 
 rpc_service Rng {
@@ -207,8 +207,8 @@ rpc_service Plugin {
   Update(UpdateRequest):UpdateResponse;
 }
 
-rpc_service Presence {
-  Get(PresenceRequest):PresenceResponse;
+rpc_service Lookup {
+  Get(LookupRequest):LookupResponse;
 }
 `)
 
@@ -216,6 +216,99 @@ rpc_service Presence {
 	contractB := loadContractForTest(t, runner, schemaB, "modules")
 	if contractA.SchemaHash != contractB.SchemaHash {
 		t.Fatalf("schema hash should remain stable when host service declaration order changes")
+	}
+}
+
+func TestLoadContractResolvesQualifiedPluginService(t *testing.T) {
+	t.Parallel()
+
+	runner, err := flatc.New("")
+	if err != nil {
+		t.Skipf("flatc not available: %v", err)
+	}
+
+	tmpDir := t.TempDir()
+	schemaPath := filepath.Join(tmpDir, "qualified.fbs")
+	writeFile(t, schemaPath, `
+namespace Hookr.Test.Modules;
+table UpdateRequest {}
+table UpdateResponse { ok:bool; }
+table LookupRequest {}
+table LookupResponse { ok:bool; }
+
+namespace Hookr;
+rpc_service Plugin {
+  Update(Hookr.Test.Modules.UpdateRequest):Hookr.Test.Modules.UpdateResponse;
+}
+
+namespace Hookr.Host;
+rpc_service Lookup {
+  Get(Hookr.Test.Modules.LookupRequest):Hookr.Test.Modules.LookupResponse;
+}
+`)
+
+	bfbsPath, err := runner.GenerateBFBS(schemaPath, tmpDir, nil)
+	if err != nil {
+		t.Fatalf("generate bfbs: %v", err)
+	}
+	model, err := Load(LoadOptions{
+		SchemaPath:        schemaPath,
+		BFBSPath:          bfbsPath,
+		PackageName:       "qualified",
+		PluginServiceName: "Hookr.Plugin",
+	})
+	if err != nil {
+		t.Fatalf("load contract: %v", err)
+	}
+	if model.PluginService.Name != "Plugin" {
+		t.Fatalf("plugin service = %q, want Plugin short name", model.PluginService.Name)
+	}
+	if got := len(model.HostServices); got != 1 {
+		t.Fatalf("host services = %d, want 1", got)
+	}
+	if model.HostServices[0].Name != "Lookup" {
+		t.Fatalf("host service short name = %q, want Lookup", model.HostServices[0].Name)
+	}
+}
+
+func TestLoadContractRejectsAmbiguousShortPluginServiceName(t *testing.T) {
+	t.Parallel()
+
+	runner, err := flatc.New("")
+	if err != nil {
+		t.Skipf("flatc not available: %v", err)
+	}
+
+	tmpDir := t.TempDir()
+	schemaPath := filepath.Join(tmpDir, "ambiguous.fbs")
+	writeFile(t, schemaPath, `
+namespace Hookr.Test.Modules;
+table UpdateRequest {}
+table UpdateResponse { ok:bool; }
+
+namespace Hookr;
+rpc_service Plugin {
+  Update(Hookr.Test.Modules.UpdateRequest):Hookr.Test.Modules.UpdateResponse;
+}
+
+namespace Example;
+rpc_service Plugin {
+  Update(Hookr.Test.Modules.UpdateRequest):Hookr.Test.Modules.UpdateResponse;
+}
+`)
+
+	bfbsPath, err := runner.GenerateBFBS(schemaPath, tmpDir, nil)
+	if err != nil {
+		t.Fatalf("generate bfbs: %v", err)
+	}
+	_, err = Load(LoadOptions{
+		SchemaPath:        schemaPath,
+		BFBSPath:          bfbsPath,
+		PackageName:       "ambiguous",
+		PluginServiceName: "Plugin",
+	})
+	if err == nil {
+		t.Fatal("expected ambiguous plugin service error")
 	}
 }
 

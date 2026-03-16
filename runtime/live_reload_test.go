@@ -2,8 +2,11 @@ package runtime
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -145,6 +148,118 @@ func TestLiveRuntimeOnReloadErrorAbortsSwap(t *testing.T) {
 	resp, err := rt.InvokeMethod(ctx, 3, []byte("Steve"))
 	require.NoError(t, err)
 	require.Equal(t, "2", string(resp))
+}
+
+func TestLiveRuntimeCloseIsSafeConcurrently(t *testing.T) {
+	ctx := context.Background()
+	tempPlugin := copyWASMFixture(t, SIMPLE_METHOD_WASM)
+
+	rt, err := NewLive(ctx, ReloadConfig{}, WithFile(tempPlugin, WithAllowUnsigned()), WithContractSchema(simpleMethodSchema()))
+	require.NoError(t, err)
+
+	var wg sync.WaitGroup
+	for range 2 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			require.NoError(t, rt.Close(ctx))
+		}()
+	}
+	wg.Wait()
+}
+
+func TestLiveRuntimeOnReloadPanicReportsErrorAndKeepsWatching(t *testing.T) {
+	ctx := context.Background()
+	tempPlugin := copyWASMFixture(t, SIMPLE_METHOD_WASM)
+
+	var panicked atomic.Bool
+	reloadErrors := make(chan error, 2)
+	rt, err := NewLive(ctx, ReloadConfig{
+		Debounce: 25 * time.Millisecond,
+		OnReload: func(ctx context.Context, next Invoker, event ReloadEvent) error {
+			if panicked.CompareAndSwap(false, true) {
+				panic("boom")
+			}
+			return nil
+		},
+		OnReloadError: func(ctx context.Context, err error) {
+			select {
+			case reloadErrors <- err:
+			default:
+			}
+		},
+	}, WithFile(tempPlugin, WithAllowUnsigned()), WithContractSchema(simpleMethodSchema()))
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, rt.Close(ctx))
+	}()
+
+	copyFixtureBytes(t, tempPlugin, SIMPLE_METHOD_RELOAD_WASM)
+
+	select {
+	case err := <-reloadErrors:
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "reload hook panicked")
+	case <-time.After(3 * time.Second):
+		t.Fatal("timed out waiting for reload panic")
+	}
+
+	copyFixtureBytes(t, tempPlugin, SIMPLE_METHOD_WASM)
+	copyFixtureBytes(t, tempPlugin, SIMPLE_METHOD_RELOAD_WASM)
+
+	require.Eventually(t, func() bool {
+		resp, err := rt.InvokeMethod(ctx, 3, []byte("Steve"))
+		return err == nil && string(resp) == "102"
+	}, 3*time.Second, 50*time.Millisecond)
+}
+
+func TestLiveRuntimeClosePreviousRuntimeErrorReportsButKeepsSwap(t *testing.T) {
+	ctx := context.Background()
+	tempPlugin := copyWASMFixture(t, SIMPLE_METHOD_WASM)
+
+	t.Cleanup(func() {
+		closeReloadRuntime = func(ctx context.Context, rt *Runtime) error {
+			return rt.Close(ctx)
+		}
+	})
+
+	var injected atomic.Bool
+	reloadErrors := make(chan error, 1)
+	closeReloadRuntime = func(ctx context.Context, rt *Runtime) error {
+		if injected.CompareAndSwap(false, true) {
+			_ = rt.Close(ctx)
+			return errors.New("forced close error")
+		}
+		return rt.Close(ctx)
+	}
+
+	rt, err := NewLive(ctx, ReloadConfig{
+		Debounce: 25 * time.Millisecond,
+		OnReloadError: func(ctx context.Context, err error) {
+			select {
+			case reloadErrors <- err:
+			default:
+			}
+		},
+	}, WithFile(tempPlugin, WithAllowUnsigned()), WithContractSchema(simpleMethodSchema()))
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, rt.Close(ctx))
+	}()
+
+	copyFixtureBytes(t, tempPlugin, SIMPLE_METHOD_RELOAD_WASM)
+
+	select {
+	case err := <-reloadErrors:
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "close previous runtime after reload")
+	case <-time.After(3 * time.Second):
+		t.Fatal("timed out waiting for close error")
+	}
+
+	resp, err := rt.InvokeMethod(ctx, 3, []byte("Steve"))
+	require.NoError(t, err)
+	require.Equal(t, "102", string(resp))
 }
 
 func copyWASMFixture(t *testing.T, source string) string {

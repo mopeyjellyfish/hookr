@@ -55,8 +55,10 @@ If the replacement plugin fails to load or the hook returns an error,
 
 ### Host Callback Story
 
-Host callbacks come from every non-`Plugin` `rpc_service` in the schema. Hookr
-auto-discovers those services as host modules.
+Host callbacks come from every `rpc_service` in the schema other than the
+configured plugin service. By default that means every non-`Plugin`
+`rpc_service`, but `hookr gen --plugin-service ...` can change which service is
+treated as the plugin entrypoint.
 
 For a contract like:
 
@@ -119,7 +121,7 @@ func (plugin) Balance(ctx *mycontracthookr.PluginContext, req *mycontracthookr.B
 
 So the callback path is:
 
-1. schema defines host modules as non-`Plugin` `rpc_service`s
+1. schema defines host modules as every `rpc_service` other than the configured plugin service
 2. host implements generated module interfaces
 3. `Open(...)` binds that implementation
 4. plugin calls generated module clients on `PluginContext`

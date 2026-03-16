@@ -373,8 +373,9 @@ Recommended reading order:
 ## Plugin Trust Model
 
 Hookr now requires explicit trust for local unsigned Wasm artifacts. Production
-hosts should load signed or hash-pinned plugins; local fixtures and tutorials
-can opt in to unsigned development artifacts when needed.
+hosts should load hash-pinned plugins, or provide a custom verifier through a
+runtime hasher; local fixtures and tutorials can opt in to unsigned
+development artifacts when needed.
 
 Hash-pinned example:
 

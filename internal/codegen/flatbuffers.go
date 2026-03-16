@@ -135,6 +135,13 @@ func validateFlatBuffersGoIdentifiers(model contract.Contract) error {
 	idOwners := map[string]string{}
 	typeQualified := map[string]string{}
 	typeOwners := map[string]string{}
+	reserveIdentifier := func(identifier string, owner string) {
+		idOwners[identifier] = owner
+	}
+	reserveType := func(typeName string, owner string) {
+		typeQualified[typeName] = owner
+		typeOwners[typeName] = owner
+	}
 	registerIdentifier := func(kind string, identifier string, owner string) error {
 		if prior, ok := idOwners[identifier]; ok && prior != owner {
 			return fmt.Errorf(
@@ -163,10 +170,39 @@ func validateFlatBuffersGoIdentifiers(model contract.Contract) error {
 		typeOwners[typeName] = owner
 		return nil
 	}
+	for identifier, owner := range map[string]string{
+		"PluginSchema":         "generated package value",
+		"SchemaHash":           "generated package value",
+		"ContractCapabilities": "generated package value",
+		"Runtime":              "generated runtime type",
+		"Config":               "generated config type",
+		"ReloadConfig":         "generated reload config type",
+		"Host":                 "generated host aggregate type",
+		"PluginContext":        "generated plugin context type",
+		"Plugin":               "generated plugin interface",
+		"Open":                 "generated package function",
+		"RegisterPlugin":       "generated package function",
+		"MustRegisterPlugin":   "generated package function",
+	} {
+		reserveIdentifier(identifier, owner)
+	}
+	for typeName, owner := range map[string]string{
+		"Runtime":       "generated.Runtime",
+		"Config":        "generated.Config",
+		"ReloadConfig":  "generated.ReloadConfig",
+		"Host":          "generated.Host",
+		"Plugin":        "generated.Plugin",
+		"PluginContext": "generated.PluginContext",
+	} {
+		reserveType(typeName, owner)
+	}
 	checkPluginMethods := func(methods []contract.Method) error {
 		for _, method := range methods {
 			owner := method.ServiceName + "." + method.Name
 			goName := toExportedIdentifier(method.Name)
+			if goName == "Close" {
+				return fmt.Errorf("generated Go method identifier collision for %q between generated Runtime.Close and %s", goName, owner)
+			}
 			if err := registerIdentifier("method", goName, owner); err != nil {
 				return err
 			}

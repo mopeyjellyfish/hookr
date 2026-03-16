@@ -18,7 +18,7 @@ Hookr is intentionally split into two responsibilities:
 - handshake and compatibility validation
 - contract loading and canonical schema hashing
 - generated host SDK and plugin PDK glue
-- CLI orchestration (`gen`, `build`, `inspect`, `bench`)
+- CLI orchestration (`gen`, `build`, `inspect`, `call`, `tui`, `bench`, `version`)
 
 ## Why This Split
 

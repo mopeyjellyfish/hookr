@@ -68,19 +68,19 @@ flowchart TD
 
 ## Rehydrate Host-Side State
 
-For game servers and other stateful hosts, use `OnReload` to push the current
-state back into the replacement runtime before traffic resumes:
+For stateful hosts, use `OnReload` to push the current serialized plugin state
+back into the replacement runtime before traffic resumes:
 
 ```go
-plugin, err := dicehookr.Open(ctx, dicehookr.Config{
-	PluginPath: "./bin/engine.wasm",
+plugin, err := mycontracthookr.Open(ctx, mycontracthookr.Config{
+	PluginPath: "./bin/plugin.wasm",
 	FileOptions: []hookr.FileOption{
 		hookr.WithAllowUnsigned(),
 	},
-	Reload: &dicehookr.ReloadConfig{
-		OnReload: func(ctx context.Context, next *dicehookr.Runtime, event hookr.ReloadEvent) error {
-			_, err := next.Init(ctx, &dicehookr.InitRequestT{
-				State: currentStateBytes,
+	Reload: &mycontracthookr.ReloadConfig{
+		OnReload: func(ctx context.Context, next *mycontracthookr.Runtime, event hookr.ReloadEvent) error {
+			_, err := next.LoadState(ctx, &mycontracthookr.LoadStateRequestT{
+				State: savedStateBytes,
 			})
 			return err
 		},
@@ -90,7 +90,7 @@ plugin, err := dicehookr.Open(ctx, dicehookr.Config{
 
 This is the right pattern when:
 
-- the host owns serialized engine state
+- the host owns serialized plugin state
 - the plugin can rebuild its internal runtime state from that snapshot
 - the host wants to keep the same long-lived runtime handle
 
