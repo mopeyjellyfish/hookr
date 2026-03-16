@@ -584,6 +584,19 @@ func (e *Runtime) loadPluginMethods(fn api.Function) (map[uint32]struct{}, error
 	if err != nil {
 		return nil, err
 	}
+	return decodePluginMethodSet(raw)
+}
+
+func decodePluginMethodSet(raw []byte) (map[uint32]struct{}, error) {
+	if len(raw) == 0 {
+		return map[uint32]struct{}{}, nil
+	}
+	if len(raw)%4 != 0 {
+		return nil, fmt.Errorf("plugin methods payload has invalid length: got %d", len(raw))
+	}
+	if len(raw) > maxMethodsLen {
+		return nil, fmt.Errorf("plugin methods payload too large: got %d", len(raw))
+	}
 	methods := make(map[uint32]struct{}, len(raw)/4)
 	for i := 0; i < len(raw); i += 4 {
 		methodID := uint32(raw[i]) |

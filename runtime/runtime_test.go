@@ -750,18 +750,10 @@ func TestRuntimeHandshakeAllowsMissingOptionalMethods(t *testing.T) {
 }
 
 func TestLoadPluginMethods(t *testing.T) {
-	ctx := context.Background()
-	p, err := New(
-		ctx,
-		WithFile(SIMPLE_METHOD_WASM, WithAllowUnsigned()),
-		WithHostMethodFns(HostFnMethod(1, HelloByte)),
-	)
-	require.NoError(t, err)
-	defer func() {
-		require.NoError(t, p.Close(ctx))
-	}()
-
-	methods, err := p.loadPluginMethods(p.plugin.ExportedFunction(fnMethods))
+	methods, err := decodePluginMethodSet([]byte{
+		0x02, 0x00, 0x00, 0x00,
+		0x03, 0x00, 0x00, 0x00,
+	})
 	require.NoError(t, err)
 	require.Contains(t, methods, uint32(2))
 	require.Contains(t, methods, uint32(3))
@@ -769,6 +761,19 @@ func TestLoadPluginMethods(t *testing.T) {
 
 func TestLoadPluginMethodsErrorPaths(t *testing.T) {
 	ctx := context.Background()
+
+	t.Run("decode malformed payload", func(t *testing.T) {
+		_, err := decodePluginMethodSet([]byte{0x01, 0x02, 0x03})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid length")
+	})
+
+	t.Run("decode oversized payload", func(t *testing.T) {
+		raw := make([]byte, maxMethodsLen+4)
+		_, err := decodePluginMethodSet(raw)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "too large")
+	})
 
 	t.Run("call failure on closed module", func(t *testing.T) {
 		p, err := New(
