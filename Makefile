@@ -11,8 +11,11 @@ BIN_NAME=${PROJECTNAME}
 
 # Make is verbose in Linux. Make it silent.
 MAKEFLAGS += --silent
-VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
-LDFLAGS=-extldflags -static -X github.com/mopeyjellyfish/hookr/internal/version.Value=$(VERSION)
+BASE_LDFLAGS=-extldflags -static
+LDFLAGS=$(BASE_LDFLAGS)
+ifneq ($(strip $(VERSION)),)
+LDFLAGS=$(BASE_LDFLAGS) -X github.com/mopeyjellyfish/hookr/internal/version.Value=$(VERSION)
+endif
 
 ## setup: install all build dependencies
 setup: setup/go setup/tools download
