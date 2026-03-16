@@ -11,8 +11,11 @@ BIN_NAME=${PROJECTNAME}
 
 # Make is verbose in Linux. Make it silent.
 MAKEFLAGS += --silent
-# LDFLAGS=-X main.buildDate=`date -u +%Y-%m-%dT%H:%M:%SZ` -X main.version=`scripts/version.sh`
-LDFLAGS=-extldflags -static
+BASE_LDFLAGS=-extldflags -static
+LDFLAGS=$(BASE_LDFLAGS)
+ifneq ($(strip $(VERSION)),)
+LDFLAGS=$(BASE_LDFLAGS) -X github.com/mopeyjellyfish/hookr/internal/version.Value=$(VERSION)
+endif
 
 ## setup: install all build dependencies
 setup: setup/go setup/tools download
