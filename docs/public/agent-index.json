@@ -1,0 +1,106 @@
+{
+  "name": "Hookr",
+  "summary": "Schema-defined WebAssembly plugin system for Go with FlatBuffers contracts, generated host and plugin APIs, method-ID runtime dispatch, trust policy, CLI tooling, and live reload.",
+  "primaryLanguage": "Go",
+  "contractFormat": "FlatBuffers",
+  "pluginArtifact": "WebAssembly",
+  "entrypoints": {
+    "docs": "/",
+    "agentIndex": "/agent-index",
+    "llms": "/llms.txt",
+    "llmsFull": "/llms-full.txt",
+    "manifest": "/agent-index.json"
+  },
+  "model": {
+    "pluginService": "One configured rpc_service is the plugin entrypoint.",
+    "hostModules": "Every other rpc_service is a host callback module.",
+    "optionalMethods": "Plugin methods are required by default and can be marked optional with a FlatBuffers RPC attribute.",
+    "identity": "Hookr computes a canonical schema hash from FlatBuffers reflection metadata."
+  },
+  "docs": {
+    "overview": "/",
+    "contracts": "/reference/contracts",
+    "generatedApi": "/reference/generated-go-api",
+    "cli": "/reference/cli",
+    "architecture": "/explanation/architecture",
+    "liveReloadHowTo": "/how-to/enable-live-reload",
+    "liveReloadExplanation": "/explanation/live-reload-lifecycle",
+    "debugging": "/how-to/debug-plugin-from-cli",
+    "benchmarks": "/reference/benchmarks",
+    "release": "/explanation/roadmap-and-release"
+  },
+  "tasks": [
+    {
+      "name": "install-cli",
+      "command": "go install github.com/mopeyjellyfish/hookr/cmd/hookr@latest",
+      "docs": [
+        "/reference/cli"
+      ]
+    },
+    {
+      "name": "generate-code",
+      "command": "hookr gen --schema ./contract.fbs --out ./gen --package myhookr",
+      "docs": [
+        "/how-to/generate-glue",
+        "/reference/generated-go-api"
+      ]
+    },
+    {
+      "name": "build-plugin",
+      "command": "hookr build --plugin ./plugin --out ./bin/plugin.wasm",
+      "docs": [
+        "/how-to/build-plugin"
+      ]
+    },
+    {
+      "name": "open-and-call-plugin",
+      "docs": [
+        "/how-to/open-and-call-plugin",
+        "/reference/generated-go-api"
+      ]
+    },
+    {
+      "name": "inspect-plugin",
+      "docs": [
+        "/how-to/inspect-contract",
+        "/reference/cli"
+      ]
+    },
+    {
+      "name": "debug-plugin",
+      "docs": [
+        "/how-to/debug-plugin-from-cli",
+        "/explanation/plugin-debugging-tooling"
+      ]
+    },
+    {
+      "name": "enable-live-reload",
+      "docs": [
+        "/how-to/enable-live-reload",
+        "/explanation/live-reload-lifecycle"
+      ]
+    }
+  ],
+  "sourceFiles": [
+    "cmd/hookr/main.go",
+    "internal/cli/root.go",
+    "internal/contract/contract.go",
+    "internal/contract/canonical_hash.go",
+    "internal/codegen/flatbuffers.go",
+    "internal/buildkit/build.go",
+    "internal/inspect/inspect.go",
+    "internal/call/call.go",
+    "internal/call/session.go",
+    "internal/tui/tui.go",
+    "runtime/runtime.go",
+    "runtime/live.go",
+    "runtime/file.go",
+    "runtime/module/module.go",
+    "pdk/pdk.go"
+  ],
+  "examples": [
+    "testdata/contracts/textfilter",
+    "testdata/contracts/urlbalancer",
+    "testdata/contracts/tickloop"
+  ]
+}

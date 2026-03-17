@@ -22,7 +22,8 @@ export default defineConfig({
 			{ text: "Tutorials", link: "/tutorials/" },
 			{ text: "How-To", link: "/how-to/" },
 			{ text: "Reference", link: "/reference/" },
-			{ text: "Explanation", link: "/explanation/" }
+			{ text: "Explanation", link: "/explanation/" },
+			{ text: "Agent Docs", link: "/agent-index" }
 		],
 		sidebar: [
 			{
@@ -51,6 +52,7 @@ export default defineConfig({
 				text: "Reference",
 				items: [
 					{ text: "Overview", link: "/reference/" },
+					{ text: "Agent Index", link: "/agent-index" },
 					{ text: "CLI", link: "/reference/cli" },
 					{ text: "ABI", link: "/reference/abi" },
 					{ text: "Contract Model", link: "/reference/contracts" },
