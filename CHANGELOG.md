@@ -1,3 +1,10 @@
+## [1.3.1](https://github.com/mopeyjellyfish/hookr/compare/v1.3.0...v1.3.1) (2026-03-17)
+
+
+### Bug Fixes
+
+* run release workflow once per main build ([6ff5dc3](https://github.com/mopeyjellyfish/hookr/commit/6ff5dc3d0ad47d91f9ff989a3577d0401ede663f))
+
 # [2.4.0](https://github.com/mopeyjellyfish/hookr/compare/v2.3.0...v2.4.0) (2026-03-16)
 
 
