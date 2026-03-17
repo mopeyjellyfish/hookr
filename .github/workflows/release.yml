@@ -2,11 +2,15 @@ name: Release
 
 on:
   workflow_run:
-    workflows: ["Lint", "Tests"]
+    workflows: ["Tests"]
     types:
       - completed
     branches:
       - main
+
+concurrency:
+  group: release-main
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -16,7 +20,7 @@ permissions:
 jobs:
   release:
     name: Release
-    # Only run if all required workflows succeeded
+    # Release exactly once after the main test workflow succeeds.
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
