@@ -4,6 +4,7 @@ Reference documentation is for lookup, not tutorials.
 
 ## Core Reference
 
+- [Agent Index](../agent-index.md)
 - [CLI](./cli.md)
 - [ABI](./abi.md)
 - [Contract Model](./contracts.md)

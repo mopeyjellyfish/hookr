@@ -1,0 +1,41 @@
+Hookr
+
+Hookr is a schema-defined WebAssembly plugin system for Go. Hosts define a
+FlatBuffers contract, generate typed Go host and plugin APIs, build Wasm
+plugins, and load them through the Hookr runtime.
+
+Canonical entrypoints:
+
+- Agent index: /agent-index
+- Docs home: /
+- README: https://github.com/mopeyjellyfish/hookr/blob/main/README.md
+
+Read these first:
+
+1. /agent-index
+2. /reference/contracts
+3. /reference/generated-go-api
+4. /reference/cli
+5. /explanation/architecture
+
+Core facts:
+
+- One configured plugin rpc_service
+- Every other rpc_service is a host callback module
+- FlatBuffers defines requests, responses, and method metadata
+- Hookr generates typed Go host SDK and plugin PDK code
+- Runtime validates ABI version, schema hash, capabilities, and methods
+- Trust model uses hash pinning or explicit unsigned opt-in
+- CLI commands: gen, build, inspect, call, tui, bench, version
+- Live reload is supported for development through generated SDK config
+
+Useful examples:
+
+- /tutorials/textfilter
+- /tutorials/urlbalancer
+
+Machine-oriented artifacts:
+
+- /llms.txt
+- /llms-full.txt
+- /agent-index.json

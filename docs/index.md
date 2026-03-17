@@ -8,6 +8,7 @@ This documentation uses the Diataxis framework:
 - [How-to Guides](./how-to/index.md): task-focused procedures
 - [Reference](./reference/index.md): precise technical lookup
 - [Explanation](./explanation/index.md): architecture and design rationale
+- [Agent Index](./agent-index.md): compact retrieval map for LLMs and tools
 
 ## Quick Start
 
@@ -33,3 +34,12 @@ hookr build --plugin ./plugin --out ./bin/plugin.wasm
 
 For a full end-to-end walkthrough, start with:
 [Build A Host And Plugin With FlatBuffers](./tutorials/urlbalancer.md).
+
+## Agent Retrieval
+
+Hookr also publishes explicit agent-oriented artifacts:
+
+- [`./agent-index.md`](./agent-index.md): canonical retrieval map
+- `/llms.txt`: short machine-oriented overview
+- `/llms-full.txt`: dense single-file project summary
+- `/agent-index.json`: structured machine-readable manifest

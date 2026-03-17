@@ -75,8 +75,15 @@ Hookr ships comprehensive Diataxis documentation under [`docs/`](./docs/):
 - how-to guides: [`docs/how-to/`](./docs/how-to/)
 - reference: [`docs/reference/`](./docs/reference/)
 - explanation: [`docs/explanation/`](./docs/explanation/)
+- agent retrieval index: [`docs/agent-index.md`](./docs/agent-index.md)
 
 If you want one place to start, use [`docs/index.md`](./docs/index.md).
+
+For machine-oriented retrieval on the published docs site, Hookr also exposes:
+
+- `/llms.txt`
+- `/llms-full.txt`
+- `/agent-index.json`
 
 ## Quick Start
 

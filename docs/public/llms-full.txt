@@ -1,0 +1,274 @@
+Hookr: dense project guide for LLMs and retrieval systems
+
+Project identity
+
+- Name: Hookr
+- Type: schema-defined WebAssembly plugin system for Go
+- Primary language: Go
+- Contract format: FlatBuffers
+- Plugin artifact format: WebAssembly (.wasm)
+- Intended users: application developers building typed plugin systems
+
+One-sentence summary
+
+Hookr lets a Go host define a FlatBuffers contract, generate typed Go host and
+plugin APIs, build WebAssembly plugins, and load them through a runtime that
+validates compatibility and supports developer tooling such as inspect, call,
+bench, TUI, and live reload.
+
+Core model
+
+- The host application owns the FlatBuffers schema.
+- Hookr owns the Wasm ABI, method dispatch, compatibility handshake, trust
+  policy, generated glue, and CLI tooling.
+- One rpc_service is the plugin entrypoint.
+- Every other rpc_service is a host callback module.
+- Plugin methods are host-to-plugin calls.
+- Host module methods are plugin-to-host calls.
+- Optional plugin methods use a FlatBuffers RPC attribute, default
+  hookr_optional.
+- Method IDs are derived from service + method identity.
+- Contract identity is based on a canonical schema hash built from FlatBuffers
+  reflection data, not raw source text formatting.
+
+Generated Go surfaces
+
+Host SDK:
+
+- Open(ctx, Config) (*Runtime, error)
+- Runtime.Close(ctx) error
+- typed plugin methods, for example Filter(ctx, *FilterRequestT)
+- borrowed-view fast paths, for example FilterView(...)
+- SupportsX() helpers for optional methods
+
+Generated Config fields:
+
+- PluginPath: plugin artifact path
+- FileOptions: trust policy such as WithHash(...) or WithAllowUnsigned()
+- Host: generated aggregate struct containing host callback modules
+- Reload: optional live reload config
+- RuntimeOptions: forwarded to the low-level runtime
+
+Plugin PDK:
+
+- generated Plugin interface
+- RegisterPlugin / MustRegisterPlugin
+- PluginContext containing one client per host callback module
+- borrowed-view host callback helpers for hot paths
+
+Host callback model
+
+- There is no special root Host service.
+- Hookr auto-discovers host callback modules from every rpc_service other than
+  the configured plugin service.
+- Example:
+
+  rpc_service Plugin {
+    Balance(BalanceRequest):BalanceResponse;
+  }
+
+  rpc_service Rng {
+    Int(RngIntRequest):RngIntResponse;
+    Float(RngFloatRequest):RngFloatResponse;
+  }
+
+- The generated host SDK exposes:
+
+  type Host struct {
+    Rng RngHost
+  }
+
+- The host passes Config.Host when opening the plugin.
+- The plugin uses ctx.Rng.Int(...) and ctx.Rng.Float(...).
+
+Runtime behavior
+
+- Hookr loads a plugin artifact from disk through runtime/file.go.
+- Trust is explicit:
+  - WithHash(...) pins the expected plugin hash.
+  - WithAllowUnsigned() permits local unsigned artifacts.
+- On plugin startup Hookr reads handshake metadata:
+  - ABI version
+  - canonical schema hash
+  - capabilities
+  - published plugin methods
+- Hookr rejects incompatible plugins before normal traffic starts.
+- Runtime calls use method IDs, not string dispatch.
+- Low-level host/module dispatch lives under runtime/module.
+
+Live reload
+
+- Generated SDKs expose ReloadConfig.
+- Hookr watches PluginPath for changes.
+- During reload, Hookr blocks new calls, loads and validates the replacement,
+  runs the typed OnReload hook, and swaps only on success.
+- If reload fails, the current runtime remains active.
+- OnReload receives the typed replacement runtime so host code can re-check
+  state, warm caches, or run validation before traffic resumes.
+- OnReloadError receives load or swap failures.
+- Live reload is intended for development workflows.
+- Reload creates a fresh Wasm instance; plugin memory does not survive
+  automatically.
+
+CLI commands
+
+- hookr gen
+  - generate FlatBuffers output plus Hookr host SDK and plugin PDK glue
+  - key flags: --schema, --out, --package, --plugin-service
+- hookr build
+  - build a Wasm plugin with TinyGo
+  - key flags: --plugin, --out
+- hookr inspect
+  - inspect schema-derived metadata and optionally a real plugin artifact
+  - key flags: --schema, optional --plugin, trust flags
+- hookr call
+  - invoke a plugin method using JSON input/output derived from the schema
+  - key flags: --schema, --plugin, --method
+- hookr tui
+  - interactive Bubble Tea UI for method browsing, request editing through an
+    external editor, one-off calls, loop mode, and live diagnostics
+- hookr bench
+  - run benchmark-focused go test invocations
+- hookr version
+  - print the CLI version
+
+CLI trust behavior
+
+- inspect requires explicit trust when a plugin artifact is supplied
+- call and tui always require explicit trust
+- use --hash for pinned artifacts
+- use --allow-unsigned for local dev builds
+
+Developer tooling
+
+Inspect:
+
+- validates schema metadata
+- optionally loads a plugin and compares handshake metadata
+- reports schema hash, plugin hash, methods, optional support, ABI, and
+  capabilities
+
+Call:
+
+- loads a plugin plus schema
+- accepts JSON input
+- converts input via FlatBuffers tooling
+- invokes one plugin method
+- writes JSON output to stdout
+- writes progress to stderr
+
+TUI:
+
+- Bubble Tea UI over the same call engine
+- method list, request summary, response pane, debug pane
+- request editing via $VISUAL or $EDITOR
+- one-off call mode
+- hot loop mode with runtime-only timing
+- throughput and latency stats
+- hot reload on plugin file changes
+
+Build and toolchain facts
+
+- Go host support is the primary first-class path.
+- TinyGo is the build path for plugins today.
+- flatc is required for schema generation and schema-driven JSON conversion.
+- VitePress is used for docs.
+- semantic-release is used for GitHub releases.
+
+Performance model
+
+- Runtime ABI uses method IDs to avoid string dispatch.
+- Generated APIs include borrowed-view fast paths to reduce allocations on
+  hot loops.
+- Debug tooling may be slower than the raw runtime path when JSON conversion is
+  involved.
+- Loop mode in the TUI measures the raw FlatBuffer/Wasm call path rather than
+  shelling out to conversion tools each iteration.
+
+Canonical docs by task
+
+- Start here: /agent-index
+- Docs overview: /
+- Contracts: /reference/contracts
+- Generated API: /reference/generated-go-api
+- CLI: /reference/cli
+- Architecture: /explanation/architecture
+- Live reload: /how-to/enable-live-reload and /explanation/live-reload-lifecycle
+- Plugin debugging: /how-to/debug-plugin-from-cli and /explanation/plugin-debugging-tooling
+- Benchmarks: /reference/benchmarks and /how-to/run-benchmarks
+- Release process: /explanation/roadmap-and-release
+
+Canonical source files
+
+- CLI:
+  - internal/cli/root.go
+  - cmd/hookr/main.go
+- Runtime:
+  - runtime/runtime.go
+  - runtime/live.go
+  - runtime/file.go
+  - runtime/module/module.go
+- Contracts and hashing:
+  - internal/contract/contract.go
+  - internal/contract/canonical_hash.go
+- Code generation:
+  - internal/codegen/codegen.go
+  - internal/codegen/flatbuffers.go
+- Tooling:
+  - internal/buildkit/build.go
+  - internal/inspect/inspect.go
+  - internal/call/call.go
+  - internal/call/session.go
+  - internal/tui/tui.go
+- Plugin side:
+  - pdk/pdk.go
+  - pdk/wasm.go
+  - pdk/wasm_import.go
+
+First-party examples
+
+- textfilter:
+  - minimal plugin contract
+  - no host callback module
+  - good first example
+- urlbalancer:
+  - host callback module example
+  - includes CLI/TUI fixtures
+- tickloop:
+  - hot-loop and benchmark example
+
+Install and version commands
+
+- Install latest CLI:
+  go install github.com/mopeyjellyfish/hookr/cmd/hookr@latest
+- Confirm installed version:
+  hookr version
+
+Typical end-to-end flow
+
+1. Write contract.fbs
+2. Run:
+   hookr gen --schema ./contract.fbs --out ./gen --package myhookr
+3. Implement plugin using generated PDK
+4. Build plugin:
+   hookr build --plugin ./plugin --out ./bin/plugin.wasm
+5. Implement any host callback modules required by the contract
+6. Open from the host with generated Open(ctx, Config)
+7. Call typed plugin methods from Go
+8. Use inspect, call, or tui for debugging
+
+Task routing guidance for agents
+
+- If the task is about schema semantics or service roles, prefer reference/contracts.
+- If the task is about generated host or plugin APIs, prefer reference/generated-go-api.
+- If the task is about CLI flags or command behavior, prefer reference/cli.
+- If the task is about why Hookr is designed this way, prefer explanation docs.
+- If the task is about implementation internals, jump to runtime/* and internal/codegen/*.
+- If the task needs working examples, prefer testdata/contracts/*.
+- If a page duplicates older planning material, prefer the Diataxis pages first.
+
+Published machine-oriented artifacts
+
+- /llms.txt
+- /llms-full.txt
+- /agent-index.json
