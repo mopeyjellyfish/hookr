@@ -25,7 +25,7 @@
 - **Generated Go SDK/PDK glue**: `hookr gen` produces typed host and plugin bindings
 - **Method-ID Wasm ABI**: Fast numeric dispatch suitable for tight plugin loops
 - **Integrity checks by default**: Plugin files are hash-verified unless the host explicitly allows unsigned artifacts
-- **TinyGo-first builds**: `hookr build` produces Wasm plugins for local development and CI
+- **Standard Go WASI builds**: `hookr build` produces `wasip1/wasm` plugin reactors for local development and CI
 - **Bidirectional calls**: Plugins can call host-defined callbacks through the generated `PluginContext`
 - **Developer tooling**: `hookr inspect`, `hookr call`, and a Bubble Tea-based `hookr tui` help validate and debug plugins without a full host app
 
@@ -51,8 +51,8 @@ pulls in Hookr as a normal Go module dependency.
 
 ### Prerequisites
 
-- Go 1.24 or higher
-- TinyGo 0.30.0 or higher (for building plugins)
+- Go 1.26.1 or higher
+- the standard Go toolchain for host code and plugin builds
 
 ## What Hookr Is For
 
@@ -418,7 +418,7 @@ Hookr currently supports the following languages for plugin development:
 
 | Language       | Support Level | Notes                                    |
 |----------------|---------------|------------------------------------------|
-| Go             | Full          | Using TinyGo compiler for WASM modules   |
+| Go             | Full          | Standard Go `wasip1/wasm` plugins via `-buildmode=c-shared` |
 | Rust           | Planned       | Coming in future releases                |
 | Zig            | Planned       | Coming in future releases                |
 | AssemblyScript | Planned       | Coming in future releases                |

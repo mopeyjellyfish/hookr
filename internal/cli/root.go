@@ -131,11 +131,8 @@ func newBuildCommand() *cobra.Command {
 		"path to the plugin package or main.go file",
 	)
 	flags.StringVar(&cfg.OutputPath, "out", cfg.OutputPath, "path to the output wasm file")
-	flags.StringVar(&cfg.TinyGoPath, "tinygo", cfg.TinyGoPath, "path to tinygo binary")
-	flags.StringVar(&cfg.Target, "target", cfg.Target, "tinygo target")
-	flags.StringVar(&cfg.BuildMode, "buildmode", cfg.BuildMode, "tinygo build mode")
-	flags.StringVar(&cfg.Scheduler, "scheduler", cfg.Scheduler, "tinygo scheduler")
-	flags.BoolVar(&cfg.NoDebug, "no-debug", cfg.NoDebug, "disable debug info in tinygo build")
+	flags.StringVar(&cfg.GoPath, "go", cfg.GoPath, "path to go binary")
+	flags.StringVar(&cfg.BuildMode, "buildmode", cfg.BuildMode, "go build mode")
 
 	_ = cmd.MarkFlagRequired("plugin")
 	_ = cmd.MarkFlagRequired("out")

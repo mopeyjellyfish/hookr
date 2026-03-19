@@ -18,3 +18,5 @@ func abiVersion() uint64 {
 func schemaHash() uint64 {
 	return (uint64(0xFFFFFF00) << 32) | uint64(runtimecontract.SchemaHashLen)
 }
+
+func main() {}

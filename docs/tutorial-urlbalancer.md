@@ -11,7 +11,7 @@ You will:
 
 1. define a FlatBuffers contract,
 2. generate Hookr glue,
-3. implement a TinyGo plugin,
+3. implement a Go WASI plugin,
 4. build the plugin to Wasm,
 5. implement a Go host,
 6. call the plugin through the generated SDK.
@@ -32,7 +32,7 @@ go install github.com/mopeyjellyfish/hookr/cmd/hookr@latest
 Install the required build tools:
 
 ```bash
-brew install flatbuffers tinygo
+brew install flatbuffers
 ```
 
 This tutorial assumes you are working from the Hookr repository root.
@@ -344,7 +344,7 @@ func main() {}
 
 `//go:build wasip1`
 
-- Marks this file as the Wasm/TinyGo build target.
+- Marks this file as the Wasm build target.
 - The host example uses a separate non-Wasm build tag.
 
 `import urlbalancerhookr ...`
@@ -380,8 +380,8 @@ func main() {}
 
 `main() {}`
 
-- TinyGo still needs a `main` package entrypoint, even though Hookr drives the
-  Wasm exports.
+- Standard Go reactor builds still require a `main` package entrypoint, even
+  though Hookr drives the Wasm exports.
 
 ## Step 5: Build The Plugin
 
@@ -393,8 +393,9 @@ hookr build \
   --out ./testdata/contracts/urlbalancer/bin/urlbalancer.wasm
 ```
 
-This is the TinyGo-first Hookr build path. Hookr handles the TinyGo build
-command so users do not need to remember flags.
+This is the standard-Go Hookr build path. Hookr handles the `GOOS=wasip1
+GOARCH=wasm go build -buildmode=c-shared` invocation so users do not need to
+remember flags.
 
 The output Wasm module is written to:
 

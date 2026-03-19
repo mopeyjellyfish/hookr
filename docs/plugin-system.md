@@ -208,7 +208,7 @@ the URL, calls host RNG helpers, and selects a node to route to.
 The Go-first delivery plan described above is implemented:
 
 - Hookr generates Go SDK/PDK glue from `.fbs` through `flatc`
-- Hookr builds TinyGo plugins
+- Hookr builds standard Go `wasip1/wasm` plugins
 - Hookr has first-party `urlbalancer`, `textfilter`, and `tickloop` fixtures
 - Hookr supports inspect/call/TUI developer workflows
 - Hookr has benchmark fixtures and published benchmark snapshots

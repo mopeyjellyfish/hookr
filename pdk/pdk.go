@@ -64,7 +64,7 @@ func SetABIMethods(methodIDs []uint32) {
 	}
 }
 
-//go:export __plugin_call
+//go:wasmexport __plugin_call
 func pluginCall(methodID uint32, payloadSize uint32) bool {
 	payload := ensureScratch(&pluginPayloadScratch, payloadSize)
 	if ok := pluginRequest(bytesToPointer(payload)); !ok {
@@ -135,12 +135,12 @@ func HostCallMethodWithResponse(methodID uint32, payload []byte, handle func([]b
 	return nil
 }
 
-//go:export __hookr_abi_version
+//go:wasmexport __hookr_abi_version
 func hookrABIVersion() uint32 {
 	return uint32(abiMajor)<<16 | uint32(abiMinor)
 }
 
-//go:export __hookr_schema_hash
+//go:wasmexport __hookr_schema_hash
 func hookrSchemaHash() uint64 {
 	if !abiSchemaHashSet {
 		return 0
@@ -148,12 +148,12 @@ func hookrSchemaHash() uint64 {
 	return packPtrLenU64(uint32(bytesToPointer(abiSchemaHash[:])), abiSchemaHashLen)
 }
 
-//go:export __hookr_capabilities
+//go:wasmexport __hookr_capabilities
 func hookrCapabilities() uint64 {
 	return abiCapabilities
 }
 
-//go:export __hookr_methods
+//go:wasmexport __hookr_methods
 func hookrMethods() uint64 {
 	if len(abiMethodsRaw) == 0 {
 		return 0

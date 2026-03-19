@@ -6,7 +6,7 @@ You will:
 
 1. define a FlatBuffers contract
 2. generate Hookr glue
-3. implement a TinyGo plugin
+3. implement a Go WASI plugin
 4. build the plugin
 5. implement a host
 6. call plugin methods and host callbacks

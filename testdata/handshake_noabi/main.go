@@ -24,3 +24,5 @@ func schemaHash() uint64 {
 	ptr := uint32(uintptr(unsafe.Pointer(&schemaHashValue[0])))
 	return (uint64(ptr) << 32) | uint64(len(schemaHashValue))
 }
+
+func main() {}

@@ -30,3 +30,5 @@ func schemaHash() uint64 {
 
 //go:wasmexport __hookr_methods
 func methods() {}
+
+func main() {}

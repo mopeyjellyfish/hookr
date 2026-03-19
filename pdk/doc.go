@@ -30,12 +30,18 @@ For example:
 		examplehookr.MustRegisterPlugin(Plugin{})
 	}
 
+	func main() {}
+
 The pdk package exists so generated code can:
 
 - publish Hookr ABI handshake metadata,
 - dispatch host calls by numeric method ID,
 - exchange request and response buffers with the host runtime,
 - surface plugin errors through the Hookr ABI.
+
+Standard Go plugin builds target `GOOS=wasip1 GOARCH=wasm` with
+`-buildmode=c-shared`, so plugin entrypoints still live in a `main` package
+with an empty `main()` function plus a `//go:wasmexport hookr_init` hook.
 
 Advanced users can use this package directly, but it is primarily an
 implementation dependency of generated plugin code rather than the recommended

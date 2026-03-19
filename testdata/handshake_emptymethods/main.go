@@ -32,3 +32,5 @@ func schemaHash() uint64 {
 func methods() uint64 {
 	return 0
 }
+
+func main() {}

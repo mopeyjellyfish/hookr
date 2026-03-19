@@ -11,17 +11,8 @@ import (
 
 func TestDefaultConfig(t *testing.T) {
 	cfg := DefaultConfig()
-	if cfg.Target != "wasip1" {
-		t.Fatalf("target = %q", cfg.Target)
-	}
 	if cfg.BuildMode != "c-shared" {
 		t.Fatalf("build mode = %q", cfg.BuildMode)
-	}
-	if cfg.Scheduler != "none" {
-		t.Fatalf("scheduler = %q", cfg.Scheduler)
-	}
-	if !cfg.NoDebug {
-		t.Fatal("expected no debug enabled")
 	}
 }
 
@@ -38,23 +29,24 @@ func TestConfigValidate(t *testing.T) {
 	}
 }
 
-func TestBuildUsesConfiguredTinyGo(t *testing.T) {
+func TestBuildUsesConfiguredGo(t *testing.T) {
 	tmpDir := t.TempDir()
 	outPath := filepath.Join(tmpDir, "plugin.wasm")
-	logPath := filepath.Join(tmpDir, "tinygo.log")
-	scriptPath := filepath.Join(tmpDir, "tinygo")
-	script := "#!/bin/sh\nprintf '%s\n' \"$@\" >" + logPath + "\nout=''\nwhile [ \"$#\" -gt 0 ]; do\n  if [ \"$1\" = \"-o\" ]; then\n    shift\n    out=\"$1\"\n  fi\n  shift\ndone\n: > \"$out\"\n"
+	argsPath := filepath.Join(tmpDir, "go.args")
+	envPath := filepath.Join(tmpDir, "go.env")
+	scriptPath := filepath.Join(tmpDir, "go")
+	script := "#!/bin/sh\nprintf '%s\n' \"$@\" >" + argsPath + "\nprintf '%s\n' \"$GOOS\" \"$GOARCH\" >" + envPath + "\nout=''\nwhile [ \"$#\" -gt 0 ]; do\n  if [ \"$1\" = \"-o\" ]; then\n    shift\n    out=\"$1\"\n  fi\n  shift\ndone\n: > \"$out\"\n"
 	if runtime.GOOS == "windows" {
 		t.Skip("shell script based test is unix-only")
 	}
 	if err := os.WriteFile(scriptPath, []byte(script), 0o755); err != nil {
-		t.Fatalf("write tinygo stub: %v", err)
+		t.Fatalf("write go stub: %v", err)
 	}
 
 	cfg := DefaultConfig()
 	cfg.PluginPath = "./plugin"
 	cfg.OutputPath = outPath
-	cfg.TinyGoPath = scriptPath
+	cfg.GoPath = scriptPath
 	var stderr bytes.Buffer
 	cfg.Stderr = &stderr
 	if err := Build(cfg); err != nil {
@@ -63,15 +55,22 @@ func TestBuildUsesConfiguredTinyGo(t *testing.T) {
 	if _, err := os.Stat(outPath); err != nil {
 		t.Fatalf("expected output file: %v", err)
 	}
-	logData, err := os.ReadFile(logPath)
+	logData, err := os.ReadFile(argsPath)
 	if err != nil {
-		t.Fatalf("read tinygo log: %v", err)
+		t.Fatalf("read go args log: %v", err)
 	}
 	args := string(logData)
-	for _, want := range []string{"build", "-o", outPath, "-target=wasip1", "-buildmode=c-shared", "-scheduler=none", "--no-debug", "./plugin"} {
+	for _, want := range []string{"build", "-o", outPath, "-buildmode=c-shared", "./plugin"} {
 		if !strings.Contains(args, want) {
-			t.Fatalf("tinygo args missing %q in %q", want, args)
+			t.Fatalf("go args missing %q in %q", want, args)
 		}
+	}
+	envData, err := os.ReadFile(envPath)
+	if err != nil {
+		t.Fatalf("read go env log: %v", err)
+	}
+	if got := string(envData); got != "wasip1\nwasm\n" {
+		t.Fatalf("env = %q, want %q", got, "wasip1\nwasm\n")
 	}
 	for _, want := range []string{"hookr: building plugin ./plugin -> " + outPath, "hookr: built plugin " + outPath} {
 		if !strings.Contains(stderr.String(), want) {
@@ -80,12 +79,12 @@ func TestBuildUsesConfiguredTinyGo(t *testing.T) {
 	}
 }
 
-func TestBuildFindTinyGoError(t *testing.T) {
+func TestBuildFindGoError(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.PluginPath = "./plugin"
 	cfg.OutputPath = "./plugin.wasm"
-	cfg.TinyGoPath = filepath.Join(t.TempDir(), "missing-tinygo")
-	if err := Build(cfg); err == nil || !strings.Contains(err.Error(), "find tinygo") {
-		t.Fatalf("expected tinygo lookup error, got %v", err)
+	cfg.GoPath = filepath.Join(t.TempDir(), "missing-go")
+	if err := Build(cfg); err == nil || !strings.Contains(err.Error(), "find go") {
+		t.Fatalf("expected go lookup error, got %v", err)
 	}
 }

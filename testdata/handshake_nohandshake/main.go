@@ -5,3 +5,5 @@ func pluginCall(methodID uint32, payloadLen uint32) uint32 {
 	_, _ = methodID, payloadLen
 	return 1
 }
+
+func main() {}
