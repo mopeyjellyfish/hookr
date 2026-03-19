@@ -12,20 +12,14 @@ import (
 type Config struct {
 	PluginPath string
 	OutputPath string
-	TinyGoPath string
-	Target     string
+	GoPath     string
 	BuildMode  string
-	Scheduler  string
-	NoDebug    bool
 	Stderr     io.Writer
 }
 
 func DefaultConfig() Config {
 	return Config{
-		Target:    "wasip1",
 		BuildMode: "c-shared",
-		Scheduler: "none",
-		NoDebug:   true,
 	}
 }
 
@@ -44,28 +38,26 @@ func Build(cfg Config) error {
 		return err
 	}
 	errOut := writerOrDefault(cfg.Stderr, os.Stderr)
-	tinygo := cfg.TinyGoPath
-	if tinygo == "" {
-		tinygo = "tinygo"
+	goBin := cfg.GoPath
+	if goBin == "" {
+		goBin = "go"
 	}
-	resolved, err := exec.LookPath(tinygo)
+	resolved, err := exec.LookPath(goBin)
 	if err != nil {
-		return fmt.Errorf("find tinygo: %w", err)
+		return fmt.Errorf("find go: %w", err)
 	}
 	args := []string{
 		"build",
 		"-o", cfg.OutputPath,
-		"-target=" + cfg.Target,
-		"-buildmode=" + cfg.BuildMode,
-		"-scheduler=" + cfg.Scheduler,
 	}
-	if cfg.NoDebug {
-		args = append(args, "--no-debug")
+	if cfg.BuildMode != "" {
+		args = append(args, "-buildmode="+cfg.BuildMode)
 	}
 	args = append(args, cfg.PluginPath)
 	_, _ = fmt.Fprintf(errOut, "hookr: building plugin %s -> %s\n", cfg.PluginPath, cfg.OutputPath)
 
 	cmd := exec.Command(resolved, args...)
+	cmd.Env = append(os.Environ(), "GOOS=wasip1", "GOARCH=wasm")
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &out

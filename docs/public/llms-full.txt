@@ -116,7 +116,7 @@ CLI commands
   - generate FlatBuffers output plus Hookr host SDK and plugin PDK glue
   - key flags: --schema, --out, --package, --plugin-service
 - hookr build
-  - build a Wasm plugin with TinyGo
+  - build a Wasm plugin with the standard Go toolchain
   - key flags: --plugin, --out
 - hookr inspect
   - inspect schema-derived metadata and optionally a real plugin artifact
@@ -170,7 +170,7 @@ TUI:
 Build and toolchain facts
 
 - Go host support is the primary first-class path.
-- TinyGo is the build path for plugins today.
+- Go `wasip1/wasm` with `-buildmode=c-shared` is the plugin build path.
 - flatc is required for schema generation and schema-driven JSON conversion.
 - VitePress is used for docs.
 - semantic-release is used for GitHub releases.

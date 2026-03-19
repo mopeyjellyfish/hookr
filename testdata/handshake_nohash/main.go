@@ -16,3 +16,5 @@ func abiVersion() uint64 {
 
 //go:wasmexport __hookr_schema_hash
 func schemaHash() {}
+
+func main() {}

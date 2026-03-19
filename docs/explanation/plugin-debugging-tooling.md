@@ -10,7 +10,7 @@ developer workflow and the smaller improvements that still remain.
 Today Hookr is strong at:
 
 - generating Go host SDK and plugin PDK glue from FlatBuffers
-- building TinyGo-based plugin Wasm binaries
+- building standard-Go `wasip1/wasm` plugin binaries
 - inspecting a schema or a schema + plugin pair from the CLI
 - making ad hoc calls into a plugin with JSON fixtures
 - supplying generic host callback fixtures

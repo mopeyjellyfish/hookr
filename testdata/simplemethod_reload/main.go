@@ -50,3 +50,5 @@ func VowelsMethod(payload []byte) ([]byte, error) {
 	}
 	return []byte(fmt.Sprintf("%d", vowelCount)), nil
 }
+
+func main() {}

@@ -1,6 +1,6 @@
 module github.com/mopeyjellyfish/hookr/testdata/simplemethod
 
-go 1.24.2
+go 1.26.1
 
 require github.com/mopeyjellyfish/hookr v1.2.1
 

@@ -32,7 +32,7 @@ Key optional flags:
 
 ### `hookr build`
 
-Build a Hookr plugin Wasm module with TinyGo.
+Build a Hookr plugin Wasm module with the standard Go toolchain.
 
 Required flags:
 
@@ -41,11 +41,8 @@ Required flags:
 
 Optional flags:
 
-- `--tinygo`
-- `--target`
+- `--go`
 - `--buildmode`
-- `--scheduler`
-- `--no-debug`
 
 ### `hookr version`
 
@@ -141,7 +138,8 @@ Optional flags:
 
 - `hookr gen` expects FlatBuffers schemas and an available `flatc` binary.
 - Hookr auto-discovers host callback modules from every `rpc_service` other than the configured plugin service.
-- `hookr build` is TinyGo-first today; the CLI is structured so more build backends can be added later.
+- `hookr build` runs `go build` with `GOOS=wasip1 GOARCH=wasm`.
+- `hookr build` defaults to `-buildmode=c-shared` so plugins load as WASI reactors.
 - `hookr inspect` is useful for confirming schema hash, method IDs, required versus optional methods, and handshake-visible metadata before you wire a host.
 - `hookr call` is the fastest path for reproducing a request/response bug against a real plugin.
 - `hookr tui` is a Bubble Tea UI over the same schema-driven call path used by `hookr call`.

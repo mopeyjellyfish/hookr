@@ -1,6 +1,6 @@
 module github.com/mopeyjellyfish/hookr
 
-go 1.24.2
+go 1.26.1
 
 require (
 	github.com/charmbracelet/bubbles v0.20.0

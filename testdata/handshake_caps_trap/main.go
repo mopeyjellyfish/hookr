@@ -32,3 +32,5 @@ func schemaHash() uint64 {
 func capabilities() uint64 {
 	panic("boom")
 }
+
+func main() {}

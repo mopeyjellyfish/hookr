@@ -38,7 +38,7 @@ Implemented in the repository now:
 - [x] generated Go host SDK / plugin PDK glue for FlatBuffers contracts
 - [x] auto-discovered host callback modules from every non-`Plugin`
       `rpc_service`
-- [x] TinyGo-first `hookr build`
+- [x] standard-Go `hookr build`
 - [x] working first-party fixtures:
   - `urlbalancer`
   - `textfilter`
@@ -224,8 +224,7 @@ Practical meaning:
 - the CLI should carry the full developer path from generation to plugin build
 - plugin optionality should use FlatBuffers-compatible custom attributes on RPC
   methods
-- `hookr build` should start TinyGo-first while leaving room for more build
-  strategies later
+- `hookr build` should own the Go `wasip1/wasm` plugin path directly
 
 ## FlatBuffers Contract Example
 
@@ -359,7 +358,7 @@ Internal implementation areas:
 - [x] `internal/flatc/` for locating and invoking `flatc`
 - [x] `internal/contract/` for reading `.bfbs` and building Hookr's contract IR
 - [x] `internal/codegen/` for Hookr-specific generation
-- [x] `internal/buildkit/` for TinyGo-first build orchestration
+- [x] `internal/buildkit/` for Go `wasip1/wasm` build orchestration
 - [x] `internal/bench/` for benchmark helpers
 - [x] `internal/call/`, `internal/devhost/`, and `internal/tui/` for developer
       workflows

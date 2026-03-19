@@ -76,6 +76,6 @@ hookr inspect \
 The generated package lives under `testdata/contracts/urlbalancer/gen/urlbalancerhookr`.
 The fixture also includes:
 
-- `plugin/main.go`: TinyGo plugin implementation
+- `plugin/main.go`: Go `wasip1/wasm` plugin implementation
 - `examples/host_main.go`: host-side example
 - `e2e_test.go`: end-to-end verification

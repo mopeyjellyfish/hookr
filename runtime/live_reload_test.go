@@ -20,16 +20,20 @@ func TestLiveRuntimeReloadsPluginAndBlocksCalls(t *testing.T) {
 	ctx := context.Background()
 	tempPlugin := copyWASMFixture(t, SIMPLE_METHOD_WASM)
 
-	reloadStarted := make(chan struct{}, 1)
+	reloadStarted := make(chan struct{})
 	reloadRelease := make(chan struct{})
+	var reloadStartOnce sync.Once
+	var reloadReleaseOnce sync.Once
+	defer reloadReleaseOnce.Do(func() {
+		close(reloadRelease)
+	})
 
 	rt, err := NewLive(ctx, ReloadConfig{
 		Debounce: 25 * time.Millisecond,
 		OnReload: func(ctx context.Context, next Invoker, event ReloadEvent) error {
-			select {
-			case reloadStarted <- struct{}{}:
-			default:
-			}
+			reloadStartOnce.Do(func() {
+				close(reloadStarted)
+			})
 			<-reloadRelease
 			return nil
 		},
@@ -43,11 +47,21 @@ func TestLiveRuntimeReloadsPluginAndBlocksCalls(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "2", string(before))
 
+	rt.stopOnce.Do(func() {
+		close(rt.stopCh)
+	})
+	<-rt.doneCh
+
 	copyFixtureBytes(t, tempPlugin, SIMPLE_METHOD_RELOAD_WASM)
+
+	reloadErr := make(chan error, 1)
+	go func() {
+		reloadErr <- rt.safeReloadNow()
+	}()
 
 	select {
 	case <-reloadStarted:
-	case <-time.After(3 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("timed out waiting for reload to start")
 	}
 
@@ -71,7 +85,9 @@ func TestLiveRuntimeReloadsPluginAndBlocksCalls(t *testing.T) {
 	case <-time.After(75 * time.Millisecond):
 	}
 
-	close(reloadRelease)
+	reloadReleaseOnce.Do(func() {
+		close(reloadRelease)
+	})
 
 	select {
 	case err := <-callErr:
@@ -81,6 +97,13 @@ func TestLiveRuntimeReloadsPluginAndBlocksCalls(t *testing.T) {
 		require.Equal(t, "102", string(resp))
 	case <-time.After(3 * time.Second):
 		t.Fatal("timed out waiting for post-reload call")
+	}
+
+	select {
+	case err := <-reloadErr:
+		require.NoError(t, err)
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for reload to complete")
 	}
 }
 

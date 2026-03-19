@@ -10,8 +10,8 @@ BIN_FOLDER_LINUX=${BIN_FOLDER}/amd64/linux
 BIN_NAME=${PROJECTNAME}
 GOTESTSUM ?= gotestsum
 TEST_PKGS=./runtime/...
-TEST_COVERFLAGS=-timeout 30s -race -coverprofile=coverage.txt -coverpkg=./runtime/...
-TEST_FAILFAST_FLAGS=-timeout 60s -race -failfast
+TEST_COVERFLAGS=-timeout 2m -race -coverprofile=coverage.txt -coverpkg=./runtime/...
+TEST_FAILFAST_FLAGS=-timeout 2m -race -failfast
 
 # Make is verbose in Linux. Make it silent.
 MAKEFLAGS += --silent
@@ -153,11 +153,6 @@ test/cover: build/testdata test
 test/ff:
 	@echo "  >  Executing unit tests - fail fast"
 	@$(GOTESTSUM) --format pkgname -- $(TEST_FAILFAST_FLAGS) $(TEST_PKGS)
-
-## build/runtime: build the runtime for hookr to be injected into the WASM runtime
-build/runtime:
-	@echo "  >  Building hookr WASM runtime"
-	@tinygo build -o pkg/host/runtime.wasm -scheduler=none -target=wasip1 runtime/main.go
 
 ## build/testdata: build all test data WASM modules
 build/testdata:

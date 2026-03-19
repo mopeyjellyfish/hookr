@@ -1,2 +1,2 @@
 build:
-	tinygo build -o bin/empty.wasm -scheduler=none --no-debug -target=wasip1 -buildmode=c-shared main.go
+	GOOS=wasip1 GOARCH=wasm go build -buildmode=c-shared -o bin/empty.wasm main.go

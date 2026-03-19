@@ -35,3 +35,5 @@ func methods() uint64 {
 	ptr := uint32(uintptr(unsafe.Pointer(&badMethods[0])))
 	return (uint64(ptr) << 32) | uint64(len(badMethods))
 }
+
+func main() {}

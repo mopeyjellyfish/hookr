@@ -9,9 +9,6 @@ func TestFixtures(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping fixture e2e tests in short mode")
 	}
-	if _, err := exec.LookPath("tinygo"); err != nil {
-		t.Skip("tinygo not installed")
-	}
 
 	packages := []string{
 		"./testdata/contracts/urlbalancer",

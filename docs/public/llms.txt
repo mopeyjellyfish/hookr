@@ -24,6 +24,7 @@ Core facts:
 - Every other rpc_service is a host callback module
 - FlatBuffers defines requests, responses, and method metadata
 - Hookr generates typed Go host SDK and plugin PDK code
+- Plugins build with the standard Go toolchain targeting `GOOS=wasip1 GOARCH=wasm`
 - Runtime validates ABI version, schema hash, capabilities, and methods
 - Trust model uses hash pinning or explicit unsigned opt-in
 - CLI commands: gen, build, inspect, call, tui, bench, version
