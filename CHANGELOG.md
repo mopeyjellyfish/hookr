@@ -1,3 +1,10 @@
+## [1.3.2](https://github.com/mopeyjellyfish/hookr/compare/v1.3.1...v1.3.2) (2026-05-22)
+
+
+### Bug Fixes
+
+* release Go 1.26 toolchain support ([469cebf](https://github.com/mopeyjellyfish/hookr/commit/469cebf4b9e8163f610ae1a43b79c0af2374cca4))
+
 ## [1.3.1](https://github.com/mopeyjellyfish/hookr/compare/v1.3.0...v1.3.1) (2026-03-17)
 
 
