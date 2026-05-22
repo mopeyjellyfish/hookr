@@ -8,12 +8,14 @@ import (
 	"time"
 
 	"github.com/mopeyjellyfish/hookr/internal/buildkit"
+	"github.com/mopeyjellyfish/hookr/internal/testutil"
 	"github.com/mopeyjellyfish/hookr/runtime"
 	textfilterhookr "github.com/mopeyjellyfish/hookr/testdata/contracts/textfilter/gen/textfilterhookr"
 )
 
 func TestTextFilterE2E(t *testing.T) {
 	t.Parallel()
+	testutil.RequireTinyGo(t)
 
 	wasmPath := filepath.Join(t.TempDir(), "textfilter.wasm")
 	buildCfg := buildkit.DefaultConfig()
@@ -76,6 +78,7 @@ func TestTextFilterE2E(t *testing.T) {
 
 func TestTextFilterE2E_LiveReload(t *testing.T) {
 	t.Parallel()
+	testutil.RequireTinyGo(t)
 
 	wasmPath := filepath.Join(t.TempDir(), "textfilter.wasm")
 	buildCfg := buildkit.DefaultConfig()

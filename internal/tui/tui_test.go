@@ -9,6 +9,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/mopeyjellyfish/hookr/internal/buildkit"
 	"github.com/mopeyjellyfish/hookr/internal/call"
+	"github.com/mopeyjellyfish/hookr/internal/testutil"
 )
 
 func TestNewModelView(t *testing.T) {
@@ -153,6 +154,8 @@ func TestReadFileModTime(t *testing.T) {
 
 func buildTextFilterSession(t *testing.T) *call.Session {
 	t.Helper()
+	testutil.RequireTinyGo(t)
+
 	dir := t.TempDir()
 	wasmPath := filepath.Join(dir, "textfilter.wasm")
 	buildCfg := buildkit.DefaultConfig()

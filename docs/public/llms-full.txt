@@ -170,7 +170,9 @@ TUI:
 Build and toolchain facts
 
 - Go host support is the primary first-class path.
+- Hookr requires Go 1.26 or higher.
 - TinyGo is the build path for plugins today.
+- Plugin builds require TinyGo 0.41.0 or higher.
 - flatc is required for schema generation and schema-driven JSON conversion.
 - VitePress is used for docs.
 - semantic-release is used for GitHub releases.

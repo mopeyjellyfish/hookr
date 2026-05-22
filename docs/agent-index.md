@@ -43,6 +43,7 @@ Use this order when building context from scratch:
 
 - [README](https://github.com/mopeyjellyfish/hookr/blob/main/README.md)
 - [CLI Reference](/reference/cli)
+- requires Go 1.26 or higher
 - command: `go install github.com/mopeyjellyfish/hookr/cmd/hookr@latest`
 - command: `hookr version`
 
@@ -61,6 +62,7 @@ Use this order when building context from scratch:
 ### Build a plugin
 
 - [Build Plugin](/how-to/build-plugin)
+- requires TinyGo 0.41.0 or higher
 - command: `hookr build --plugin ./plugin --out ./bin/plugin.wasm`
 
 ### Open and call a plugin from Go

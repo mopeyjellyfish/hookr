@@ -51,8 +51,8 @@ pulls in Hookr as a normal Go module dependency.
 
 ### Prerequisites
 
-- Go 1.24 or higher
-- TinyGo 0.30.0 or higher (for building plugins)
+- Go 1.26 or higher
+- TinyGo 0.41.0 or higher (for building plugins)
 
 ## What Hookr Is For
 

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/mopeyjellyfish/hookr/internal/buildkit"
+	"github.com/mopeyjellyfish/hookr/internal/testutil"
 	hookrruntime "github.com/mopeyjellyfish/hookr/runtime"
 	tickloophookr "github.com/mopeyjellyfish/hookr/testdata/contracts/tickloop/gen/tickloophookr"
 )
@@ -80,6 +81,8 @@ func BenchmarkTickLoopWarmup(b *testing.B) {
 
 func buildPluginBenchmark(b *testing.B, pluginDir string) string {
 	b.Helper()
+	testutil.RequireTinyGo(b)
+
 	_, filename, _, ok := goruntime.Caller(0)
 	if !ok {
 		b.Fatalf("resolve benchmark file path")

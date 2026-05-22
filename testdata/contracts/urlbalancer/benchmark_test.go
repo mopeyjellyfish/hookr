@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/mopeyjellyfish/hookr/internal/buildkit"
+	"github.com/mopeyjellyfish/hookr/internal/testutil"
 	hookrruntime "github.com/mopeyjellyfish/hookr/runtime"
 	urlbalancerhookr "github.com/mopeyjellyfish/hookr/testdata/contracts/urlbalancer/gen/urlbalancerhookr"
 )
@@ -32,6 +33,8 @@ func BenchmarkURLBalancerBalance(b *testing.B) {
 
 func buildURLBalancerBenchmarkPlugin(b *testing.B) string {
 	b.Helper()
+	testutil.RequireTinyGo(b)
+
 	_, filename, _, ok := goruntime.Caller(0)
 	if !ok {
 		b.Fatalf("resolve benchmark file path")

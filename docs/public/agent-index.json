@@ -32,6 +32,9 @@
   "tasks": [
     {
       "name": "install-cli",
+      "requires": [
+        "Go 1.26 or higher"
+      ],
       "command": "go install github.com/mopeyjellyfish/hookr/cmd/hookr@latest",
       "docs": [
         "/reference/cli"
@@ -47,6 +50,9 @@
     },
     {
       "name": "build-plugin",
+      "requires": [
+        "TinyGo 0.41.0 or higher"
+      ],
       "command": "hookr build --plugin ./plugin --out ./bin/plugin.wasm",
       "docs": [
         "/how-to/build-plugin"
