@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/mopeyjellyfish/hookr/internal/buildkit"
+	"github.com/mopeyjellyfish/hookr/internal/testutil"
 	hookrruntime "github.com/mopeyjellyfish/hookr/runtime"
 	urlbalancerhookr "github.com/mopeyjellyfish/hookr/testdata/contracts/urlbalancer/gen/urlbalancerhookr"
 )
@@ -22,6 +23,7 @@ func (testHost) Float(_ context.Context, _ *urlbalancerhookr.RngFloatRequestT) (
 
 func TestURLBalancerE2E(t *testing.T) {
 	t.Parallel()
+	testutil.RequireTinyGo(t)
 
 	outFile := filepath.Join(t.TempDir(), "urlbalancer.wasm")
 	cfg := buildkit.DefaultConfig()

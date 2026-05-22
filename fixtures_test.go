@@ -3,15 +3,15 @@ package hookr
 import (
 	"os/exec"
 	"testing"
+
+	"github.com/mopeyjellyfish/hookr/internal/testutil"
 )
 
 func TestFixtures(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping fixture e2e tests in short mode")
 	}
-	if _, err := exec.LookPath("tinygo"); err != nil {
-		t.Skip("tinygo not installed")
-	}
+	testutil.RequireTinyGo(t)
 
 	packages := []string{
 		"./testdata/contracts/urlbalancer",

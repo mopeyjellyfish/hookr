@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/mopeyjellyfish/hookr/internal/buildkit"
+	"github.com/mopeyjellyfish/hookr/internal/testutil"
 	hookrruntime "github.com/mopeyjellyfish/hookr/runtime"
 	tickloophookr "github.com/mopeyjellyfish/hookr/testdata/contracts/tickloop/gen/tickloophookr"
 	goruntime "runtime"
@@ -191,6 +192,7 @@ func TestTickLoopOpenRejectsTypedNilHostModule(t *testing.T) {
 
 func buildPlugin(t *testing.T, pluginDir string) string {
 	t.Helper()
+	testutil.RequireTinyGo(t)
 
 	_, filename, _, ok := goruntime.Caller(0)
 	if !ok {

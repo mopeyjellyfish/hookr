@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/mopeyjellyfish/hookr/internal/buildkit"
+	"github.com/mopeyjellyfish/hookr/internal/testutil"
 )
 
 func TestRunRequiresSchemaPath(t *testing.T) {
@@ -51,6 +52,7 @@ func TestRunPrintsContractDetails(t *testing.T) {
 
 func TestRunPrintsWasmDetails(t *testing.T) {
 	t.Parallel()
+	testutil.RequireTinyGo(t)
 
 	wasmPath := filepath.Join(t.TempDir(), "textfilter.wasm")
 	buildCfg := buildkit.DefaultConfig()

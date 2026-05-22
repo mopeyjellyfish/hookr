@@ -10,10 +10,12 @@ import (
 	"testing"
 
 	"github.com/mopeyjellyfish/hookr/internal/buildkit"
+	"github.com/mopeyjellyfish/hookr/internal/testutil"
 )
 
 func TestRunTextFilter(t *testing.T) {
 	t.Parallel()
+	testutil.RequireTinyGo(t)
 
 	dir := t.TempDir()
 	wasmPath := filepath.Join(dir, "textfilter.wasm")
@@ -77,6 +79,7 @@ func TestRunTextFilter(t *testing.T) {
 
 func TestRunURLBalancerWithHostFixture(t *testing.T) {
 	t.Parallel()
+	testutil.RequireTinyGo(t)
 
 	dir := t.TempDir()
 	wasmPath := filepath.Join(dir, "urlbalancer.wasm")
@@ -154,6 +157,7 @@ func TestRunURLBalancerWithHostFixture(t *testing.T) {
 
 func TestSessionDefaultRequestJSONUsesSchemaFields(t *testing.T) {
 	t.Parallel()
+	testutil.RequireTinyGo(t)
 
 	dir := t.TempDir()
 	wasmPath := filepath.Join(dir, "textfilter.wasm")
@@ -194,6 +198,7 @@ func TestSessionDefaultRequestJSONUsesSchemaFields(t *testing.T) {
 
 func TestSessionDebugInfo(t *testing.T) {
 	t.Parallel()
+	testutil.RequireTinyGo(t)
 
 	dir := t.TempDir()
 	wasmPath := filepath.Join(dir, "textfilter.wasm")
@@ -232,6 +237,7 @@ func TestSessionDebugInfo(t *testing.T) {
 
 func TestSessionInvokePrepared(t *testing.T) {
 	t.Parallel()
+	testutil.RequireTinyGo(t)
 
 	dir := t.TempDir()
 	wasmPath := filepath.Join(dir, "textfilter.wasm")

@@ -26,6 +26,7 @@ Core facts:
 - Hookr generates typed Go host SDK and plugin PDK code
 - Runtime validates ABI version, schema hash, capabilities, and methods
 - Trust model uses hash pinning or explicit unsigned opt-in
+- Requires Go 1.26 or higher; plugin builds require TinyGo 0.41.0 or higher
 - CLI commands: gen, build, inspect, call, tui, bench, version
 - Live reload is supported for development through generated SDK config
 

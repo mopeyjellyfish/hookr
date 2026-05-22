@@ -6,19 +6,21 @@ Install the required CLI and compiler tools for Hookr development.
 
 ## Steps
 
-1. Install Hookr:
+1. Install Go 1.26 or higher.
+
+2. Install Hookr:
 
 ```bash
 go install github.com/mopeyjellyfish/hookr/cmd/hookr@latest
 ```
 
-2. Install FlatBuffers compiler (`flatc`) and TinyGo:
+3. Install FlatBuffers compiler (`flatc`) and TinyGo 0.41.0 or higher:
 
 ```bash
 brew install flatbuffers tinygo
 ```
 
-3. Verify tools:
+4. Verify tools:
 
 ```bash
 hookr --help
