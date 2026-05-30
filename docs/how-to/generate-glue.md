@@ -54,6 +54,20 @@ building a plugin Wasm module that implements the same Hookr ABI. The plugin
 crate still needs to export `hookr_init` and call
 `hookr_plugin::register_plugin(...)` with its implementation.
 
+5. To generate Zig plugin-side ABI bindings:
+
+```bash
+hookr gen \
+  --lang zig \
+  --schema ./contract.fbs \
+  --out ./gen \
+  --package mycontracthookr
+```
+
+The Zig output provides the Hookr ABI exports/imports, method constants,
+schema hash, capabilities, and raw host callback transport helpers. Typed
+FlatBuffers ergonomics are expected to build on top of that ABI layer.
+
 ## Output
 
 Generated Go packages typically include:
@@ -68,6 +82,10 @@ Generated Rust plugin packages typically include:
 - FlatBuffers Rust type files (`flatc --rust` output)
 - `lib.rs`
 - `hookr_plugin.rs`
+
+Generated Zig plugin packages typically include:
+
+- `hookr_plugin.zig`
 
 ## Related
 

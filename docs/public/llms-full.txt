@@ -9,7 +9,7 @@ Project identity
 - Plugin artifact format: WebAssembly (.wasm)
 - Intended users: application developers building typed plugin systems
 - Host SDK target: Go
-- Plugin binding targets: Go today, Rust plugin-side generation in progress
+- Plugin binding targets: Go today, Rust plugin-side generation, Zig ABI binding generation in progress
 
 One-sentence summary
 
@@ -34,6 +34,9 @@ Core model
   reflection data, not raw source text formatting.
 - Rust support is plugin-side: generated Rust bindings are intended to build
   Wasm plugins that the existing generated Go host SDK can load by ABI.
+- Zig support is plugin-side: generated Zig bindings provide the ABI layer,
+  method constants, schema hash, capabilities, and raw host callback transport
+  helpers for Wasm plugins loaded by the Go host SDK.
 
 Generated Go surfaces
 
@@ -121,6 +124,7 @@ CLI commands
   - key flags: --schema, --out, --package, --plugin-service, --lang
   - --lang go emits Go host SDK and Go plugin PDK output
   - --lang rust emits Rust plugin-side bindings and a Hookr ABI shim
+  - --lang zig emits Zig plugin-side ABI bindings and raw transport helpers
 - hookr build
   - build a Wasm plugin with TinyGo
   - key flags: --plugin, --out

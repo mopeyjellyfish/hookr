@@ -7,7 +7,8 @@
   "hostLanguage": "Go",
   "pluginBindingTargets": [
     "go",
-    "rust"
+    "rust",
+    "zig"
   ],
   "entrypoints": {
     "docs": "/",
@@ -49,6 +50,7 @@
       "name": "generate-code",
       "command": "hookr gen --schema ./contract.fbs --out ./gen --package myhookr",
       "rustCommand": "hookr gen --lang rust --schema ./contract.fbs --out ./gen --package myhookr",
+      "zigCommand": "hookr gen --lang zig --schema ./contract.fbs --out ./gen --package myhookr",
       "docs": [
         "/how-to/generate-glue",
         "/reference/generated-go-api"
