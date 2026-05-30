@@ -28,6 +28,12 @@ type RustOptions struct {
 	IncludePaths []string
 }
 
+type CppOptions struct {
+	SchemaPath   string
+	OutDir       string
+	IncludePaths []string
+}
+
 func New(path string) (*Runner, error) {
 	if path == "" {
 		path = "flatc"
@@ -57,6 +63,12 @@ func (r *Runner) GenerateGo(opts GoOptions) error {
 
 func (r *Runner) GenerateRust(opts RustOptions) error {
 	args := buildRustArgs(opts)
+	_, err := r.run(args...)
+	return err
+}
+
+func (r *Runner) GenerateCpp(opts CppOptions) error {
+	args := buildCppArgs(opts)
 	_, err := r.run(args...)
 	return err
 }
@@ -156,6 +168,13 @@ func buildGoArgs(opts GoOptions) []string {
 
 func buildRustArgs(opts RustOptions) []string {
 	args := []string{"--rust"}
+	args = appendIncludeArgs(args, opts.IncludePaths)
+	args = append(args, "-o", opts.OutDir, opts.SchemaPath)
+	return args
+}
+
+func buildCppArgs(opts CppOptions) []string {
+	args := []string{"--cpp"}
 	args = appendIncludeArgs(args, opts.IncludePaths)
 	args = append(args, "-o", opts.OutDir, opts.SchemaPath)
 	return args

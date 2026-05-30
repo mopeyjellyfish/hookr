@@ -68,6 +68,19 @@ The Zig output provides the Hookr ABI exports/imports, method constants,
 schema hash, capabilities, and raw host callback transport helpers. Typed
 FlatBuffers ergonomics are expected to build on top of that ABI layer.
 
+6. To generate C++ plugin-side bindings:
+
+```bash
+hookr gen \
+  --lang cpp \
+  --schema ./contract.fbs \
+  --out ./gen \
+  --package mycontracthookr
+```
+
+The C++ output combines FlatBuffers C++ headers with a Hookr ABI header for
+building plugin Wasm modules that the Go host SDK can load.
+
 ## Output
 
 Generated Go packages typically include:
@@ -86,6 +99,11 @@ Generated Rust plugin packages typically include:
 Generated Zig plugin packages typically include:
 
 - `hookr_plugin.zig`
+
+Generated C++ plugin packages typically include:
+
+- FlatBuffers C++ headers (`flatc --cpp` output)
+- `hookr_plugin.hpp`
 
 ## Related
 
