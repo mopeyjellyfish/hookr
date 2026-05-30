@@ -22,6 +22,12 @@ type GoOptions struct {
 	IncludePaths []string
 }
 
+type RustOptions struct {
+	SchemaPath   string
+	OutDir       string
+	IncludePaths []string
+}
+
 func New(path string) (*Runner, error) {
 	if path == "" {
 		path = "flatc"
@@ -45,6 +51,12 @@ func (r *Runner) GenerateBFBS(schemaPath, outDir string, includePaths []string) 
 
 func (r *Runner) GenerateGo(opts GoOptions) error {
 	args := buildGoArgs(opts)
+	_, err := r.run(args...)
+	return err
+}
+
+func (r *Runner) GenerateRust(opts RustOptions) error {
+	args := buildRustArgs(opts)
 	_, err := r.run(args...)
 	return err
 }
@@ -137,6 +149,13 @@ func buildGoArgs(opts GoOptions) []string {
 	if opts.ObjectAPI {
 		args = append(args, "--gen-object-api")
 	}
+	args = appendIncludeArgs(args, opts.IncludePaths)
+	args = append(args, "-o", opts.OutDir, opts.SchemaPath)
+	return args
+}
+
+func buildRustArgs(opts RustOptions) []string {
+	args := []string{"--rust"}
 	args = appendIncludeArgs(args, opts.IncludePaths)
 	args = append(args, "-o", opts.OutDir, opts.SchemaPath)
 	return args

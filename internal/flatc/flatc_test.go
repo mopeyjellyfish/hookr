@@ -47,6 +47,24 @@ func TestBuildGoArgs_Includes(t *testing.T) {
 	}
 }
 
+func TestBuildRustArgs_Includes(t *testing.T) {
+	args := buildRustArgs(RustOptions{
+		SchemaPath:   "contract.fbs",
+		OutDir:       "/tmp/out",
+		IncludePaths: []string{"schemas", "common"},
+	})
+	want := []string{
+		"--rust",
+		"-I", "schemas",
+		"-I", "common",
+		"-o", "/tmp/out",
+		"contract.fbs",
+	}
+	if !reflect.DeepEqual(args, want) {
+		t.Fatalf("buildRustArgs() = %#v, want %#v", args, want)
+	}
+}
+
 func TestEncodeDecodeJSON(t *testing.T) {
 	t.Parallel()
 

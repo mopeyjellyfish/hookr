@@ -28,8 +28,8 @@ func (c Config) Validate() error {
 	if c.SchemaPath == "" || c.OutDir == "" || c.PackageName == "" {
 		return errors.New("schema, out, and package are required")
 	}
-	if !strings.EqualFold(c.Lang, "go") {
-		return errors.New("hookr gen currently supports only --lang go")
+	if !isSupportedLang(c.Lang) {
+		return errors.New("hookr gen currently supports only --lang go or --lang rust")
 	}
 	if !strings.HasSuffix(strings.ToLower(c.SchemaPath), ".fbs") {
 		return errors.New("hookr gen requires a FlatBuffers schema (*.fbs)")
@@ -58,9 +58,9 @@ func ParseFlags(binaryName string, args []string) (Config, error) {
 	fs.SetOutput(io.Discard)
 	fs.StringVar(&cfg.SchemaPath, "schema", "", "path to FlatBuffers schema file (required)")
 	fs.StringVar(&cfg.OutDir, "out", "", "output directory (required)")
-	fs.StringVar(&cfg.PackageName, "package", "", "generated Go package name (required)")
+	fs.StringVar(&cfg.PackageName, "package", "", "generated package or crate module name (required)")
 	fs.StringVar(&cfg.ContractName, "name", "", "contract name override (optional)")
-	fs.StringVar(&cfg.Lang, "lang", cfg.Lang, "target language to generate (go)")
+	fs.StringVar(&cfg.Lang, "lang", cfg.Lang, "target language to generate (go or rust)")
 	fs.StringVar(&cfg.FlatcPath, "flatc", cfg.FlatcPath, "path to flatc binary")
 	includeFlag := &stringSliceFlag{dst: &cfg.IncludePaths}
 	fs.Var(
@@ -143,6 +143,15 @@ func Generate(cfg Config) error {
 		return err
 	}
 	return generateFlatBuffers(cfg)
+}
+
+func isSupportedLang(lang string) bool {
+	switch strings.ToLower(strings.TrimSpace(lang)) {
+	case "go", "rust":
+		return true
+	default:
+		return false
+	}
 }
 
 func toExportedIdentifier(s string) string {
