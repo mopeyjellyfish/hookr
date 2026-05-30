@@ -65,6 +65,24 @@ func TestBuildRustArgs_Includes(t *testing.T) {
 	}
 }
 
+func TestBuildCppArgs_Includes(t *testing.T) {
+	args := buildCppArgs(CppOptions{
+		SchemaPath:   "contract.fbs",
+		OutDir:       "/tmp/out",
+		IncludePaths: []string{"schemas", "common"},
+	})
+	want := []string{
+		"--cpp",
+		"-I", "schemas",
+		"-I", "common",
+		"-o", "/tmp/out",
+		"contract.fbs",
+	}
+	if !reflect.DeepEqual(args, want) {
+		t.Fatalf("buildCppArgs() = %#v, want %#v", args, want)
+	}
+}
+
 func TestEncodeDecodeJSON(t *testing.T) {
 	t.Parallel()
 
