@@ -56,3 +56,18 @@ func TestParseFlags_RustLang(t *testing.T) {
 		t.Fatalf("lang = %q, want rust", cfg.Lang)
 	}
 }
+
+func TestParseFlags_ZigLang(t *testing.T) {
+	cfg, err := ParseFlags("hookr gen", []string{
+		"-schema", "contract.fbs",
+		"-out", "gen",
+		"-package", "contractpkg",
+		"-lang", "zig",
+	})
+	if err != nil {
+		t.Fatalf("ParseFlags returned error: %v", err)
+	}
+	if cfg.Lang != "zig" {
+		t.Fatalf("lang = %q, want zig", cfg.Lang)
+	}
+}

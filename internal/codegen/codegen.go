@@ -29,7 +29,7 @@ func (c Config) Validate() error {
 		return errors.New("schema, out, and package are required")
 	}
 	if !isSupportedLang(c.Lang) {
-		return errors.New("hookr gen currently supports only --lang go or --lang rust")
+		return errors.New("hookr gen currently supports only --lang go, --lang rust, or --lang zig")
 	}
 	if !strings.HasSuffix(strings.ToLower(c.SchemaPath), ".fbs") {
 		return errors.New("hookr gen requires a FlatBuffers schema (*.fbs)")
@@ -60,7 +60,7 @@ func ParseFlags(binaryName string, args []string) (Config, error) {
 	fs.StringVar(&cfg.OutDir, "out", "", "output directory (required)")
 	fs.StringVar(&cfg.PackageName, "package", "", "generated package or crate module name (required)")
 	fs.StringVar(&cfg.ContractName, "name", "", "contract name override (optional)")
-	fs.StringVar(&cfg.Lang, "lang", cfg.Lang, "target language to generate (go or rust)")
+	fs.StringVar(&cfg.Lang, "lang", cfg.Lang, "target language to generate (go, rust, or zig)")
 	fs.StringVar(&cfg.FlatcPath, "flatc", cfg.FlatcPath, "path to flatc binary")
 	includeFlag := &stringSliceFlag{dst: &cfg.IncludePaths}
 	fs.Var(
@@ -147,7 +147,7 @@ func Generate(cfg Config) error {
 
 func isSupportedLang(lang string) bool {
 	switch strings.ToLower(strings.TrimSpace(lang)) {
-	case "go", "rust":
+	case "go", "rust", "zig":
 		return true
 	default:
 		return false
