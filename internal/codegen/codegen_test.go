@@ -86,3 +86,18 @@ func TestParseFlags_CppLang(t *testing.T) {
 		t.Fatalf("lang = %q, want cpp", cfg.Lang)
 	}
 }
+
+func TestParseFlags_AssemblyScriptLang(t *testing.T) {
+	cfg, err := ParseFlags("hookr gen", []string{
+		"-schema", "contract.fbs",
+		"-out", "gen",
+		"-package", "contractpkg",
+		"-lang", "assemblyscript",
+	})
+	if err != nil {
+		t.Fatalf("ParseFlags returned error: %v", err)
+	}
+	if cfg.Lang != "assemblyscript" {
+		t.Fatalf("lang = %q, want assemblyscript", cfg.Lang)
+	}
+}

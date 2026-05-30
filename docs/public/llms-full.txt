@@ -9,7 +9,7 @@ Project identity
 - Plugin artifact format: WebAssembly (.wasm)
 - Intended users: application developers building typed plugin systems
 - Host SDK target: Go
-- Plugin binding targets: Go today, Rust plugin-side generation, Zig ABI binding generation, C++ plugin-side generation in progress
+- Plugin binding targets: Go today, Rust plugin-side generation, Zig ABI binding generation, C++ plugin-side generation, AssemblyScript ABI binding generation in progress
 
 One-sentence summary
 
@@ -39,6 +39,9 @@ Core model
   helpers for Wasm plugins loaded by the Go host SDK.
 - C++ support is plugin-side: generated output combines FlatBuffers C++ headers
   with a Hookr ABI header for Wasm plugins loaded by the Go host SDK.
+- AssemblyScript support is plugin-side: generated output provides the ABI
+  layer, method constants, schema hash, capabilities, and raw host callback
+  transport helpers for Wasm plugins loaded by the Go host SDK.
 
 Generated Go surfaces
 
@@ -128,6 +131,7 @@ CLI commands
   - --lang rust emits Rust plugin-side bindings and a Hookr ABI shim
   - --lang zig emits Zig plugin-side ABI bindings and raw transport helpers
   - --lang cpp emits C++ FlatBuffers headers and a Hookr ABI header
+  - --lang assemblyscript emits AssemblyScript plugin-side ABI bindings
 - hookr build
   - build a Wasm plugin with TinyGo
   - key flags: --plugin, --out

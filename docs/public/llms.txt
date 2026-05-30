@@ -27,6 +27,7 @@ Core facts:
 - `hookr gen --lang rust` emits Rust plugin-side bindings; the host SDK remains Go
 - `hookr gen --lang zig` emits Zig plugin-side ABI bindings; the host SDK remains Go
 - `hookr gen --lang cpp` emits C++ plugin-side bindings; the host SDK remains Go
+- `hookr gen --lang assemblyscript` emits AssemblyScript plugin-side ABI bindings; the host SDK remains Go
 - Runtime validates ABI version, schema hash, capabilities, and methods
 - Trust model uses hash pinning or explicit unsigned opt-in
 - Requires Go 1.26 or higher; plugin builds require TinyGo 0.41.0 or higher
