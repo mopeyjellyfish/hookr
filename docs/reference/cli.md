@@ -24,6 +24,7 @@ Required flags:
 
 Key optional flags:
 
+- `--lang` (`go` or `rust`; default `go`)
 - `--flatc`
 - `--include`, `-I`
 - `--plugin-service`
@@ -140,6 +141,8 @@ Optional flags:
 ## Notes
 
 - `hookr gen` expects FlatBuffers schemas and an available `flatc` binary.
+- `hookr gen --lang go` emits the Go host SDK and Go plugin PDK.
+- `hookr gen --lang rust` emits Rust plugin-side bindings and a Hookr ABI shim; the host SDK remains Go.
 - Hookr auto-discovers host callback modules from every `rpc_service` other than the configured plugin service.
 - `hookr build` is TinyGo-first today; the CLI is structured so more build backends can be added later.
 - `hookr inspect` is useful for confirming schema hash, method IDs, required versus optional methods, and handshake-visible metadata before you wire a host.

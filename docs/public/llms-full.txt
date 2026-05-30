@@ -8,6 +8,8 @@ Project identity
 - Contract format: FlatBuffers
 - Plugin artifact format: WebAssembly (.wasm)
 - Intended users: application developers building typed plugin systems
+- Host SDK target: Go
+- Plugin binding targets: Go today, Rust plugin-side generation in progress
 
 One-sentence summary
 
@@ -30,6 +32,8 @@ Core model
 - Method IDs are derived from service + method identity.
 - Contract identity is based on a canonical schema hash built from FlatBuffers
   reflection data, not raw source text formatting.
+- Rust support is plugin-side: generated Rust bindings are intended to build
+  Wasm plugins that the existing generated Go host SDK can load by ABI.
 
 Generated Go surfaces
 
@@ -114,7 +118,9 @@ CLI commands
 
 - hookr gen
   - generate FlatBuffers output plus Hookr host SDK and plugin PDK glue
-  - key flags: --schema, --out, --package, --plugin-service
+  - key flags: --schema, --out, --package, --plugin-service, --lang
+  - --lang go emits Go host SDK and Go plugin PDK output
+  - --lang rust emits Rust plugin-side bindings and a Hookr ABI shim
 - hookr build
   - build a Wasm plugin with TinyGo
   - key flags: --plugin, --out
@@ -173,6 +179,7 @@ Build and toolchain facts
 - Hookr requires Go 1.26 or higher.
 - TinyGo is the build path for plugins today.
 - Plugin builds require TinyGo 0.41.0 or higher.
+- Rust plugin generation requires flatc; Rust toolchain compilation is a separate plugin build step.
 - flatc is required for schema generation and schema-driven JSON conversion.
 - VitePress is used for docs.
 - semantic-release is used for GitHub releases.

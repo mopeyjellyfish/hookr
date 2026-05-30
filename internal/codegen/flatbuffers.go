@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 	"text/template"
+	"unicode"
 
 	"github.com/mopeyjellyfish/hookr/internal/contract"
 	"github.com/mopeyjellyfish/hookr/internal/flatc"
@@ -18,6 +19,8 @@ type flatbuffersTemplateData struct {
 	PackageName          string
 	ContractName         string
 	SchemaPath           string
+	RustSchemaModule     string
+	RustNamespacePath    string
 	SchemaHashHex        string
 	SchemaHashLiterals   []string
 	ContractCapabilities uint64
@@ -30,6 +33,8 @@ type flatbuffersTemplateData struct {
 type flatbuffersModuleTemplate struct {
 	ServiceName   string
 	GoName        string
+	RustFieldName string
+	RustTypeName  string
 	InterfaceName string
 	ClientName    string
 	Methods       []flatbuffersMethodTemplate
@@ -40,7 +45,9 @@ type flatbuffersMethodTemplate struct {
 	ServiceName       string
 	Name              string
 	GoName            string
+	RustName          string
 	ConstName         string
+	RustConstName     string
 	RequestType       string
 	ResponseType      string
 	Optional          bool
@@ -52,8 +59,19 @@ type flatbuffersTypeTemplate struct {
 }
 
 func generateFlatBuffers(cfg Config) error {
+	switch strings.ToLower(strings.TrimSpace(cfg.Lang)) {
+	case "go":
+		return generateFlatBuffersGo(cfg)
+	case "rust":
+		return generateFlatBuffersRust(cfg)
+	default:
+		return errors.New("flatbuffers generation currently supports only --lang go or --lang rust")
+	}
+}
+
+func generateFlatBuffersGo(cfg Config) error {
 	if !strings.EqualFold(cfg.Lang, "go") {
-		return errors.New("flatbuffers generation currently supports only --lang go")
+		return errors.New("flatbuffers go generation requires --lang go")
 	}
 	runner, err := flatc.New(cfg.FlatcPath)
 	if err != nil {
@@ -122,6 +140,77 @@ func generateFlatBuffers(cfg Config) error {
 		{filepath.Join(packageDir, "contract_meta_gen.go"), flatbuffersMetaTemplate},
 		{filepath.Join(packageDir, "host_sdk_gen.go"), flatbuffersHostTemplate},
 		{filepath.Join(packageDir, "plugin_pdk_gen.go"), flatbuffersPluginTemplate},
+	}
+	for _, write := range writes {
+		if err := renderFlatbuffersTemplate(write.path, write.tpl, td); err != nil {
+			return fmt.Errorf("generate %s: %w", filepath.Base(write.path), err)
+		}
+	}
+	return nil
+}
+
+func generateFlatBuffersRust(cfg Config) error {
+	runner, err := flatc.New(cfg.FlatcPath)
+	if err != nil {
+		return err
+	}
+
+	tmpDir, err := os.MkdirTemp("", "hookr-flatbuffers-*")
+	if err != nil {
+		return fmt.Errorf("create temp dir: %w", err)
+	}
+	defer func() {
+		_ = os.RemoveAll(tmpDir)
+	}()
+
+	bfbsPath, err := runner.GenerateBFBS(cfg.SchemaPath, tmpDir, cfg.IncludePaths)
+	if err != nil {
+		return err
+	}
+	model, err := contract.Load(contract.LoadOptions{
+		SchemaPath:        cfg.SchemaPath,
+		BFBSPath:          bfbsPath,
+		PackageName:       cfg.PackageName,
+		ContractName:      cfg.ContractName,
+		PluginServiceName: cfg.PluginService,
+		OptionalAttribute: cfg.OptionalAttribute,
+	})
+	if err != nil {
+		return err
+	}
+
+	packageDir := filepath.Join(cfg.OutDir, cfg.PackageName)
+	if err := os.MkdirAll(packageDir, 0o755); err != nil {
+		return fmt.Errorf("create rust output dir: %w", err)
+	}
+	if err := runner.GenerateRust(flatc.RustOptions{
+		SchemaPath:   cfg.SchemaPath,
+		OutDir:       packageDir,
+		IncludePaths: cfg.IncludePaths,
+	}); err != nil {
+		return err
+	}
+
+	td := flatbuffersTemplateData{
+		PackageName:          cfg.PackageName,
+		ContractName:         model.Name,
+		SchemaPath:           cfg.SchemaPath,
+		RustSchemaModule:     rustGeneratedModuleName(cfg.SchemaPath),
+		RustNamespacePath:    rustNamespacePath(model),
+		SchemaHashHex:        hex.EncodeToString(model.SchemaHash[:]),
+		SchemaHashLiterals:   byteLiterals(model.SchemaHash[:]),
+		ContractCapabilities: cfg.Capabilities,
+		PluginMethods:        buildTemplateMethods(model.PluginService.Methods),
+		HostModules:          buildTemplateModules(model.HostServices),
+		UniqueTypes:          collectTemplateTypes(model),
+		HasHostModules:       len(model.HostServices) > 0,
+	}
+	writes := []struct {
+		path string
+		tpl  string
+	}{
+		{filepath.Join(packageDir, "lib.rs"), flatbuffersRustLibTemplate},
+		{filepath.Join(packageDir, "hookr_plugin.rs"), flatbuffersRustPluginTemplate},
 	}
 	for _, write := range writes {
 		if err := renderFlatbuffersTemplate(write.path, write.tpl, td); err != nil {
@@ -287,7 +376,9 @@ func buildTemplateMethods(methods []contract.Method) []flatbuffersMethodTemplate
 			ServiceName:       method.ServiceName,
 			Name:              method.Name,
 			GoName:            exported,
+			RustName:          toRustIdentifier(method.Name),
 			ConstName:         "Method" + serviceExported + exported,
+			RustConstName:     "METHOD_" + toRustConstIdentifier(method.ServiceName+"_"+method.Name),
 			RequestType:       method.RequestType,
 			ResponseType:      method.ResponseType,
 			Optional:          method.Optional,
@@ -305,6 +396,8 @@ func buildTemplateModules(services []contract.Service) []flatbuffersModuleTempla
 		out = append(out, flatbuffersModuleTemplate{
 			ServiceName:   service.Name,
 			GoName:        goName,
+			RustFieldName: toRustIdentifier(service.Name),
+			RustTypeName:  goName,
 			InterfaceName: goName + "Host",
 			ClientName:    goName + "Client",
 			Methods:       buildTemplateMethods(service.Methods),
@@ -344,6 +437,108 @@ func byteLiterals(raw []byte) []string {
 		out = append(out, fmt.Sprintf("0x%02x", b))
 	}
 	return out
+}
+
+func rustGeneratedModuleName(schemaPath string) string {
+	name := strings.TrimSuffix(filepath.Base(schemaPath), filepath.Ext(schemaPath))
+	return toRustIdentifier(name) + "_generated"
+}
+
+func rustNamespacePath(model contract.Contract) string {
+	for _, method := range model.PluginService.Methods {
+		return rustNamespaceFromQualified(method.RequestQualified)
+	}
+	for _, service := range model.HostServices {
+		for _, method := range service.Methods {
+			return rustNamespaceFromQualified(method.RequestQualified)
+		}
+	}
+	return ""
+}
+
+func rustNamespaceFromQualified(qualified string) string {
+	parts := strings.Split(qualified, ".")
+	if len(parts) <= 1 {
+		return ""
+	}
+	modules := make([]string, 0, len(parts)-1)
+	for _, part := range parts[:len(parts)-1] {
+		modules = append(modules, toRustIdentifier(part))
+	}
+	return strings.Join(modules, "::")
+}
+
+func toRustIdentifier(s string) string {
+	identifier := toDelimitedIdentifier(s, '_', false)
+	if identifier == "" {
+		identifier = "unnamed"
+	}
+	if identifier[0] >= '0' && identifier[0] <= '9' {
+		identifier = "m_" + identifier
+	}
+	if isRustKeyword(identifier) {
+		return identifier + "_"
+	}
+	return identifier
+}
+
+func toRustConstIdentifier(s string) string {
+	identifier := toDelimitedIdentifier(s, '_', true)
+	if identifier == "" {
+		return "UNNAMED"
+	}
+	if identifier[0] >= '0' && identifier[0] <= '9' {
+		return "M_" + identifier
+	}
+	return identifier
+}
+
+func toDelimitedIdentifier(s string, delimiter rune, upper bool) string {
+	var b strings.Builder
+	prevWasDelimiter := true
+	prevWasLowerOrDigit := false
+	for _, r := range s {
+		isLetter := unicode.IsLetter(r)
+		isDigit := unicode.IsDigit(r)
+		if !isLetter && !isDigit {
+			if b.Len() > 0 && !prevWasDelimiter {
+				b.WriteRune(delimiter)
+				prevWasDelimiter = true
+			}
+			prevWasLowerOrDigit = false
+			continue
+		}
+		if unicode.IsUpper(r) && prevWasLowerOrDigit && !prevWasDelimiter {
+			b.WriteRune(delimiter)
+		}
+		original := r
+		if upper {
+			r = unicode.ToUpper(r)
+		} else {
+			r = unicode.ToLower(r)
+		}
+		b.WriteRune(r)
+		prevWasDelimiter = false
+		prevWasLowerOrDigit = unicode.IsLower(original) || unicode.IsDigit(original)
+	}
+	out := strings.Trim(string([]rune(b.String())), string(delimiter))
+	for strings.Contains(out, string(delimiter)+string(delimiter)) {
+		out = strings.ReplaceAll(out, string(delimiter)+string(delimiter), string(delimiter))
+	}
+	return out
+}
+
+func isRustKeyword(identifier string) bool {
+	switch identifier {
+	case "as", "break", "const", "continue", "crate", "else", "enum", "extern",
+		"false", "fn", "for", "if", "impl", "in", "let", "loop", "match", "mod",
+		"move", "mut", "pub", "ref", "return", "self", "Self", "static", "struct",
+		"super", "trait", "true", "type", "unsafe", "use", "where", "while",
+		"async", "await", "dyn":
+		return true
+	default:
+		return false
+	}
 }
 
 func renderFlatbuffersTemplate(path string, tpl string, data flatbuffersTemplateData) error {
@@ -916,4 +1111,284 @@ func decode{{ .TypeName }}View(payload []byte) (*{{ .TypeName }}, error) {
 }
 
 {{ end -}}
+`
+
+const flatbuffersRustLibTemplate = `// Code generated by hookr. DO NOT EDIT.
+
+pub mod {{ .RustSchemaModule }};
+pub mod hookr_plugin;
+
+pub mod schema {
+    pub use crate::{{ .RustSchemaModule }}{{ if .RustNamespacePath }}::{{ .RustNamespacePath }}{{ end }}::*;
+}
+`
+
+const flatbuffersRustPluginTemplate = `// Code generated by hookr. DO NOT EDIT.
+
+use std::boxed::Box;
+use std::string::String;
+use std::vec::Vec;
+
+use crate::schema;
+
+const ABI_MAJOR: u16 = 2;
+const ABI_MINOR: u16 = 0;
+pub const CONTRACT_CAPABILITIES: u64 = {{ .ContractCapabilities }};
+pub const SCHEMA_HASH: [u8; 32] = [{{ join .SchemaHashLiterals ", " }}];
+
+{{ range .PluginMethods -}}
+pub const {{ .RustConstName }}: u32 = {{ .ID }};
+{{ end }}
+{{ if .HasHostModules }}
+{{ range .HostModules }}
+{{ range .Methods -}}
+pub const {{ .RustConstName }}: u32 = {{ .ID }};
+{{ end }}
+{{ end }}
+{{ end }}
+
+pub type HookrResult<T> = Result<T, HookrError>;
+
+#[derive(Debug, Clone)]
+pub struct HookrError {
+    message: String,
+}
+
+impl HookrError {
+    pub fn new(message: impl Into<String>) -> Self {
+        Self { message: message.into() }
+    }
+
+    pub fn method_not_found() -> Self {
+        Self::new("method not found")
+    }
+
+    pub fn invalid_flatbuffer(type_name: &str) -> Self {
+        Self::new(format!("decode {type_name}: invalid flatbuffer payload"))
+    }
+
+    fn as_bytes(&self) -> &[u8] {
+        self.message.as_bytes()
+    }
+}
+
+impl core::fmt::Display for HookrError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str(&self.message)
+    }
+}
+
+impl std::error::Error for HookrError {}
+
+{{ if .HasHostModules -}}
+#[derive(Default)]
+pub struct PluginContext {
+    {{- range .HostModules }}
+    pub {{ .RustFieldName }}: {{ .RustTypeName }}Client,
+    {{- end }}
+}
+
+{{ range .HostModules -}}
+#[derive(Clone, Copy, Default)]
+pub struct {{ .RustTypeName }}Client;
+
+impl {{ .RustTypeName }}Client {
+    {{- range .Methods }}
+    pub fn {{ .RustName }}_raw(&self, payload: &[u8]) -> HookrResult<Vec<u8>> {
+        host_call_raw({{ .RustConstName }}, payload)
+    }
+
+    {{- end }}
+}
+
+{{ end -}}
+{{ else -}}
+#[derive(Default)]
+pub struct PluginContext;
+{{ end }}
+
+pub trait Plugin {
+    {{- range .PluginMethods }}
+    {{- if .Optional }}
+    fn {{ .RustName }}<'a>(
+        &mut self,
+        ctx: &mut PluginContext,
+        req: schema::{{ .RequestType }}<'_>,
+        builder: &mut flatbuffers::FlatBufferBuilder<'a>,
+    ) -> HookrResult<flatbuffers::WIPOffset<schema::{{ .ResponseType }}<'a>>> {
+        let _ = (ctx, req, builder);
+        Err(HookrError::method_not_found())
+    }
+    {{- else }}
+    fn {{ .RustName }}<'a>(
+        &mut self,
+        ctx: &mut PluginContext,
+        req: schema::{{ .RequestType }}<'_>,
+        builder: &mut flatbuffers::FlatBufferBuilder<'a>,
+    ) -> HookrResult<flatbuffers::WIPOffset<schema::{{ .ResponseType }}<'a>>>;
+    {{- end }}
+    {{- end }}
+}
+
+static mut PLUGIN: Option<Box<dyn Plugin>> = None;
+static mut METHOD_BYTES: Vec<u8> = Vec::new();
+
+pub fn register_plugin<P: Plugin + 'static>(plugin: P, optional_method_ids: &[u32]) {
+    unsafe {
+        PLUGIN = Some(Box::new(plugin));
+        METHOD_BYTES = implemented_method_bytes(optional_method_ids);
+    }
+}
+
+fn implemented_method_bytes(optional_method_ids: &[u32]) -> Vec<u8> {
+    let mut method_ids = Vec::from([
+        {{- range .PluginMethods }}
+        {{- if not .Optional }}
+        {{ .RustConstName }},
+        {{- end }}
+        {{- end }}
+    ]);
+    method_ids.extend_from_slice(optional_method_ids);
+    method_ids.sort_unstable();
+    method_ids.dedup();
+
+    let mut out = Vec::with_capacity(method_ids.len() * 4);
+    for method_id in method_ids {
+        out.extend_from_slice(&method_id.to_le_bytes());
+    }
+    out
+}
+
+fn dispatch_plugin(plugin: &mut dyn Plugin, method_id: u32, payload: &[u8]) -> HookrResult<Vec<u8>> {
+    let mut ctx = PluginContext::default();
+    match method_id {
+        {{- range .PluginMethods }}
+        {{ .RustConstName }} => {
+            let req = flatbuffers::root::<schema::{{ .RequestType }}>(payload)
+                .map_err(|_| HookrError::invalid_flatbuffer("{{ .RequestType }}"))?;
+            let mut builder = flatbuffers::FlatBufferBuilder::new();
+            let response = plugin.{{ .RustName }}(&mut ctx, req, &mut builder)?;
+            builder.finish(response, None);
+            Ok(builder.finished_data().to_vec())
+        }
+        {{- end }}
+        _ => Err(HookrError::method_not_found()),
+    }
+}
+
+#[link(wasm_import_module = "hookr")]
+extern "C" {
+    fn __plugin_request(ptr: *mut u8) -> u32;
+    fn __plugin_response(ptr: *const u8, len: u32);
+    fn __plugin_error(ptr: *const u8, len: u32);
+    fn __host_call(method_id: u32, payload_ptr: *const u8, payload_len: u32) -> u32;
+    fn __host_response_len() -> u32;
+    fn __host_response(ptr: *mut u8);
+    fn __host_error_len() -> u32;
+    fn __host_error(ptr: *mut u8);
+    fn __log(ptr: *const u8, len: u32);
+}
+
+#[no_mangle]
+pub extern "C" fn __plugin_call(method_id: u32, payload_len: u32) -> u32 {
+    let mut payload = vec![0u8; payload_len as usize];
+    let request_ptr = if payload.is_empty() {
+        core::ptr::null_mut()
+    } else {
+        payload.as_mut_ptr()
+    };
+    if unsafe { __plugin_request(request_ptr) } == 0 {
+        publish_plugin_error(&HookrError::new("failed to load request payload from host"));
+        return 0;
+    }
+
+    let result = unsafe {
+        match PLUGIN.as_mut() {
+            Some(plugin) => dispatch_plugin(plugin.as_mut(), method_id, &payload),
+            None => Err(HookrError::new("plugin implementation is not registered")),
+        }
+    };
+
+    match result {
+        Ok(response) => {
+            let ptr = if response.is_empty() {
+                core::ptr::null()
+            } else {
+                response.as_ptr()
+            };
+            unsafe { __plugin_response(ptr, response.len() as u32) };
+            1
+        }
+        Err(err) => {
+            publish_plugin_error(&err);
+            0
+        }
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn __hookr_abi_version() -> u32 {
+    ((ABI_MAJOR as u32) << 16) | ABI_MINOR as u32
+}
+
+#[no_mangle]
+pub extern "C" fn __hookr_schema_hash() -> u64 {
+    pack_ptr_len(SCHEMA_HASH.as_ptr() as u32, SCHEMA_HASH.len() as u32)
+}
+
+#[no_mangle]
+pub extern "C" fn __hookr_capabilities() -> u64 {
+    CONTRACT_CAPABILITIES
+}
+
+#[no_mangle]
+pub extern "C" fn __hookr_methods() -> u64 {
+    unsafe {
+        if METHOD_BYTES.is_empty() {
+            return 0;
+        }
+        pack_ptr_len(METHOD_BYTES.as_ptr() as u32, METHOD_BYTES.len() as u32)
+    }
+}
+
+pub fn log(message: &str) {
+    if !message.is_empty() {
+        unsafe { __log(message.as_ptr(), message.len() as u32) };
+    }
+}
+
+fn host_call_raw(method_id: u32, payload: &[u8]) -> HookrResult<Vec<u8>> {
+    let payload_ptr = if payload.is_empty() {
+        core::ptr::null()
+    } else {
+        payload.as_ptr()
+    };
+    let ok = unsafe { __host_call(method_id, payload_ptr, payload.len() as u32) };
+    if ok == 0 {
+        let len = unsafe { __host_error_len() };
+        if len == 0 {
+            return Err(HookrError::new("host call failed without an error message"));
+        }
+        let mut buf = vec![0u8; len as usize];
+        unsafe { __host_error(buf.as_mut_ptr()) };
+        let message = String::from_utf8_lossy(&buf).into_owned();
+        return Err(HookrError::new(format!("Host error: {message}")));
+    }
+
+    let len = unsafe { __host_response_len() };
+    let mut response = vec![0u8; len as usize];
+    if len > 0 {
+        unsafe { __host_response(response.as_mut_ptr()) };
+    }
+    Ok(response)
+}
+
+fn publish_plugin_error(err: &HookrError) {
+    let bytes = err.as_bytes();
+    unsafe { __plugin_error(bytes.as_ptr(), bytes.len() as u32) };
+}
+
+fn pack_ptr_len(ptr: u32, len: u32) -> u64 {
+    ((ptr as u64) << 32) | len as u64
+}
 `

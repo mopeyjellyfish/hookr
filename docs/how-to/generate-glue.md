@@ -39,14 +39,35 @@ hookr gen \
 Every `rpc_service` other than the configured plugin service is
 auto-discovered as a host callback module.
 
+4. To generate Rust plugin-side bindings instead of the Go SDK/PDK package:
+
+```bash
+hookr gen \
+  --lang rust \
+  --schema ./contract.fbs \
+  --out ./gen \
+  --package mycontracthookr
+```
+
+The Go host SDK remains the host integration path. The Rust output is for
+building a plugin Wasm module that implements the same Hookr ABI. The plugin
+crate still needs to export `hookr_init` and call
+`hookr_plugin::register_plugin(...)` with its implementation.
+
 ## Output
 
-Generated package typically includes:
+Generated Go packages typically include:
 
 - FlatBuffers type files (`flatc` output)
 - `contract_meta_gen.go`
 - `host_sdk_gen.go`
 - `plugin_pdk_gen.go`
+
+Generated Rust plugin packages typically include:
+
+- FlatBuffers Rust type files (`flatc --rust` output)
+- `lib.rs`
+- `hookr_plugin.rs`
 
 ## Related
 

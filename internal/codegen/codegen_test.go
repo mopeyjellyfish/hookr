@@ -41,3 +41,18 @@ func TestParseFlags_IncludePaths(t *testing.T) {
 		t.Fatalf("include paths = %#v, want %#v", cfg.IncludePaths, want)
 	}
 }
+
+func TestParseFlags_RustLang(t *testing.T) {
+	cfg, err := ParseFlags("hookr gen", []string{
+		"-schema", "contract.fbs",
+		"-out", "gen",
+		"-package", "contractpkg",
+		"-lang", "rust",
+	})
+	if err != nil {
+		t.Fatalf("ParseFlags returned error: %v", err)
+	}
+	if cfg.Lang != "rust" {
+		t.Fatalf("lang = %q, want rust", cfg.Lang)
+	}
+}
