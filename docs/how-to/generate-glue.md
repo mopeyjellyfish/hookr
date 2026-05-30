@@ -81,6 +81,19 @@ hookr gen \
 The C++ output combines FlatBuffers C++ headers with a Hookr ABI header for
 building plugin Wasm modules that the Go host SDK can load.
 
+7. To generate AssemblyScript plugin-side ABI bindings:
+
+```bash
+hookr gen \
+  --lang assemblyscript \
+  --schema ./contract.fbs \
+  --out ./gen \
+  --package mycontracthookr
+```
+
+The AssemblyScript output provides the Hookr ABI exports/imports, method
+constants, schema hash, capabilities, and raw host callback transport helpers.
+
 ## Output
 
 Generated Go packages typically include:
@@ -104,6 +117,10 @@ Generated C++ plugin packages typically include:
 
 - FlatBuffers C++ headers (`flatc --cpp` output)
 - `hookr_plugin.hpp`
+
+Generated AssemblyScript plugin packages typically include:
+
+- `hookr_plugin.ts`
 
 ## Related
 
