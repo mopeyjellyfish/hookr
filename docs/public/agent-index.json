@@ -12,7 +12,9 @@
     "cpp",
     "assemblyscript",
     "c",
-    "swift"
+    "swift",
+    "js",
+    "typescript"
   ],
   "entrypoints": {
     "docs": "/",
@@ -59,6 +61,8 @@
       "assemblyScriptCommand": "hookr gen --lang assemblyscript --schema ./contract.fbs --out ./gen --package myhookr",
       "cCommand": "hookr gen --lang c --schema ./contract.fbs --out ./gen --package myhookr",
       "swiftCommand": "hookr gen --lang swift --schema ./contract.fbs --out ./gen --package myhookr",
+      "javascriptCommand": "hookr gen --lang js --schema ./contract.fbs --out ./gen --package myhookr",
+      "typescriptCommand": "hookr gen --lang typescript --schema ./contract.fbs --out ./gen --package myhookr",
       "docs": [
         "/how-to/generate-glue",
         "/reference/generated-go-api"

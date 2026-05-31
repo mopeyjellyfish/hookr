@@ -416,12 +416,13 @@ plugin, err := runtime.New(ctx,
 
 Hookr currently supports the following plugin language targets:
 
-| Language       | Support Level          | Notes                                      |
-|----------------|------------------------|--------------------------------------------|
-| Go             | Full                   | TinyGo plugin modules and Go host SDK      |
-| Rust           | Plugin generation      | FlatBuffers Rust output plus Hookr ABI shim |
-| Zig            | Plugin ABI generation  | Hookr ABI, method constants, raw transport |
-| C++            | Plugin generation      | FlatBuffers C++ output plus Hookr ABI shim |
-| AssemblyScript | Plugin ABI generation  | Hookr ABI, method constants, raw transport |
-| C              | Plugin ABI generation  | Hookr C ABI files; pair with FlatCC types  |
-| Swift          | Plugin generation      | FlatBuffers Swift output plus Hookr ABI shim |
+| Language              | Support Level             | Notes                                                  |
+|-----------------------|---------------------------|--------------------------------------------------------|
+| Go                    | Full                      | TinyGo plugin modules and Go host SDK                  |
+| Rust                  | Plugin generation         | FlatBuffers Rust output plus Hookr ABI shim            |
+| Zig                   | Plugin ABI generation     | Hookr ABI, method constants, raw transport             |
+| C++                   | Plugin generation         | FlatBuffers C++ output plus Hookr ABI shim             |
+| AssemblyScript        | Plugin ABI generation     | Hookr ABI, method constants, raw transport             |
+| C                     | Plugin ABI generation     | Hookr C ABI files; pair with FlatCC types              |
+| Swift                 | Plugin generation         | FlatBuffers Swift output plus Hookr ABI shim           |
+| JavaScript/TypeScript | Plugin binding generation | FlatBuffers TypeScript output plus Javy bridge helpers |

@@ -40,6 +40,12 @@ type SwiftOptions struct {
 	IncludePaths []string
 }
 
+type TypeScriptOptions struct {
+	SchemaPath   string
+	OutDir       string
+	IncludePaths []string
+}
+
 func New(path string) (*Runner, error) {
 	if path == "" {
 		path = "flatc"
@@ -81,6 +87,12 @@ func (r *Runner) GenerateCpp(opts CppOptions) error {
 
 func (r *Runner) GenerateSwift(opts SwiftOptions) error {
 	args := buildSwiftArgs(opts)
+	_, err := r.run(args...)
+	return err
+}
+
+func (r *Runner) GenerateTypeScript(opts TypeScriptOptions) error {
+	args := buildTypeScriptArgs(opts)
 	_, err := r.run(args...)
 	return err
 }
@@ -194,6 +206,13 @@ func buildCppArgs(opts CppOptions) []string {
 
 func buildSwiftArgs(opts SwiftOptions) []string {
 	args := []string{"--swift"}
+	args = appendIncludeArgs(args, opts.IncludePaths)
+	args = append(args, "-o", opts.OutDir, opts.SchemaPath)
+	return args
+}
+
+func buildTypeScriptArgs(opts TypeScriptOptions) []string {
+	args := []string{"--ts"}
 	args = appendIncludeArgs(args, opts.IncludePaths)
 	args = append(args, "-o", opts.OutDir, opts.SchemaPath)
 	return args

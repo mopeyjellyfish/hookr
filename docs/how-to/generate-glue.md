@@ -126,6 +126,22 @@ dispatch registration, logging, and raw host callback transport. Swift 6
 plugin packages must enable the experimental `Extern` feature for direct Wasm
 imports.
 
+10. To generate JavaScript/TypeScript plugin-side bindings for the Javy path:
+
+```bash
+hookr gen \
+  --lang js \
+  --schema ./contract.fbs \
+  --out ./gen \
+  --package mycontracthookr
+```
+
+The JavaScript/TypeScript output combines FlatBuffers TypeScript files with a
+`hookr_plugin.ts` helper for method constants, schema hash, capabilities,
+dispatch registration, logging, and raw host callback transport. The helper
+expects a Javy or custom JavaScript runtime bridge that maps Hookr's core Wasm
+ABI imports and exports into JavaScript functions.
+
 ## Output
 
 Generated Go packages typically include:
@@ -163,6 +179,11 @@ Generated Swift plugin packages typically include:
 
 - FlatBuffers Swift files (`flatc --swift` output)
 - `HookrPlugin.swift`
+
+Generated JavaScript/TypeScript plugin packages typically include:
+
+- FlatBuffers TypeScript files (`flatc --ts` output)
+- `hookr_plugin.ts`
 
 ## Related
 
