@@ -131,3 +131,33 @@ func TestParseFlags_SwiftLang(t *testing.T) {
 		t.Fatalf("lang = %q, want swift", cfg.Lang)
 	}
 }
+
+func TestParseFlags_JavaScriptLang(t *testing.T) {
+	cfg, err := ParseFlags("hookr gen", []string{
+		"-schema", "contract.fbs",
+		"-out", "gen",
+		"-package", "contractpkg",
+		"-lang", "js",
+	})
+	if err != nil {
+		t.Fatalf("ParseFlags returned error: %v", err)
+	}
+	if cfg.Lang != "js" {
+		t.Fatalf("lang = %q, want js", cfg.Lang)
+	}
+}
+
+func TestParseFlags_TypeScriptLang(t *testing.T) {
+	cfg, err := ParseFlags("hookr gen", []string{
+		"-schema", "contract.fbs",
+		"-out", "gen",
+		"-package", "contractpkg",
+		"-lang", "typescript",
+	})
+	if err != nil {
+		t.Fatalf("ParseFlags returned error: %v", err)
+	}
+	if cfg.Lang != "typescript" {
+		t.Fatalf("lang = %q, want typescript", cfg.Lang)
+	}
+}

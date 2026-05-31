@@ -101,6 +101,24 @@ func TestBuildSwiftArgs_Includes(t *testing.T) {
 	}
 }
 
+func TestBuildTypeScriptArgs_Includes(t *testing.T) {
+	args := buildTypeScriptArgs(TypeScriptOptions{
+		SchemaPath:   "contract.fbs",
+		OutDir:       "/tmp/out",
+		IncludePaths: []string{"schemas", "common"},
+	})
+	want := []string{
+		"--ts",
+		"-I", "schemas",
+		"-I", "common",
+		"-o", "/tmp/out",
+		"contract.fbs",
+	}
+	if !reflect.DeepEqual(args, want) {
+		t.Fatalf("buildTypeScriptArgs() = %#v, want %#v", args, want)
+	}
+}
+
 func TestEncodeDecodeJSON(t *testing.T) {
 	t.Parallel()
 
