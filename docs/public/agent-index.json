@@ -10,7 +10,8 @@
     "rust",
     "zig",
     "cpp",
-    "assemblyscript"
+    "assemblyscript",
+    "c"
   ],
   "entrypoints": {
     "docs": "/",
@@ -55,6 +56,7 @@
       "zigCommand": "hookr gen --lang zig --schema ./contract.fbs --out ./gen --package myhookr",
       "cppCommand": "hookr gen --lang cpp --schema ./contract.fbs --out ./gen --package myhookr",
       "assemblyScriptCommand": "hookr gen --lang assemblyscript --schema ./contract.fbs --out ./gen --package myhookr",
+      "cCommand": "hookr gen --lang c --schema ./contract.fbs --out ./gen --package myhookr",
       "docs": [
         "/how-to/generate-glue",
         "/reference/generated-go-api"

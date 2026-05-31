@@ -412,14 +412,15 @@ plugin, err := runtime.New(ctx,
 - `testdata/contracts/`: end-to-end fixture contracts and examples
 - `docs/`: Diataxis documentation site source
 
-## Language Roadmap
+## Language Support
 
-Hookr currently supports the following languages for plugin development:
+Hookr currently supports the following plugin language targets:
 
-| Language       | Support Level | Notes                                    |
-|----------------|---------------|------------------------------------------|
-| Go             | Full          | Using TinyGo compiler for WASM modules   |
-| Rust           | Planned       | Coming in future releases                |
-| Zig            | Planned       | Coming in future releases                |
-| AssemblyScript | Planned       | Coming in future releases                |
-| C/C++          | Planned       | Coming in future releases                |
+| Language       | Support Level          | Notes                                      |
+|----------------|------------------------|--------------------------------------------|
+| Go             | Full                   | TinyGo plugin modules and Go host SDK      |
+| Rust           | Plugin generation      | FlatBuffers Rust output plus Hookr ABI shim |
+| Zig            | Plugin ABI generation  | Hookr ABI, method constants, raw transport |
+| C++            | Plugin generation      | FlatBuffers C++ output plus Hookr ABI shim |
+| AssemblyScript | Plugin ABI generation  | Hookr ABI, method constants, raw transport |
+| C              | Plugin ABI generation  | Hookr C ABI files; pair with FlatCC types  |
