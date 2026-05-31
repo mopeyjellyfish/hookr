@@ -424,3 +424,4 @@ Hookr currently supports the following plugin language targets:
 | C++            | Plugin generation      | FlatBuffers C++ output plus Hookr ABI shim |
 | AssemblyScript | Plugin ABI generation  | Hookr ABI, method constants, raw transport |
 | C              | Plugin ABI generation  | Hookr C ABI files; pair with FlatCC types  |
+| Swift          | Plugin generation      | FlatBuffers Swift output plus Hookr ABI shim |

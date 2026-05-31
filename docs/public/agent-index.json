@@ -11,7 +11,8 @@
     "zig",
     "cpp",
     "assemblyscript",
-    "c"
+    "c",
+    "swift"
   ],
   "entrypoints": {
     "docs": "/",
@@ -57,6 +58,7 @@
       "cppCommand": "hookr gen --lang cpp --schema ./contract.fbs --out ./gen --package myhookr",
       "assemblyScriptCommand": "hookr gen --lang assemblyscript --schema ./contract.fbs --out ./gen --package myhookr",
       "cCommand": "hookr gen --lang c --schema ./contract.fbs --out ./gen --package myhookr",
+      "swiftCommand": "hookr gen --lang swift --schema ./contract.fbs --out ./gen --package myhookr",
       "docs": [
         "/how-to/generate-glue",
         "/reference/generated-go-api"

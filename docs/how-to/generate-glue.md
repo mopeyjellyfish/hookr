@@ -110,6 +110,22 @@ capabilities, dispatch registration, logging, and raw host callback transport.
 Use FlatCC or another C FlatBuffers workflow for typed request and response
 access.
 
+9. To generate Swift plugin-side bindings:
+
+```bash
+hookr gen \
+  --lang swift \
+  --schema ./contract.fbs \
+  --out ./gen \
+  --package mycontracthookr
+```
+
+The Swift output combines FlatBuffers Swift files with `HookrPlugin.swift` for
+the Hookr ABI exports/imports, method constants, schema hash, capabilities,
+dispatch registration, logging, and raw host callback transport. Swift 6
+plugin packages must enable the experimental `Extern` feature for direct Wasm
+imports.
+
 ## Output
 
 Generated Go packages typically include:
@@ -142,6 +158,11 @@ Generated C plugin packages typically include:
 
 - `hookr_plugin.h`
 - `hookr_plugin.c`
+
+Generated Swift plugin packages typically include:
+
+- FlatBuffers Swift files (`flatc --swift` output)
+- `HookrPlugin.swift`
 
 ## Related
 
