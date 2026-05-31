@@ -94,6 +94,22 @@ hookr gen \
 The AssemblyScript output provides the Hookr ABI exports/imports, method
 constants, schema hash, capabilities, and raw host callback transport helpers.
 
+8. To generate C plugin-side ABI bindings:
+
+```bash
+hookr gen \
+  --lang c \
+  --schema ./contract.fbs \
+  --out ./gen \
+  --package mycontracthookr
+```
+
+The C output provides a generated `hookr_plugin.h` and `hookr_plugin.c` pair
+for the Hookr ABI exports/imports, method constants, schema hash,
+capabilities, dispatch registration, logging, and raw host callback transport.
+Use FlatCC or another C FlatBuffers workflow for typed request and response
+access.
+
 ## Output
 
 Generated Go packages typically include:
@@ -121,6 +137,11 @@ Generated C++ plugin packages typically include:
 Generated AssemblyScript plugin packages typically include:
 
 - `hookr_plugin.ts`
+
+Generated C plugin packages typically include:
+
+- `hookr_plugin.h`
+- `hookr_plugin.c`
 
 ## Related
 

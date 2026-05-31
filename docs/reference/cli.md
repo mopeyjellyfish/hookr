@@ -24,7 +24,7 @@ Required flags:
 
 Key optional flags:
 
-- `--lang` (`go`, `rust`, `zig`, `cpp`, or `assemblyscript`; default `go`)
+- `--lang` (`go`, `rust`, `zig`, `cpp`, `assemblyscript`, or `c`; default `go`)
 - `--flatc`
 - `--include`, `-I`
 - `--plugin-service`
@@ -146,6 +146,7 @@ Optional flags:
 - `hookr gen --lang zig` emits Zig plugin-side ABI bindings; the host SDK remains Go.
 - `hookr gen --lang cpp` emits C++ FlatBuffers output and Hookr plugin-side ABI bindings; the host SDK remains Go.
 - `hookr gen --lang assemblyscript` emits AssemblyScript plugin-side ABI bindings; the host SDK remains Go.
+- `hookr gen --lang c` emits C plugin-side ABI bindings; the host SDK remains Go.
 - Hookr auto-discovers host callback modules from every `rpc_service` other than the configured plugin service.
 - `hookr build` is TinyGo-first today; the CLI is structured so more build backends can be added later.
 - `hookr inspect` is useful for confirming schema hash, method IDs, required versus optional methods, and handshake-visible metadata before you wire a host.

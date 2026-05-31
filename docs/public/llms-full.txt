@@ -132,6 +132,7 @@ CLI commands
   - --lang zig emits Zig plugin-side ABI bindings and raw transport helpers
   - --lang cpp emits C++ FlatBuffers headers and a Hookr ABI header
   - --lang assemblyscript emits AssemblyScript plugin-side ABI bindings
+  - --lang c emits C plugin-side ABI bindings and raw transport helpers
 - hookr build
   - build a Wasm plugin with TinyGo
   - key flags: --plugin, --out
